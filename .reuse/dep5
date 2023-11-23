@@ -1,0 +1,10 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: rz-probana-zz
+Upstream-Contact: Rot127 <unisono@quyllur.org>
+Source: https://github.com/rizinorg/rz-probana-zz
+
+# Sample paragraph, commented out:
+#
+# Files: src/*
+# Copyright: $YEAR $NAME <$CONTACT>
+# License: ...
