@@ -1,6 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+mod abstr_int;
+mod path_sampler;
+mod post_analysis;
+mod pre_processor;
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }

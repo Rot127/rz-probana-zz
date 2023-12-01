@@ -8,3 +8,5 @@ members = [
   "osprey",
   "stochfuzz"
 ]
+
+resolver = "2"
