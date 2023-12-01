@@ -8,3 +8,8 @@ Source: https://github.com/rizinorg/rz-probana-zz
 # Files: src/*
 # Copyright: $YEAR $NAME <$CONTACT>
 # License: ...
+
+Files: py_requirements.txt
+Copyright: 2023 Rot127 <unisono@quyllur.org>
+License: CC0-1.0
+
