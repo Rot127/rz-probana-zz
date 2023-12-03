@@ -4,10 +4,11 @@
 #[cfg(test)]
 mod tests {
 
-    use crate::cfg::{Address, CFGNodeData, CFGOperations, NodeType, Weight, CFG};
+    use crate::cfg::{Address, CFGNodeData, CFGOperations, NodeType, Procedure, Weight, CFG, ICFG};
 
     const GEE_ADDR: Address = 0;
     const FOO_ADDR: Address = 6;
+    const MAIN_ADDR: Address = 11;
     const RANDOM_FCN_ADDR: Address = 0x5a5a5a5a5a5a5a5a;
 
     /// Returns the CFG of the gee() function
@@ -47,9 +48,8 @@ mod tests {
     /// Returns the CFG of the foo() function
     /// in the BDA paper [^Figure 2.7.]
     /// [^Figure 2.7.] See: [Figure 2.7.](https://doi.org/10.25394/PGS.23542014.v1)
-    fn get_foo_cfg(gee_weight: Weight) -> CFG {
+    fn get_foo_cfg() -> CFG {
         let mut cfg = CFG::new();
-        cfg.add_call_target_weights(&[&(GEE_ADDR, gee_weight)]);
 
         // foo()
         cfg.add_edge(
@@ -85,9 +85,8 @@ mod tests {
     /// Returns the CFG of the foo() function
     /// of the BDA paper [^Figure 2.7.]
     /// [^Figure 2.7.] See: [Figure 2.7.](https://doi.org/10.25394/PGS.23542014.v1)
-    fn get_main_cfg(gee_weight: Weight, foo_weight: Weight) -> CFG {
+    fn get_main_cfg() -> CFG {
         let mut cfg = CFG::new();
-        cfg.add_call_target_weights(&[&(GEE_ADDR, gee_weight), &(FOO_ADDR, foo_weight)]);
 
         // main()
         cfg.add_edge(
@@ -115,6 +114,63 @@ mod tests {
         );
 
         cfg
+    }
+
+    fn get_paper_example_icfg() -> ICFG {
+        let mut icfg = ICFG::new();
+
+        icfg.add_edge(
+            (
+                MAIN_ADDR,
+                Procedure {
+                    cfg: get_main_cfg(),
+                    is_malloc: false,
+                },
+            ),
+            (
+                FOO_ADDR,
+                Procedure {
+                    cfg: get_foo_cfg(),
+                    is_malloc: false,
+                },
+            ),
+        );
+
+        icfg.add_edge(
+            (
+                MAIN_ADDR,
+                Procedure {
+                    cfg: get_main_cfg(),
+                    is_malloc: false,
+                },
+            ),
+            (
+                GEE_ADDR,
+                Procedure {
+                    cfg: get_gee_cfg(),
+                    is_malloc: false,
+                },
+            ),
+        );
+
+        icfg.add_edge(
+            (
+                FOO_ADDR,
+                Procedure {
+                    cfg: get_foo_cfg(),
+                    is_malloc: false,
+                },
+            ),
+            (
+                GEE_ADDR,
+                Procedure {
+                    cfg: get_gee_cfg(),
+                    is_malloc: false,
+                },
+            ),
+        );
+
+        icfg
     }
 
     fn get_unset_indirect_call_cfg() -> CFG {
@@ -160,5 +216,14 @@ mod tests {
         cfg.add_call_target_weights(&[&(RANDOM_FCN_ADDR, 10)]);
         cfg.calc_weight();
         assert_node_weight(cfg.nodes_meta.get(&0), 10);
+    }
+
+    #[test]
+    fn test_icfg_weight_calc() {
+        let mut icfg: ICFG = get_paper_example_icfg();
+        icfg.calc_weight();
+        assert_eq!(icfg.get_procedure_weight(MAIN_ADDR), 6);
+        assert_eq!(icfg.get_procedure_weight(FOO_ADDR), 4);
+        assert_eq!(icfg.get_procedure_weight(GEE_ADDR), 2);
     }
 }
