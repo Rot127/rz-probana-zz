@@ -5,7 +5,7 @@ SPDX-License-Identifier: LGPL-3.0-only
 
 # rz-probana-zz
 
-Implementations of probabilistic binary analysis algorithms by Zhuo Zhang (张倬) 
+Implementations of probabilistic binary analysis algorithms by [Zhuo Zhang (张倬)](https://www.cs.purdue.edu/homes/zhan3299/) 
 
 ## Intro
 
@@ -20,12 +20,13 @@ Implementations of probabilistic binary analysis algorithms by Zhuo Zhang (张�
 
 ```sh
 cargo build
+cargo test
 ```
 
 ## Dev
 
 ```
 python3 -m venv .venv
-source .venv/bin/acivate
-pip3 -r py_requirements.txt
+source .venv/bin/activate
+pip3 install -r py_requirements.txt
 ```
