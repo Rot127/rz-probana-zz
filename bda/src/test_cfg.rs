@@ -126,8 +126,9 @@ mod tests {
         let mut gee_cfg = get_gee_cfg();
         gee_cfg.calc_weight();
         assert_node_weight(gee_cfg.nodes_meta.get(&0), 2);
-        assert_node_weight(gee_cfg.nodes_meta.get(&1), 1);
+        assert_node_weight(gee_cfg.nodes_meta.get(&1), 2);
         assert_node_weight(gee_cfg.nodes_meta.get(&2), 1);
         assert_node_weight(gee_cfg.nodes_meta.get(&3), 1);
+        assert_node_weight(gee_cfg.nodes_meta.get(&4), 1);
     }
 }
