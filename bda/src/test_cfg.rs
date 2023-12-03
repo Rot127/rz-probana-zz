@@ -8,6 +8,7 @@ mod tests {
 
     const GEE_ADDR: Address = 0;
     const FOO_ADDR: Address = 6;
+    const RANDOM_FCN_ADDR: Address = 0x5a5a5a5a5a5a5a5a;
 
     /// Returns the CFG of the gee() function
     /// of the BDA paper [^Figure 2.7.]
@@ -115,6 +116,22 @@ mod tests {
 
         cfg
     }
+
+    fn get_unset_indirect_call_cfg() -> CFG {
+        let mut cfg = CFG::new();
+
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Entry)),
+            (1, CFGNodeData::new_call(RANDOM_FCN_ADDR, true)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new_call(RANDOM_FCN_ADDR, true)),
+            (2, CFGNodeData::new(NodeType::Return)),
+        );
+
+        cfg
+    }
+
     fn assert_node_weight(node_data: Option<&CFGNodeData>, weight: Weight) {
         let w: Weight = match node_data {
             Some(node) => node.weight,
@@ -132,5 +149,15 @@ mod tests {
         assert_node_weight(gee_cfg.nodes_meta.get(&2), 1);
         assert_node_weight(gee_cfg.nodes_meta.get(&3), 1);
         assert_node_weight(gee_cfg.nodes_meta.get(&4), 1);
+    }
+
+    #[test]
+    fn test_undiscovered_indirect_call() {
+        let mut cfg = get_unset_indirect_call_cfg();
+        cfg.calc_weight();
+        assert_node_weight(cfg.nodes_meta.get(&0), 1);
+        cfg.add_call_target_weights(&[&(RANDOM_FCN_ADDR, 10)]);
+        cfg.calc_weight();
+        assert_node_weight(cfg.nodes_meta.get(&0), 10);
     }
 }

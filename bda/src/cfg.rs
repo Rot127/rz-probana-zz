@@ -221,6 +221,9 @@ impl CFG {
                 self.graph.add_edge(*n, *k, bias);
             }
         }
+        if self.get_weight() == 0 {
+            panic!("Generated weight of CFG has weight 0. Does a return or invalid instruction exists?")
+        }
     }
 }
 
