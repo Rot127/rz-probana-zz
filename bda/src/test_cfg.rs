@@ -53,12 +53,12 @@ mod tests {
         // foo()
         cfg.add_edge(
             (6, CFGNodeData::new(NodeType::Entry)),
-            (7, CFGNodeData::new_call(GEE_ADDR)),
+            (7, CFGNodeData::new_call(GEE_ADDR, false)),
         );
 
         // gee()
         cfg.add_edge(
-            (7, CFGNodeData::new_call(GEE_ADDR)),
+            (7, CFGNodeData::new_call(GEE_ADDR, false)),
             (8, CFGNodeData::new(NodeType::Normal)),
         );
 
@@ -96,20 +96,20 @@ mod tests {
         // if (input()) ... else ...
         cfg.add_edge(
             (12, CFGNodeData::new(NodeType::Normal)),
-            (13, CFGNodeData::new_call(GEE_ADDR)),
+            (13, CFGNodeData::new_call(GEE_ADDR, false)),
         );
         cfg.add_edge(
             (12, CFGNodeData::new(NodeType::Normal)),
-            (14, CFGNodeData::new_call(FOO_ADDR)),
+            (14, CFGNodeData::new_call(FOO_ADDR, false)),
         );
         // gee()
         cfg.add_edge(
-            (13, CFGNodeData::new_call(0)),
+            (13, CFGNodeData::new_call(GEE_ADDR, false)),
             (15, CFGNodeData::new(NodeType::Return)),
         );
         // foo()
         cfg.add_edge(
-            (14, CFGNodeData::new_call(6)),
+            (14, CFGNodeData::new_call(FOO_ADDR, false)),
             (15, CFGNodeData::new(NodeType::Return)),
         );
 

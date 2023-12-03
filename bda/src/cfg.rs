@@ -90,6 +90,7 @@ pub struct CFGNodeData {
     pub weight: Weight,
     pub ntype: NodeType,
     pub call_target: Address,
+    pub is_indirect_call: bool,
 }
 
 impl CFGNodeData {
@@ -98,13 +99,15 @@ impl CFGNodeData {
             weight: INVALID_WEIGHT,
             ntype,
             call_target: INVALID_ADDRESS,
+            is_indirect_call: false,
         }
     }
-    pub fn new_call(call_target: Address) -> CFGNodeData {
+    pub fn new_call(call_target: Address, is_indirect_call: bool) -> CFGNodeData {
         CFGNodeData {
             weight: UNDETERMINED_WEIGHT,
             ntype: NodeType::Call,
             call_target,
+            is_indirect_call,
         }
     }
 }
@@ -197,9 +200,14 @@ impl CFG {
                 NodeType::Call => {
                     sum_succ_weight
                         * match self.call_target_weights.get(&info.call_target) {
-                            Some(weight) => weight,
+                            Some(weight) => *weight,
                             None => {
-                                panic!("There is no weight set for the called procedure.")
+                                if info.is_indirect_call {
+                                    // Weight not yet determined. Maybe later during abstract interpretation.
+                                    1
+                                } else {
+                                    panic!("There is no weight set for the called procedure.")
+                                }
                             }
                         }
                 }
