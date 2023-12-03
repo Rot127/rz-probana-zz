@@ -175,18 +175,20 @@ impl CFG {
     pub fn calc_weight(&mut self) {
         self.sort();
         for n in self.rev_topograph.iter() {
-            let mut sum_succ_weight: Weight = 0;
+            let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
             for neigh in self.graph.neighbors_directed(*n, Outgoing) {
-                sum_succ_weight += match self.nodes_meta.get(&neigh) {
+                let nw: Weight = match self.nodes_meta.get(&neigh) {
                     Some(neigh_info) => neigh_info.weight,
                     None => panic!("Neighbor node has no meta data."),
-                }
+                };
+                succ_weight.insert(neigh, nw);
             }
 
             let info: &mut CFGNodeData = match self.nodes_meta.get_mut(&n) {
                 Some(info) => info,
                 None => panic!("Node is in topological graph, but has no meta information."),
             };
+            let sum_succ_weight = succ_weight.values().sum();
             info.weight = match info.ntype {
                 NodeType::Return => 1,
                 NodeType::Exit => 1,
@@ -194,6 +196,14 @@ impl CFG {
                 NodeType::Entry => sum_succ_weight,
                 NodeType::Call => sum_succ_weight * info.get_call_weight(),
             };
+            // Update weight of edges
+            for (k, nw) in succ_weight.iter() {
+                let bias: SamplingBias = SamplingBias {
+                    numerator: *nw,
+                    denominator: info.weight,
+                };
+                self.graph.add_edge(*n, *k, bias);
+            }
         }
     }
 }
