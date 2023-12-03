@@ -86,6 +86,25 @@ impl SamplingBias {
     }
 }
 
+/// Traits of the CFG and iCFG.
+pub trait CFGOperations {
+    /// Removes cycles in the graph.
+    fn make_acyclic(&mut self) -> &Self {
+        todo!()
+    }
+
+    /// Update weights of graph starting at [node_id]
+    fn update_weights(&mut self, node_id: Address) -> &Self {
+        todo!()
+    }
+
+    /// Calculate the node and edge weights over the whole graph.
+    fn calc_weight(&mut self);
+
+    /// Sort the graph in reverse topological order.
+    fn sort(&mut self);
+}
+
 pub struct CFGNodeData {
     pub weight: Weight,
     pub ntype: NodeType,
@@ -120,7 +139,7 @@ pub struct CFG {
     pub nodes_meta: HashMap<Address, CFGNodeData>,
     /// Weights of procedures this CFG calls.
     pub call_target_weights: HashMap<Address, Weight>,
-    /// Topoloical sorted graph
+    /// Reverse topoloical sorted graph
     rev_topograph: Vec<Address>,
 }
 
@@ -140,6 +159,11 @@ impl CFG {
         }
     }
 
+    pub fn set_call_weight(&mut self, call_weight: (Address, Weight)) {
+        self.call_target_weights
+            .insert(call_weight.0, call_weight.1);
+    }
+
     /// Get the total weight of the CFG.
     pub fn get_weight(&self) -> Weight {
         let entry_addr = match self.rev_topograph.first() {
@@ -152,8 +176,8 @@ impl CFG {
         }
     }
 
-    /// Adds a edge to the graph.
-    /// The edge is only added once and never twice.
+    /// Adds an edge to the graph.
+    /// The edge is only added once.
     pub fn add_edge(&mut self, from: (Address, CFGNodeData), to: (Address, CFGNodeData)) {
         if !self.nodes_meta.contains_key(&from.0) {
             self.nodes_meta.insert(from.0, from.1);
@@ -165,7 +189,9 @@ impl CFG {
             self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
         }
     }
+}
 
+impl CFGOperations for CFG {
     fn sort(&mut self) {
         // Remove cycles
         self.rev_topograph = match toposort(&self.graph, None) {
@@ -175,7 +201,7 @@ impl CFG {
         self.rev_topograph.reverse();
     }
 
-    pub fn calc_weight(&mut self) {
+    fn calc_weight(&mut self) {
         self.sort();
         for n in self.rev_topograph.iter() {
             let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
@@ -229,12 +255,19 @@ impl CFG {
 
 /// A node in an iCFG describing a procedure.
 pub struct Procedure {
-    /// The address of the procedure.
-    address: Address,
-    /// Flag if this procedure is malloc.
-    is_malloc: bool,
     // The CFG of the procedure
-    cfg: CFG,
+    pub cfg: CFG,
+    /// Flag if this procedure is malloc.
+    pub is_malloc: bool,
+}
+
+impl Procedure {
+    pub fn new(is_malloc: bool) -> Procedure {
+        Procedure {
+            cfg: CFG::new(),
+            is_malloc,
+        }
+    }
 }
 
 /// An inter-procedual control flow graph.
@@ -243,22 +276,106 @@ pub struct ICFG {
     graph: DiGraphMap<Address, SamplingBias>,
     /// Map of procedures in the CFG. Indexed by entry point address.
     procedures: HashMap<Address, Procedure>,
+    /// Reverse topoloical sorted graph
+    rev_topograph: Vec<Address>,
 }
 
-pub trait CFGOperations {
-    /// Removes cycles in the CFG.
-    fn make_acyclic(&mut self) -> &Self {
-        todo!()
+impl ICFG {
+    pub fn new() -> ICFG {
+        ICFG {
+            graph: DiGraphMap::new(),
+            procedures: HashMap::new(),
+            rev_topograph: Vec::new(),
+        }
     }
 
-    /// Compute the initial weights of the CFG nodes.
-    fn compute_weights(&mut self) -> &Self {
-        todo!()
+    pub fn get_procedure_weight(&self, proc_addr: Address) -> Weight {
+        let w = match self.procedures.get(&proc_addr) {
+            Some(p) => p.cfg.get_weight(),
+            None => panic!("Procedure not known."),
+        };
+
+        w
     }
 
-    /// Update weights of graph starting at [node_id]
-    fn update_weights(&mut self, node_id: Address) -> &Self {
-        todo!()
+    fn get_call_weights(&self, procedure: Address) -> HashMap<Address, Weight> {
+        let mut p_weights: HashMap<Address, Weight> = HashMap::new();
+        for n in self.graph.neighbors_directed(procedure, Outgoing) {
+            let n_weight: Weight = match self.procedures.get(&n) {
+                Some(neighbor) => neighbor.cfg.get_weight(),
+                None => panic!("No procedure was added in the iCFG for procedure."),
+            };
+            p_weights.insert(n, n_weight);
+        }
+        p_weights
+    }
+
+    fn get_successor_weights(&self, procedure: &Address) -> HashMap<Address, Weight> {
+        let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
+        for neigh in self.graph.neighbors_directed(*procedure, Outgoing) {
+            let nw: Weight = match self.procedures.get(&neigh) {
+                Some(successor) => successor.cfg.get_weight(),
+                None => panic!("Neighbor node has no meta data."),
+            };
+            succ_weight.insert(neigh, nw);
+        }
+        succ_weight
+    }
+
+    /// Adds an edge to the graph.
+    /// The edge is only added once.
+    pub fn add_edge(&mut self, from: (Address, Procedure), to: (Address, Procedure)) {
+        if !self.procedures.contains_key(&from.0) {
+            self.procedures.insert(from.0, from.1);
+        }
+        if !self.procedures.contains_key(&to.0) {
+            self.procedures.insert(to.0, to.1);
+        }
+        if !self.graph.contains_edge(from.0, to.0) {
+            self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
+        }
+    }
+}
+
+impl CFGOperations for ICFG {
+    fn sort(&mut self) {
+        // Remove cycles
+        self.rev_topograph = match toposort(&self.graph, None) {
+            Ok(graph) => graph,
+            Err(_) => panic!("Graph contains cycles. Cannot sort it to topological order."),
+        };
+        self.rev_topograph.reverse();
+    }
+
+    /// Calculate the weight of the whole iCFG and all CFGs part of it.
+    fn calc_weight(&mut self) {
+        self.sort();
+        for paddr in self.rev_topograph.iter() {
+            // Get weight of all successor procedures
+            let succ_weights = self.get_successor_weights(paddr);
+            // Get weight of all procedures this one calls
+            let call_weights: HashMap<Address, Weight> = self.get_call_weights(*paddr);
+            let procedure: &mut Procedure = match self.procedures.get_mut(paddr) {
+                Some(p) => p,
+                None => panic!("Procedure is in iCFG but not in procedure list."),
+            };
+            // Update the weights of the called procedures.
+            for (target_addr, traget_weight) in call_weights.iter() {
+                procedure
+                    .cfg
+                    .set_call_weight((*target_addr, *traget_weight));
+            }
+            procedure.cfg.calc_weight();
+
+            // Update weight of edges
+            for (neighbor_addr, neighbor_weight) in succ_weights.iter() {
+                let bias: SamplingBias = SamplingBias {
+                    numerator: *neighbor_weight,
+                    denominator: procedure.cfg.get_weight(),
+                };
+                self.graph.add_edge(*paddr, *neighbor_addr, bias);
+            }
+        }
     }
 }
 
