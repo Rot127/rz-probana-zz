@@ -46,8 +46,9 @@ mod tests {
     /// Returns the CFG of the foo() function
     /// in the BDA paper [^Figure 2.7.]
     /// [^Figure 2.7.] See: [Figure 2.7.](https://doi.org/10.25394/PGS.23542014.v1)
-    fn get_foo_cfg() -> CFG {
+    fn get_foo_cfg(gee_weight: Weight) -> CFG {
         let mut cfg = CFG::new();
+        cfg.add_call_target_weights(&[&(GEE_ADDR, gee_weight)]);
 
         // foo()
         cfg.add_edge(
@@ -83,8 +84,9 @@ mod tests {
     /// Returns the CFG of the foo() function
     /// of the BDA paper [^Figure 2.7.]
     /// [^Figure 2.7.] See: [Figure 2.7.](https://doi.org/10.25394/PGS.23542014.v1)
-    fn get_main_cfg() -> CFG {
+    fn get_main_cfg(gee_weight: Weight, foo_weight: Weight) -> CFG {
         let mut cfg = CFG::new();
+        cfg.add_call_target_weights(&[&(GEE_ADDR, gee_weight), &(FOO_ADDR, foo_weight)]);
 
         // main()
         cfg.add_edge(

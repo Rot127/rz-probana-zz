@@ -90,22 +90,6 @@ pub struct CFGNodeData {
     pub weight: Weight,
     pub ntype: NodeType,
     pub call_target: Address,
-    /// Weight of the procedure called.
-    pub call_weight: Weight,
-}
-
-impl CFGNodeData {
-    fn get_call_weight(&self) -> Weight {
-        match self.ntype {
-            NodeType::Call => {
-                if self.call_weight == INVALID_WEIGHT {
-                    panic!("Weight from called procedure is not yet set! This should have been done before.");
-                }
-                self.call_weight
-            }
-            _ => 0,
-        }
-    }
 }
 
 impl CFGNodeData {
@@ -114,7 +98,6 @@ impl CFGNodeData {
             weight: INVALID_WEIGHT,
             ntype,
             call_target: INVALID_ADDRESS,
-            call_weight: INVALID_WEIGHT,
         }
     }
     pub fn new_call(call_target: Address) -> CFGNodeData {
@@ -122,7 +105,6 @@ impl CFGNodeData {
             weight: UNDETERMINED_WEIGHT,
             ntype: NodeType::Call,
             call_target,
-            call_weight: INVALID_WEIGHT,
         }
     }
 }
@@ -133,8 +115,8 @@ pub struct CFG {
     pub graph: DiGraphMap<Address, SamplingBias>,
     /// Meta data for every node. Indexed by address.
     pub nodes_meta: HashMap<Address, CFGNodeData>,
-    /// Total weight of the CFG at the entry point.
-    pub weight: Weight,
+    /// Weights of procedures this CFG calls.
+    pub call_target_weights: HashMap<Address, Weight>,
     /// Topoloical sorted graph
     rev_topograph: Vec<Address>,
 }
@@ -144,8 +126,26 @@ impl CFG {
         CFG {
             graph: DiGraphMap::new(),
             nodes_meta: HashMap::new(),
-            weight: INVALID_WEIGHT,
+            call_target_weights: HashMap::new(),
             rev_topograph: Vec::new(),
+        }
+    }
+
+    pub fn add_call_target_weights(&mut self, call_target_weights: &[&(Address, Weight)]) {
+        for cw in call_target_weights {
+            self.call_target_weights.insert(cw.0, cw.1);
+        }
+    }
+
+    /// Get the total weight of the CFG.
+    pub fn get_weight(&self) -> Weight {
+        let entry_addr = match self.rev_topograph.first() {
+            Some(first) => *first,
+            None => panic!("If get_weight() is called on a CFG, the weights must have been calculated before and it has to have nodes.")
+        };
+        match self.nodes_meta.get(&entry_addr) {
+            Some(entry_weight) => entry_weight.weight,
+            None => panic!("Cannot determine CFG weight. No meta data for entry node exists!"),
         }
     }
 
@@ -194,7 +194,15 @@ impl CFG {
                 NodeType::Exit => 1,
                 NodeType::Normal => sum_succ_weight,
                 NodeType::Entry => sum_succ_weight,
-                NodeType::Call => sum_succ_weight * info.get_call_weight(),
+                NodeType::Call => {
+                    sum_succ_weight
+                        * match self.call_target_weights.get(&info.call_target) {
+                            Some(weight) => weight,
+                            None => {
+                                panic!("There is no weight set for the called procedure.")
+                            }
+                        }
+                }
             };
             // Update weight of edges
             for (k, nw) in succ_weight.iter() {
