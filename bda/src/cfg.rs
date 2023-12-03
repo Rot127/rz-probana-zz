@@ -29,33 +29,33 @@ pub const INVALID_ADDRESS: Address = u64::MIN;
 pub enum NodeType {
     /// First node of a procedure. It has only incomming
     /// edges from other procedures and always a weight of
-    /// ```
-    /// W[iaddr] = W[successor]
-    /// ```
+    ///
+    ///   W\[iaddr\] = W\[successor\]
+    ///
     Entry,
     /// A node without any special meaning in the graph.
     /// It's weight is:
-    /// ```
-    /// foreach s in addr.successors:
-    ///     W[iaddr] = W[iaddr] + W[s]
-    /// ```
+    ///
+    ///   foreach s in addr.successors:
+    ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
+    ///
     Normal,
     /// A node which calls a procedure.
     /// Its weight is defined as:
-    /// ```
-    /// W[iaddr] = W [ret_addr] × W [callee]
-    /// ```
+    ///
+    ///   W\[iaddr\] = W\[ret_addr\] × W\[callee\]
+    ///
     Call,
     /// A return node. This is always a leaf and always has
-    /// ```
-    /// W[iaddr] = 1
-    /// ```
+    ///
+    ///   W\[iaddr\] = 1
+    ///
     Return,
     /// A node which exits the procedure without return.
     /// Its weight is defined by:
-    /// ```
-    /// W[iaddr] = 1
-    /// ```
+    ///
+    ///   W\[iaddr\] = 1
+    ///
     Exit,
 }
 
