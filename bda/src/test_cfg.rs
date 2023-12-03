@@ -149,6 +149,7 @@ mod tests {
         assert_node_weight(gee_cfg.nodes_meta.get(&2), 1);
         assert_node_weight(gee_cfg.nodes_meta.get(&3), 1);
         assert_node_weight(gee_cfg.nodes_meta.get(&4), 1);
+        assert_eq!(gee_cfg.get_weight(), 2);
     }
 
     #[test]

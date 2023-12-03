@@ -166,7 +166,7 @@ impl CFG {
 
     /// Get the total weight of the CFG.
     pub fn get_weight(&self) -> Weight {
-        let entry_addr = match self.rev_topograph.first() {
+        let entry_addr = match self.rev_topograph.last() {
             Some(first) => *first,
             None => panic!("If get_weight() is called on a CFG, the weights must have been calculated before and it has to have nodes.")
         };
