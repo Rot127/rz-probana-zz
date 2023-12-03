@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
+# SPDX-License-Identifier: LGPL-3.0-only
+
+name: Build and Test
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.x
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    - name: Install deps
+      run: |
+          pip3 install meson ninja
+    - name: Checkout Rizin
+      uses: actions/checkout@v4
+      with:
+        repository: rizinorg/rizin
+        path: rizin
+    - name: Install Rizin
+      run:
+          |
+        cd rizin
+        meson setup build
+        meson compile -C build
+        echo "y" | meson install -C build
+        cd ..
+    - name: Build rz-probana-zz
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+
