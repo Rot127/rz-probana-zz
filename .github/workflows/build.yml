@@ -28,13 +28,21 @@ jobs:
     - name: Install Rizin
       run:
           |
+        mkdir $HOME/root/
+        export RZ_INSTALL_ROOT="$HOME/root/"
         cd rizin
         meson setup build
         meson compile -C build
-        echo "y" | meson install -C build
+        meson install -C build --destdir "$RZ_INSTALL_ROOT"
         cd ..
     - name: Build rz-probana-zz
-      run: cargo build --verbose
+      run:
+        |
+        export RZ_REPO_PATH="$(pwd)/rizin/"
+        cargo build --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run:
+         |
+        export RZ_REPO_PATH="$(pwd)/rizin/"
+        cargo test --verbose
 

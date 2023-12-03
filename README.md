@@ -19,6 +19,15 @@ Implementations of probabilistic binary analysis algorithms by [Zhuo Zhang (х╝ах
 ## Build
 
 ```sh
+# Get Rizin
+git clone https://github.com/rizinorg/rizin
+cd rizin
+export RZ_REPO_PATH=$(pwd)
+meson setup build
+meson compile -C build
+sudo meson install -C build
+cd ..
+
 cargo build
 cargo test
 ```
