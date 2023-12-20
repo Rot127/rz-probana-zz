@@ -10,22 +10,33 @@ use std::collections::HashMap;
 pub type FlowGraph = DiGraphMap<Address, SamplingBias>;
 
 pub type Weight = u64;
+
 /// The invalid weight value.
 /// The invalid weight isn't zero because we can have
 /// nodes in the iCFG which are not connected.
 /// Those have a weight of zero. But might get edges later
 /// during abstract interpretation.
 pub const INVALID_WEIGHT: Weight = u64::MAX;
+
 /// Value for undetermined weights.
 /// This is used for unresolved indirect calls and procedures
 /// which have no weight assigned yet.
 pub const UNDETERMINED_WEIGHT: Weight = 0;
 
-pub type Address = u64;
+/// An address. It is used as node identifier. The high 64bits
+/// indicate the the iteration membership.
+/// Each node, which is part of a loop, gets duplicated
+/// up to i times to resolve cycles. [^2.4.3]
+/// We can sacrifice some of the high bits to the lower
+/// bits if we need 48bit addresses (or other) in the future.
+///
+/// [^2.4.3] https://doi.org/10.25394/PGS.23542014.v1
+pub type Address = u128;
+
 /// Technically no an invalid address. But
 /// 0x0 should pretty much never be used as address in a
 /// real binary.
-pub const INVALID_ADDRESS: Address = u64::MIN;
+pub const INVALID_ADDRESS: Address = u128::MIN;
 
 /// The node type of a CFG.
 pub enum NodeType {
