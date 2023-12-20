@@ -7,6 +7,8 @@ use petgraph::Direction::Outgoing;
 
 use std::collections::HashMap;
 
+pub type FlowGraph = DiGraphMap<Address, SamplingBias>;
+
 pub type Weight = u64;
 /// The invalid weight value.
 /// The invalid weight isn't zero because we can have
@@ -87,7 +89,7 @@ impl SamplingBias {
 }
 
 /// Traits of the CFG and iCFG.
-pub trait CFGOperations {
+pub trait FlowGraphOperations {
     /// Removes cycles in the graph.
     fn make_acyclic(&mut self) -> &Self {
         todo!()
@@ -103,6 +105,10 @@ pub trait CFGOperations {
 
     /// Sort the graph in reverse topological order.
     fn sort(&mut self);
+
+    fn get_graph_mut(&mut self) -> &mut FlowGraph;
+
+    fn get_graph(&self) -> &FlowGraph;
 }
 
 pub struct CFGNodeData {
@@ -191,7 +197,15 @@ impl CFG {
     }
 }
 
-impl CFGOperations for CFG {
+impl FlowGraphOperations for CFG {
+    fn get_graph_mut(&mut self) -> &mut FlowGraph {
+        &mut self.graph
+    }
+
+    fn get_graph(&self) -> &FlowGraph {
+        &self.graph
+    }
+
     fn sort(&mut self) {
         // Remove cycles
         self.rev_topograph = match toposort(&self.graph, None) {
@@ -337,7 +351,15 @@ impl ICFG {
     }
 }
 
-impl CFGOperations for ICFG {
+impl FlowGraphOperations for ICFG {
+    fn get_graph_mut(&mut self) -> &mut FlowGraph {
+        &mut self.graph
+    }
+
+    fn get_graph(&self) -> &FlowGraph {
+        &self.graph
+    }
+
     fn sort(&mut self) {
         // Remove cycles
         self.rev_topograph = match toposort(&self.graph, None) {

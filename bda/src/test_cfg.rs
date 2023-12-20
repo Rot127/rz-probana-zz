@@ -4,7 +4,9 @@
 #[cfg(test)]
 mod tests {
 
-    use crate::cfg::{Address, CFGNodeData, CFGOperations, NodeType, Procedure, Weight, CFG, ICFG};
+    use crate::cfg::{
+        Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight, CFG, ICFG,
+    };
 
     const GEE_ADDR: Address = 0;
     const FOO_ADDR: Address = 6;
