@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use petgraph::algo::toposort;
+use petgraph::algo::{tarjan_scc, toposort};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::Outgoing;
 
@@ -24,9 +24,10 @@ pub const INVALID_WEIGHT: Weight = u64::MAX;
 pub const UNDETERMINED_WEIGHT: Weight = 0;
 
 /// An address. It is used as node identifier. The high 64bits
-/// indicate the the iteration membership.
+/// indicate the the clone ID.
 /// Each node, which is part of a loop, gets duplicated
 /// up to i times to resolve cycles. [^2.4.3]
+///
 /// We can sacrifice some of the high bits to the lower
 /// bits if we need 48bit addresses (or other) in the future.
 ///
@@ -37,6 +38,10 @@ pub type Address = u128;
 /// 0x0 should pretty much never be used as address in a
 /// real binary.
 pub const INVALID_ADDRESS: Address = u128::MIN;
+
+/// Minimum times nodes of a loop get duplicated in a graph
+/// to make it loop free.
+pub const MIN_DUPLICATE_BOUND: u64 = 3;
 
 /// The node type of a CFG.
 pub enum NodeType {
@@ -101,13 +106,78 @@ impl SamplingBias {
 
 /// Traits of the CFG and iCFG.
 pub trait FlowGraphOperations {
+    /// Duplicates the given [nodes] in the graph [dup_count] times.
+    /// The back-edges always point to the previous duplicated nodes.
+    ///
+    /// Algo:
+    ///
+    /// Identify incomming and outgoing edge types of nodes in [scc]:
+    /// - Identify edges into the [scc]
+    /// - Identify edges out of the [scc]
+    /// - Identify the back-edges withing the [scc]
+    /// - Identify the normal edges (the rest)
+    ///
+    /// Then
+    /// ```
+    /// // Edges into and out of the [scc] must point to/from each copy.
+    /// foreach e in in-border-edges:
+    ///     e_clone = clone(e)
+    ///     increment_clone_id(e_clone.dest)
+    ///     graph.add_edge(e_clone)
+    ///
+    /// foreach e in out-border-edges:
+    ///     e_clone = clone(e)
+    ///     increment_clone_id(e_clone.src)
+    ///     graph.add_edge(e_clone)
+    ///
+    /// // Let the back-edges point to the clones
+    /// foreach e in back-edges:
+    ///     e_clone = clone(e)
+    ///     graph.del(e) // Delete the original one
+    ///     increment_clone_id(e_clone.dest) // point it to the clone
+    ///     graph.add_edge(e_clone)
+    ///
+    /// // Simply copy the normal edges within the [scc]
+    /// foreach e in normal-edges:
+    ///     e_clone = clone(e)
+    ///     increment_clone_id(e_clone.dest)
+    ///     increment_clone_id(e_clone.src)
+    ///     graph.add_edge(e_clone)
+    /// ```
+    ///
+    fn duplicate_nodes(&mut self, nodes: Vec<u128>, dup_count: u64) {
+        let mut graph = self.get_graph_mut();
+    }
+
     /// Removes cycles in the graph.
+    ///
+    /// The cycle removement does the following:
+    /// 1. Find strongly connected components
+    /// 2. Each SCC gets duplicated in the graph.
+    /// 3. foreach scc:
+    /// 4.    Duplicate nodes in graph
+    /// 4.    Connect back edges to copies.
     fn make_acyclic(&mut self) -> &Self {
+        // Strongly connected components
+        let sccs = tarjan_scc(self.get_graph());
+
+        // SCCs are in reverse topological order. The nodes in each SSC are arbitrary
+        for scc in sccs {
+            self.duplicate_nodes(scc, MIN_DUPLICATE_BOUND);
+        }
+
+        // Run Tarjan (possible to run in threads?)
+        // Resolve each strongly connected component (into threads)
+        // - Copy component.
+        // - Connect incoming edge to root, to root in copy
         todo!()
     }
 
     /// Update weights of graph starting at [node_id]
     fn update_weights(&mut self, node_id: Address) -> &Self {
+        // This should know which edge was just added and the weight of the
+        // sub-graph this edge connects to.
+        // The new sub-graph weight should be determined before adding it.
         todo!()
     }
 
