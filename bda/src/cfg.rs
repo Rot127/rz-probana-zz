@@ -3,9 +3,10 @@
 
 use petgraph::algo::{tarjan_scc, toposort};
 use petgraph::prelude::DiGraphMap;
-use petgraph::Direction::Outgoing;
+use petgraph::Direction::{Incoming, Outgoing};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 
 pub type FlowGraph = DiGraphMap<Address, SamplingBias>;
 
@@ -34,14 +35,16 @@ pub const UNDETERMINED_WEIGHT: Weight = 0;
 /// [^2.4.3] https://doi.org/10.25394/PGS.23542014.v1
 pub type Address = u128;
 
-/// Technically no an invalid address. But
-/// 0x0 should pretty much never be used as address in a
-/// real binary.
-pub const INVALID_ADDRESS: Address = u128::MIN;
+pub const INVALID_ADDRESS: Address = u128::MAX;
 
 /// Minimum times nodes of a loop get duplicated in a graph
 /// to make it loop free.
 pub const MIN_DUPLICATE_BOUND: u64 = 3;
+
+/// Increments the clone count of the [addr] by [c] and returns the result.
+fn get_clone_addr(addr: Address, c: u128) -> Address {
+    addr + (c << 64)
+}
 
 /// The node type of a CFG.
 pub enum NodeType {
@@ -83,9 +86,16 @@ pub enum NodeType {
 /// If from node A 6000 paths can be reached and the outgoing
 /// edge (A, B) leads to 40 of those, the sampling bias is 40/6000
 /// for edge (A, B)
+#[derive(Debug)]
 pub struct SamplingBias {
     numerator: Weight,
     denominator: Weight,
+}
+
+impl std::fmt::Display for SamplingBias {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#x}/{:#x}", self.numerator, self.denominator)
+    }
 }
 
 impl SamplingBias {
@@ -104,49 +114,98 @@ impl SamplingBias {
     }
 }
 
+/// Categories of edges for cycle removement by cloning
+/// strongly connected components.
+#[derive(PartialEq, Eq)]
+pub enum EdgeFlow {
+    /// Into/out of an stringly connected component.
+    Outsider,
+    /// A back edge in a graph.
+    BackEdge,
+    /// A normal edge.
+    ForwardEdge,
+}
+
 /// Traits of the CFG and iCFG.
 pub trait FlowGraphOperations {
-    /// Duplicates the given [nodes] in the graph [dup_count] times.
-    /// The back-edges always point to the previous duplicated nodes.
-    ///
-    /// Algo:
-    ///
-    /// Identify incomming and outgoing edge types of nodes in [scc]:
-    /// - Identify edges into the [scc]
-    /// - Identify edges out of the [scc]
-    /// - Identify the back-edges withing the [scc]
-    /// - Identify the normal edges (the rest)
-    ///
-    /// Then
-    /// ```
-    /// // Edges into and out of the [scc] must point to/from each copy.
-    /// foreach e in in-border-edges:
-    ///     e_clone = clone(e)
-    ///     increment_clone_id(e_clone.dest)
-    ///     graph.add_edge(e_clone)
-    ///
-    /// foreach e in out-border-edges:
-    ///     e_clone = clone(e)
-    ///     increment_clone_id(e_clone.src)
-    ///     graph.add_edge(e_clone)
-    ///
-    /// // Let the back-edges point to the clones
-    /// foreach e in back-edges:
-    ///     e_clone = clone(e)
-    ///     graph.del(e) // Delete the original one
-    ///     increment_clone_id(e_clone.dest) // point it to the clone
-    ///     graph.add_edge(e_clone)
-    ///
-    /// // Simply copy the normal edges within the [scc]
-    /// foreach e in normal-edges:
-    ///     e_clone = clone(e)
-    ///     increment_clone_id(e_clone.dest)
-    ///     increment_clone_id(e_clone.src)
-    ///     graph.add_edge(e_clone)
-    /// ```
-    ///
-    fn duplicate_nodes(&mut self, nodes: Vec<u128>, dup_count: u64) {
-        let mut graph = self.get_graph_mut();
+    fn add_clones_to_graph(
+        &mut self,
+        from: &Address,
+        to: &Address,
+        fix_node: &Address,
+        flow: EdgeFlow,
+        dup_bound: u64,
+    ) {
+        assert!(
+            from == fix_node
+                || to == fix_node
+                || (*fix_node == INVALID_ADDRESS && flow != EdgeFlow::Outsider)
+        );
+
+        let graph = self.get_graph_mut();
+        for i in 0..=dup_bound {
+            let c = i as u128;
+            if flow == EdgeFlow::BackEdge && i == dup_bound {
+                break;
+            }
+            let new_edge: (Address, Address) = match flow {
+                EdgeFlow::Outsider => {
+                    if *from == *fix_node {
+                        (*from, get_clone_addr(*to, c))
+                    } else {
+                        (get_clone_addr(*from, c), *to)
+                    }
+                }
+                EdgeFlow::BackEdge => (get_clone_addr(*from, c), get_clone_addr(*to, c + 1)),
+                EdgeFlow::ForwardEdge => (get_clone_addr(*from, c), get_clone_addr(*to, c)),
+            };
+            graph.add_edge(new_edge.0, new_edge.1, SamplingBias::new_unset());
+        }
+    }
+
+    /// Determines if the edge (from, to) is a back edge in the graph.
+    /// Currently it implies, that the flow is from the lower
+    /// to the higher address.
+    /// This function is only valid, if both nodes
+    /// are part of the same strongly connected component.
+    fn is_back_edge(&self, from: &Address, to: &Address) -> bool {
+        from >= to
+    }
+
+    fn clone_nodes(&mut self, scc: &Vec<Address>, scc_edges: &HashSet<(Address, Address)>) {
+        for (from, to) in scc_edges {
+            if !scc.contains(&from) {
+                // Edge into the SCC
+                self.add_clones_to_graph(
+                    &from,
+                    &to,
+                    &from,
+                    EdgeFlow::Outsider,
+                    MIN_DUPLICATE_BOUND,
+                );
+            } else if !scc.contains(&to) {
+                // Edge out of the SCC
+                self.add_clones_to_graph(&from, &to, &to, EdgeFlow::Outsider, MIN_DUPLICATE_BOUND);
+            } else if self.is_back_edge(&from, &to) {
+                // Back edge. remove the original and connect it to the clone
+                self.add_clones_to_graph(
+                    &from,
+                    &to,
+                    &INVALID_ADDRESS,
+                    EdgeFlow::BackEdge,
+                    MIN_DUPLICATE_BOUND,
+                );
+                self.get_graph_mut().remove_edge(*from, *to);
+            } else {
+                self.add_clones_to_graph(
+                    &from,
+                    &to,
+                    &INVALID_ADDRESS,
+                    EdgeFlow::ForwardEdge,
+                    MIN_DUPLICATE_BOUND,
+                );
+            }
+        }
     }
 
     /// Removes cycles in the graph.
@@ -157,20 +216,28 @@ pub trait FlowGraphOperations {
     /// 3. foreach scc:
     /// 4.    Duplicate nodes in graph
     /// 4.    Connect back edges to copies.
-    fn make_acyclic(&mut self) -> &Self {
+    fn make_acyclic(&mut self) {
         // Strongly connected components
         let sccs = tarjan_scc(self.get_graph());
+        // Edges from, to and within the SCC
+        let mut scc_edges: HashSet<(Address, Address)> = HashSet::new();
 
-        // SCCs are in reverse topological order. The nodes in each SSC are arbitrary
+        // SCCs are in reverse topological order. The nodes in each SCC are arbitrary
         for scc in sccs {
-            self.duplicate_nodes(scc, MIN_DUPLICATE_BOUND);
+            if scc.len() <= 1 {
+                continue;
+            }
+            for node in scc.iter() {
+                for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
+                    scc_edges.insert((incomming, *node));
+                }
+                for outgoing in self.get_graph().neighbors_directed(*node, Outgoing) {
+                    scc_edges.insert((*node, outgoing));
+                }
+            }
+            self.clone_nodes(&scc, &scc_edges);
+            scc_edges.clear();
         }
-
-        // Run Tarjan (possible to run in threads?)
-        // Resolve each strongly connected component (into threads)
-        // - Copy component.
-        // - Connect incoming edge to root, to root in copy
-        todo!()
     }
 
     /// Update weights of graph starting at [node_id]

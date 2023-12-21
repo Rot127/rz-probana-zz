@@ -4,6 +4,8 @@
 #[cfg(test)]
 mod tests {
 
+    use petgraph::dot::{Config, Dot};
+
     use crate::cfg::{
         Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight, CFG, ICFG,
     };
@@ -175,6 +177,37 @@ mod tests {
         icfg
     }
 
+    fn get_paper_example_cfg_loop() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Entry)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (2, CFGNodeData::new(NodeType::Normal)),
+        );
+        // Back edge
+        cfg.add_edge(
+            (2, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (2, CFGNodeData::new(NodeType::Normal)),
+            (3, CFGNodeData::new(NodeType::Normal)),
+        );
+        // Back edge
+        cfg.add_edge(
+            (3, CFGNodeData::new(NodeType::Normal)),
+            (2, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (3, CFGNodeData::new(NodeType::Normal)),
+            (4, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg
+    }
+
     fn get_unset_indirect_call_cfg() -> CFG {
         let mut cfg = CFG::new();
 
@@ -227,5 +260,79 @@ mod tests {
         assert_eq!(icfg.get_procedure_weight(MAIN_ADDR), 6);
         assert_eq!(icfg.get_procedure_weight(FOO_ADDR), 4);
         assert_eq!(icfg.get_procedure_weight(GEE_ADDR), 2);
+    }
+
+    #[test]
+    fn test_cfg_untangle() {
+        let mut cfg = get_paper_example_cfg_loop();
+        println!(
+            "{:?}",
+            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        );
+        cfg.make_acyclic();
+        println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
+        assert_eq!(cfg.graph.node_count(), 14);
+        assert!(cfg.graph.contains_edge(0, 1));
+        assert!(cfg.graph.contains_edge(1, 2));
+        assert!(cfg.graph.contains_edge(2, 3));
+        assert!(cfg.graph.contains_edge(3, 4));
+
+        // Loop 2 -> 1 -> 2 ...
+        assert!(cfg.graph.contains_edge(2, 0x10000000000000001));
+        assert!(cfg
+            .graph
+            .contains_edge(0x10000000000000001, 0x10000000000000002));
+        assert!(cfg
+            .graph
+            .contains_edge(0x10000000000000002, 0x20000000000000001));
+        assert!(cfg
+            .graph
+            .contains_edge(0x20000000000000002, 0x30000000000000001));
+        assert!(cfg
+            .graph
+            .contains_edge(0x30000000000000001, 0x30000000000000002));
+        // Loop 3 -> 2 -> 3 ...
+        assert!(cfg.graph.contains_edge(3, 0x10000000000000002));
+        assert!(cfg
+            .graph
+            .contains_edge(0x10000000000000002, 0x10000000000000003));
+        assert!(cfg
+            .graph
+            .contains_edge(0x10000000000000003, 0x20000000000000002));
+        assert!(cfg
+            .graph
+            .contains_edge(0x20000000000000003, 0x30000000000000002));
+        assert!(cfg
+            .graph
+            .contains_edge(0x30000000000000002, 0x30000000000000003));
+
+        // Into scc edges
+        assert!(cfg.graph.contains_edge(0, 0x10000000000000001));
+        assert!(cfg.graph.contains_edge(0, 0x20000000000000001));
+        assert!(cfg.graph.contains_edge(0, 0x30000000000000001));
+
+        // Out of scc edges
+        assert!(cfg.graph.contains_edge(0x10000000000000003, 4));
+        assert!(cfg.graph.contains_edge(0x20000000000000003, 4));
+        assert!(cfg.graph.contains_edge(0x30000000000000003, 4));
+
+        assert!(cfg
+            .graph
+            .contains_edge(0x10000000000000001, 0x10000000000000002));
+        assert!(cfg
+            .graph
+            .contains_edge(0x10000000000000002, 0x10000000000000003));
+        assert!(cfg
+            .graph
+            .contains_edge(0x20000000000000001, 0x20000000000000002));
+        assert!(cfg
+            .graph
+            .contains_edge(0x20000000000000002, 0x20000000000000003));
+        assert!(cfg
+            .graph
+            .contains_edge(0x30000000000000001, 0x30000000000000002));
+        assert!(cfg
+            .graph
+            .contains_edge(0x30000000000000002, 0x30000000000000003));
     }
 }
