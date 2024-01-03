@@ -6,7 +6,6 @@ use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
 
 pub type FlowGraph = DiGraphMap<Address, SamplingBias>;
 
@@ -219,24 +218,29 @@ pub trait FlowGraphOperations {
     fn make_acyclic(&mut self) {
         // Strongly connected components
         let sccs = tarjan_scc(self.get_graph());
-        // Edges from, to and within the SCC
-        let mut scc_edges: HashSet<(Address, Address)> = HashSet::new();
+        // The SCC and Edges from, to and within the SCC
+        let mut scc_groups: Vec<(Vec<Address>, HashSet<(Address, Address)>)> = Vec::new();
 
         // SCCs are in reverse topological order. The nodes in each SCC are arbitrary
         for scc in sccs {
+            let mut edges: HashSet<(Address, Address)> = HashSet::new();
             if scc.len() <= 1 {
                 continue;
             }
+            // Accumulate all edges of an SCC
             for node in scc.iter() {
                 for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
-                    scc_edges.insert((incomming, *node));
+                    edges.insert((incomming, *node));
                 }
                 for outgoing in self.get_graph().neighbors_directed(*node, Outgoing) {
-                    scc_edges.insert((*node, outgoing));
+                    edges.insert((*node, outgoing));
                 }
             }
-            self.clone_nodes(&scc, &scc_edges);
-            scc_edges.clear();
+            scc_groups.push((scc, edges));
+        }
+        // Resolve loops for each SCC
+        for group in scc_groups {
+            self.clone_nodes(&group.0, &group.1);
         }
     }
 

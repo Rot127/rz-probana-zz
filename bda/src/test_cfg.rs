@@ -4,7 +4,10 @@
 #[cfg(test)]
 mod tests {
 
-    use petgraph::dot::{Config, Dot};
+    use petgraph::{
+        dot::{Config, Dot},
+        visit::EdgeCount,
+    };
 
     use crate::cfg::{
         Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight, CFG, ICFG,
@@ -177,6 +180,76 @@ mod tests {
         icfg
     }
 
+    fn get_cfg_no_loop_sub_routine() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (10, CFGNodeData::new(NodeType::Entry)),
+            (11, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (11, CFGNodeData::new(NodeType::Normal)),
+            (0, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (2, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (2, CFGNodeData::new(NodeType::Normal)),
+            (12, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (12, CFGNodeData::new(NodeType::Normal)),
+            (13, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg
+    }
+
+    fn get_cfg_no_loop_sub_routine_loop_ret() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (0, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (2, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg.add_edge(
+            (10, CFGNodeData::new(NodeType::Entry)),
+            (11, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (11, CFGNodeData::new(NodeType::Normal)),
+            (12, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (12, CFGNodeData::new(NodeType::Normal)),
+            (13, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (13, CFGNodeData::new(NodeType::Normal)),
+            (14, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg.add_edge(
+            (13, CFGNodeData::new(NodeType::Normal)),
+            (11, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (11, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg
+    }
+
     fn get_paper_example_cfg_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
@@ -272,6 +345,7 @@ mod tests {
         cfg.make_acyclic();
         println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 14);
+        assert_eq!(cfg.graph.edge_count(), 22);
         assert!(cfg.graph.contains_edge(0, 1));
         assert!(cfg.graph.contains_edge(1, 2));
         assert!(cfg.graph.contains_edge(2, 3));
@@ -334,5 +408,89 @@ mod tests {
         assert!(cfg
             .graph
             .contains_edge(0x30000000000000002, 0x30000000000000003));
+    }
+
+    fn n_clone(n: Address, clone_count: u128) -> Address {
+        (clone_count << 64) | (n & 0xffffffffffffffff)
+    }
+
+    #[test]
+    /// Test if the back-edge logic with jumps to lower addresses works.
+    fn test_cfg_no_loop_backedge() {
+        let mut cfg = get_cfg_no_loop_sub_routine();
+        // println!(
+        //     "{:?}",
+        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        // );
+        cfg.make_acyclic();
+        // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
+        assert_eq!(cfg.graph.node_count(), 7);
+        assert_eq!(cfg.graph.edge_count(), 6);
+        assert!(cfg.graph.contains_edge(10, 11));
+        assert!(cfg.graph.contains_edge(11, 0));
+        assert!(cfg.graph.contains_edge(0, 1));
+        assert!(cfg.graph.contains_edge(1, 2));
+        assert!(cfg.graph.contains_edge(2, 12));
+        assert!(cfg.graph.contains_edge(12, 13));
+    }
+
+    #[test]
+    /// Test if the back-edge logic with jumps to lower addresses works.
+    fn test_cfg_loop_subroutine_ret() {
+        let mut cfg = get_cfg_no_loop_sub_routine_loop_ret();
+        println!(
+            "Graph:\n{:?}",
+            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        );
+        cfg.make_acyclic();
+        println!(
+            "Acyclic:\n{:?}",
+            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel])
+        );
+        assert_eq!(cfg.graph.node_count(), 23);
+        assert_eq!(cfg.graph.edge_count(), 37);
+
+        assert!(cfg.graph.contains_edge(10, 11));
+        assert!(cfg.graph.contains_edge(11, 12));
+        assert!(cfg.graph.contains_edge(12, 13));
+        assert!(cfg.graph.contains_edge(13, 14));
+
+        assert!(cfg.graph.contains_edge(0, 1));
+        assert!(cfg.graph.contains_edge(1, 2));
+        assert!(cfg.graph.contains_edge(11, 1));
+        assert!(cfg.graph.contains_edge(11, n_clone(1, 1)));
+        assert!(cfg.graph.contains_edge(11, n_clone(1, 2)));
+        assert!(cfg.graph.contains_edge(11, n_clone(1, 3)));
+        assert!(cfg.graph.contains_edge(n_clone(11, 1), 1));
+        assert!(cfg.graph.contains_edge(n_clone(11, 2), 1));
+        assert!(cfg.graph.contains_edge(n_clone(11, 3), 1));
+
+        assert!(cfg.graph.contains_edge(n_clone(10, 0), n_clone(11, 1)));
+        assert!(cfg.graph.contains_edge(n_clone(10, 0), n_clone(11, 2)));
+        assert!(cfg.graph.contains_edge(n_clone(10, 0), n_clone(11, 3)));
+        assert!(cfg.graph.contains_edge(n_clone(13, 0), n_clone(11, 1)));
+        assert!(cfg.graph.contains_edge(n_clone(13, 1), n_clone(11, 2)));
+        assert!(cfg.graph.contains_edge(n_clone(13, 2), n_clone(11, 3)));
+
+        assert!(cfg.graph.contains_edge(n_clone(11, 1), n_clone(12, 1)));
+        assert!(cfg.graph.contains_edge(n_clone(12, 1), n_clone(13, 1)));
+        assert!(cfg.graph.contains_edge(n_clone(11, 2), n_clone(12, 2)));
+        assert!(cfg.graph.contains_edge(n_clone(12, 2), n_clone(13, 2)));
+        assert!(cfg.graph.contains_edge(n_clone(11, 3), n_clone(12, 3)));
+        assert!(cfg.graph.contains_edge(n_clone(12, 3), n_clone(13, 3)));
+
+        assert!(cfg.graph.contains_edge(n_clone(13, 1), n_clone(14, 0)));
+        assert!(cfg.graph.contains_edge(n_clone(13, 2), n_clone(14, 0)));
+        assert!(cfg.graph.contains_edge(n_clone(13, 3), n_clone(14, 0)));
+
+        assert!(cfg.graph.contains_edge(1, n_clone(0, 1)));
+        assert!(cfg.graph.contains_edge(n_clone(0, 1), n_clone(1, 1)));
+        assert!(cfg.graph.contains_edge(n_clone(1, 1), n_clone(0, 2)));
+        assert!(cfg.graph.contains_edge(n_clone(0, 2), n_clone(1, 2)));
+        assert!(cfg.graph.contains_edge(n_clone(1, 2), n_clone(0, 3)));
+        assert!(cfg.graph.contains_edge(n_clone(0, 3), n_clone(1, 3)));
+        assert!(cfg.graph.contains_edge(n_clone(1, 1), 2));
+        assert!(cfg.graph.contains_edge(n_clone(1, 2), 2));
+        assert!(cfg.graph.contains_edge(n_clone(1, 3), 2));
     }
 }
