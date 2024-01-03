@@ -127,6 +127,12 @@ pub enum EdgeFlow {
 
 /// Traits of the CFG and iCFG.
 pub trait FlowGraphOperations {
+    /// Adds clones of an edge to the graph of [self].
+    /// The edge [from] -> [to] is duplicated [dup_bound] times.
+    /// It depends on [flow] how the edge is cloned.
+    /// For edges within the SCC, [from] and [to] are duplicated and the original edge is removed.
+    /// For all others, one node ([fixed_node]) is not cloned. Instead edges between the [fixed_node]
+    /// from/to the cloned node are added.
     fn add_clones_to_graph(
         &mut self,
         from: &Address,
@@ -171,6 +177,8 @@ pub trait FlowGraphOperations {
         from >= to
     }
 
+    /// Clones the nodes of an SCC within the graph of [self].
+    /// Edges are added or removed so the SCC is afterwards cycle free.
     fn clone_nodes(&mut self, scc: &Vec<Address>, scc_edges: &HashSet<(Address, Address)>) {
         for (from, to) in scc_edges {
             if !scc.contains(&from) {
@@ -210,11 +218,11 @@ pub trait FlowGraphOperations {
     /// Removes cycles in the graph.
     ///
     /// The cycle removement does the following:
-    /// 1. Find strongly connected components
-    /// 2. Each SCC gets duplicated in the graph.
-    /// 3. foreach scc:
-    /// 4.    Duplicate nodes in graph
-    /// 4.    Connect back edges to copies.
+    /// 1. Find strongly connected components (SCCs)
+    /// 2. foreach scc:
+    /// 3.    Get edges within, from, to SCC
+    /// 4. foreach (scc, scc_edges):
+    /// 5.    Clone SCC and its edges
     fn make_acyclic(&mut self) {
         // Strongly connected components
         let sccs = tarjan_scc(self.get_graph());
