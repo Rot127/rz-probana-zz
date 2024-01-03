@@ -4,10 +4,7 @@
 #[cfg(test)]
 mod tests {
 
-    use petgraph::{
-        dot::{Config, Dot},
-        visit::EdgeCount,
-    };
+    use petgraph::dot::{Config, Dot};
 
     use crate::cfg::{
         Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight, CFG, ICFG,
