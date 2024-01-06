@@ -21,3 +21,7 @@ Cargo.lock
 
 # VSCode
 .vscode
+
+# Code coverage files
+*.info
+*.profraw
