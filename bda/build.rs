@@ -27,7 +27,10 @@ fn main() {
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         // Finish the builder and generate the bindings.
         .clang_arg(format!("-I{}/usr/local/include/librz", rz_install_root))
-        .clang_arg(format!("-I{}/usr/local/include/", rz_install_root))
+        .clang_arg(format!(
+            "-I{}/usr/local/include/librz/rz_util",
+            rz_install_root
+        ))
         .clang_arg(format!("-I{}/librz/util/sdb/src/", rz_repo))
         .generate()
         // Unwrap the Result and panic on failure.
