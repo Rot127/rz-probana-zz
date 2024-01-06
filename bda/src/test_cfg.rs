@@ -6,7 +6,7 @@ mod tests {
 
     use petgraph::dot::{Config, Dot};
 
-    use crate::cfg::{
+    use crate::flow_graphs::{
         Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight, CFG, ICFG,
     };
 

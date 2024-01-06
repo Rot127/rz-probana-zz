@@ -252,12 +252,9 @@ pub trait FlowGraphOperations {
         }
     }
 
-    /// Update weights of graph starting at [node_id]
-    fn update_weights(&mut self, _node_id: Address) -> &Self {
-        // This should know which edge was just added and the weight of the
-        // sub-graph this edge connects to.
-        // The new sub-graph weight should be determined before adding it.
-        todo!()
+    /// Update weights of graph
+    fn update_weights(&mut self) {
+        self.calc_weight();
     }
 
     /// Calculate the node and edge weights over the whole graph.
