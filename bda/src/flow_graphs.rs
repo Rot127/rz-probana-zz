@@ -34,6 +34,11 @@ pub const UNDETERMINED_WEIGHT: Weight = 0;
 /// [^2.4.3] https://doi.org/10.25394/PGS.23542014.v1
 pub type Address = u128;
 
+/// Returns the address value without the clone ID.
+pub fn get_raw_addr(addr: Address) -> u128 {
+    addr & 0xffffffffffffffff
+}
+
 pub const INVALID_ADDRESS: Address = u128::MAX;
 
 /// Minimum times nodes of a loop get duplicated in a graph
@@ -46,6 +51,7 @@ fn get_clone_addr(addr: Address, c: u128) -> Address {
 }
 
 /// The node type of a CFG.
+#[derive(Clone, Copy)]
 pub enum NodeType {
     /// First node of a procedure. It has only incomming
     /// edges from other procedures and always a weight of
@@ -127,6 +133,11 @@ pub enum EdgeFlow {
 
 /// Traits of the CFG and iCFG.
 pub trait FlowGraphOperations {
+    /// Add a cloned edge to the graph.
+    /// The CFG and iCFG have to add the meta inforation to the cloned edge
+    /// and add it afterwards to the real graph object.
+    fn add_cloned_edge(&mut self, from: Address, to: Address);
+
     /// Adds clones of an edge to the graph of [self].
     /// The edge [from] -> [to] is duplicated [dup_bound] times.
     /// It depends on [flow] how the edge is cloned.
@@ -147,7 +158,6 @@ pub trait FlowGraphOperations {
                 || (*fix_node == INVALID_ADDRESS && flow != EdgeFlow::Outsider)
         );
 
-        let graph = self.get_graph_mut();
         for i in 0..=dup_bound {
             let c = i as u128;
             if flow == EdgeFlow::BackEdge && i == dup_bound {
@@ -164,7 +174,7 @@ pub trait FlowGraphOperations {
                 EdgeFlow::BackEdge => (get_clone_addr(*from, c), get_clone_addr(*to, c + 1)),
                 EdgeFlow::ForwardEdge => (get_clone_addr(*from, c), get_clone_addr(*to, c)),
             };
-            graph.add_edge(new_edge.0, new_edge.1, SamplingBias::new_unset());
+            self.add_cloned_edge(new_edge.0, new_edge.1);
         }
     }
 
@@ -250,6 +260,7 @@ pub trait FlowGraphOperations {
         for group in scc_groups {
             self.clone_nodes(&group.0, &group.1);
         }
+        self.update_weights();
     }
 
     /// Update weights of graph
@@ -268,6 +279,7 @@ pub trait FlowGraphOperations {
     fn get_graph(&self) -> &FlowGraph;
 }
 
+#[derive(Clone, Copy)]
 pub struct CFGNodeData {
     pub weight: Weight,
     pub ntype: NodeType,
@@ -422,6 +434,18 @@ impl FlowGraphOperations for CFG {
             panic!("Generated weight of CFG has weight 0. Does a return or invalid instruction exists?")
         }
     }
+
+    fn add_cloned_edge(&mut self, from: Address, to: Address) {
+        let from_info: &CFGNodeData = match self.nodes_meta.get(&get_raw_addr(from)) {
+            Some(info) => info,
+            None => panic!("Cannot add cloned edge. 'from' node has no meta data defined."),
+        };
+        let to_info: &CFGNodeData = match self.nodes_meta.get(&get_raw_addr(to)) {
+            Some(info) => info,
+            None => panic!("Cannot add cloned edge. 'to' node has no meta data defined."),
+        };
+        self.add_edge((from, *from_info), (to, *to_info));
+    }
 }
 
 /// A node in an iCFG describing a procedure.
@@ -451,6 +475,24 @@ pub struct ICFG {
     rev_topograph: Vec<Address>,
 }
 
+macro_rules! get_procedure_mut {
+    ( $icfg:expr, $addr:expr ) => {
+        match $icfg.procedures.get_mut(&get_raw_addr($addr)) {
+            Some(p) => p,
+            None => panic!("The iCFG has no procedure for {}.", $addr),
+        }
+    };
+}
+
+macro_rules! get_procedure {
+    ( $icfg:expr, $addr:expr ) => {
+        match $icfg.procedures.get(&get_raw_addr($addr)) {
+            Some(p) => p,
+            None => panic!("The iCFG has no procedure for {}.", $addr),
+        }
+    };
+}
+
 impl ICFG {
     pub fn new() -> ICFG {
         ICFG {
@@ -461,21 +503,13 @@ impl ICFG {
     }
 
     pub fn get_procedure_weight(&self, proc_addr: Address) -> Weight {
-        let w = match self.procedures.get(&proc_addr) {
-            Some(p) => p.cfg.get_weight(),
-            None => panic!("Procedure not known."),
-        };
-
-        w
+        get_procedure!(self, proc_addr).cfg.get_weight()
     }
 
     fn get_call_weights(&self, procedure: Address) -> HashMap<Address, Weight> {
         let mut p_weights: HashMap<Address, Weight> = HashMap::new();
         for n in self.graph.neighbors_directed(procedure, Outgoing) {
-            let n_weight: Weight = match self.procedures.get(&n) {
-                Some(neighbor) => neighbor.cfg.get_weight(),
-                None => panic!("No procedure was added in the iCFG for procedure."),
-            };
+            let n_weight: Weight = get_procedure!(self, n).cfg.get_weight();
             p_weights.insert(n, n_weight);
         }
         p_weights
@@ -484,10 +518,7 @@ impl ICFG {
     fn get_successor_weights(&self, procedure: &Address) -> HashMap<Address, Weight> {
         let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
         for neigh in self.graph.neighbors_directed(*procedure, Outgoing) {
-            let nw: Weight = match self.procedures.get(&neigh) {
-                Some(successor) => successor.cfg.get_weight(),
-                None => panic!("Neighbor node has no meta data."),
-            };
+            let nw: Weight = get_procedure!(self, neigh).cfg.get_weight();
             succ_weight.insert(neigh, nw);
         }
         succ_weight
@@ -496,13 +527,16 @@ impl ICFG {
     /// Adds an edge to the graph.
     /// The edge is only added once.
     pub fn add_edge(&mut self, from: (Address, Procedure), to: (Address, Procedure)) {
-        if !self.procedures.contains_key(&from.0) {
+        if !self.procedures.contains_key(&get_raw_addr(from.0)) {
             self.procedures.insert(from.0, from.1);
         }
-        if !self.procedures.contains_key(&to.0) {
+        if !self.procedures.contains_key(&get_raw_addr(to.0)) {
             self.procedures.insert(to.0, to.1);
         }
-        if !self.graph.contains_edge(from.0, to.0) {
+        if !self
+            .graph
+            .contains_edge(get_raw_addr(from.0), get_raw_addr(to.0))
+        {
             self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
         }
     }
@@ -534,10 +568,7 @@ impl FlowGraphOperations for ICFG {
             let succ_weights = self.get_successor_weights(paddr);
             // Get weight of all procedures this one calls
             let call_weights: HashMap<Address, Weight> = self.get_call_weights(*paddr);
-            let procedure: &mut Procedure = match self.procedures.get_mut(paddr) {
-                Some(p) => p,
-                None => panic!("Procedure is in iCFG but not in procedure list."),
-            };
+            let procedure: &mut Procedure = get_procedure_mut!(self, *paddr);
             // Update the weights of the called procedures.
             for (target_addr, traget_weight) in call_weights.iter() {
                 procedure
@@ -554,6 +585,12 @@ impl FlowGraphOperations for ICFG {
                 };
                 self.graph.add_edge(*paddr, *neighbor_addr, bias);
             }
+        }
+    }
+
+    fn add_cloned_edge(&mut self, from: Address, to: Address) {
+        if !self.graph.contains_edge(from, to) {
+            self.graph.add_edge(from, to, SamplingBias::new_unset());
         }
     }
 }
