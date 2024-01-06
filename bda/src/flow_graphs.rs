@@ -323,6 +323,24 @@ pub struct CFG {
     rev_topograph: Vec<Address>,
 }
 
+macro_rules! get_nodes_meta_mut {
+    ( $cfg:ident, $addr:expr ) => {
+        match $cfg.nodes_meta.get_mut(&$addr) {
+            Some(m) => m,
+            None => panic!("The CFG has no meta info for node {}.", $addr),
+        }
+    };
+}
+
+macro_rules! get_nodes_meta {
+    ( $cfg:ident, $addr:expr ) => {
+        match $cfg.nodes_meta.get(&$addr) {
+            Some(m) => m,
+            None => panic!("The CFG has no meta info for node {}.", $addr),
+        }
+    };
+}
+
 impl CFG {
     pub fn new() -> CFG {
         CFG {
@@ -350,10 +368,7 @@ impl CFG {
             Some(first) => *first,
             None => panic!("If get_weight() is called on a CFG, the weights must have been calculated before and it has to have nodes.")
         };
-        match self.nodes_meta.get(&entry_addr) {
-            Some(entry_weight) => entry_weight.weight,
-            None => panic!("Cannot determine CFG weight. No meta data for entry node exists!"),
-        }
+        get_nodes_meta!(self, entry_addr).weight
     }
 
     /// Adds an edge to the graph.
@@ -394,17 +409,11 @@ impl FlowGraphOperations for CFG {
         for n in self.rev_topograph.iter() {
             let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
             for neigh in self.graph.neighbors_directed(*n, Outgoing) {
-                let nw: Weight = match self.nodes_meta.get(&neigh) {
-                    Some(neigh_info) => neigh_info.weight,
-                    None => panic!("Neighbor node has no meta data."),
-                };
+                let nw: Weight = get_nodes_meta!(self, neigh).weight;
                 succ_weight.insert(neigh, nw);
             }
 
-            let info: &mut CFGNodeData = match self.nodes_meta.get_mut(&n) {
-                Some(info) => info,
-                None => panic!("Node is in topological graph, but has no meta information."),
-            };
+            let info: &mut CFGNodeData = get_nodes_meta_mut!(self, n);
             let sum_succ_weight = succ_weight.values().sum();
             info.weight = match info.ntype {
                 NodeType::Return => 1,
@@ -441,14 +450,8 @@ impl FlowGraphOperations for CFG {
     }
 
     fn add_cloned_edge(&mut self, from: Address, to: Address) {
-        let from_info: &CFGNodeData = match self.nodes_meta.get(&get_raw_addr(from)) {
-            Some(info) => info,
-            None => panic!("Cannot add cloned edge. 'from' node has no meta data defined."),
-        };
-        let to_info: &CFGNodeData = match self.nodes_meta.get(&get_raw_addr(to)) {
-            Some(info) => info,
-            None => panic!("Cannot add cloned edge. 'to' node has no meta data defined."),
-        };
+        let from_info: &CFGNodeData = get_nodes_meta!(self, get_raw_addr(from));
+        let to_info: &CFGNodeData = get_nodes_meta!(self, get_raw_addr(to));
         self.add_edge((from, *from_info), (to, *to_info));
     }
 }
