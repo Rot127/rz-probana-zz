@@ -51,7 +51,7 @@ pub fn get_clone_addr(addr: Address, c: u128) -> Address {
 }
 
 /// The node type of a CFG.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeType {
     /// First node of a procedure. It has only incomming
     /// edges from other procedures and always a weight of
@@ -284,7 +284,7 @@ pub trait FlowGraphOperations {
     fn get_graph(&self) -> &FlowGraph;
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CFGNodeData {
     pub weight: Weight,
     pub ntype: NodeType,
@@ -374,6 +374,9 @@ impl CFG {
     /// Adds an edge to the graph.
     /// The edge is only added once.
     pub fn add_edge(&mut self, from: (Address, CFGNodeData), to: (Address, CFGNodeData)) {
+        if from.0 == to.0 {
+            assert_eq!(from.1, to.1);
+        }
         if !self.nodes_meta.contains_key(&from.0) {
             self.nodes_meta.insert(from.0, from.1);
         }
