@@ -481,7 +481,7 @@ pub struct ICFG {
 }
 
 macro_rules! get_procedure_mut {
-    ( $icfg:expr, $addr:expr ) => {
+    ( $icfg:ident, $addr:expr ) => {
         match $icfg.procedures.get_mut(&get_raw_addr($addr)) {
             Some(p) => p,
             None => panic!("The iCFG has no procedure for {}.", $addr),
@@ -490,7 +490,7 @@ macro_rules! get_procedure_mut {
 }
 
 macro_rules! get_procedure {
-    ( $icfg:expr, $addr:expr ) => {
+    ( $icfg:ident, $addr:expr ) => {
         match $icfg.procedures.get(&get_raw_addr($addr)) {
             Some(p) => p,
             None => panic!("The iCFG has no procedure for {}.", $addr),
