@@ -6,4 +6,4 @@ pub mod flow_graphs;
 mod path_sampler;
 mod post_analysis;
 mod pre_processor;
-mod test_cfg;
+mod test_flow_graphs;
