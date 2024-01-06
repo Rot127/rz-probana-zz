@@ -384,6 +384,14 @@ impl CFG {
     }
 
     /// Get the total weight of the CFG.
+    pub fn get_node_weight(&self, node: Address) -> Weight {
+        if self.graph.node_count() == 0 {
+            return INVALID_WEIGHT;
+        }
+        get_nodes_meta!(self, node).weight
+    }
+
+    /// Get the total weight of the CFG.
     pub fn get_weight(&self) -> Weight {
         if self.graph.node_count() == 0 {
             return INVALID_WEIGHT;
