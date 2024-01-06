@@ -252,6 +252,12 @@ mod tests {
         CFG::new()
     }
 
+    fn get_cfg_single_node() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_node((0, CFGNodeData::new(NodeType::Return)));
+        cfg
+    }
+
     fn get_paper_example_cfg_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
@@ -518,5 +524,16 @@ mod tests {
         assert_eq!(cfg.nodes_meta.len(), 0);
         cfg.calc_weight();
         assert_eq!(cfg.get_weight(), INVALID_WEIGHT);
+    }
+
+    #[test]
+    fn test_cfg_single_node() {
+        let mut cfg: CFG = get_cfg_single_node();
+        cfg.make_acyclic();
+        assert_eq!(cfg.graph.edge_count(), 0);
+        assert_eq!(cfg.graph.node_count(), 1);
+        assert_eq!(cfg.nodes_meta.len(), 1);
+        cfg.calc_weight();
+        assert_eq!(cfg.get_weight(), 1);
     }
 }

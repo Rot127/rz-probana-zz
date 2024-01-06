@@ -391,6 +391,16 @@ impl CFG {
             self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
         }
     }
+
+    /// Adds an node to the graph.
+    /// If the node was present before, it nothing is done.
+    pub fn add_node(&mut self, node: (Address, CFGNodeData)) {
+        if self.nodes_meta.contains_key(&node.0) && self.graph.contains_node(node.0) {
+            return;
+        }
+        self.nodes_meta.insert(node.0, node.1);
+        self.graph.add_node(node.0);
+    }
 }
 
 impl FlowGraphOperations for CFG {
