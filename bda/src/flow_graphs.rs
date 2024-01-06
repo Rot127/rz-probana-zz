@@ -187,6 +187,11 @@ pub trait FlowGraphOperations {
         from >= to
     }
 
+    /// Remove an edge from the graph.
+    fn remove_edge(&mut self, from: &Address, to: &Address) {
+        self.get_graph_mut().remove_edge(*from, *to);
+    }
+
     /// Clones the nodes of an SCC within the graph of [self].
     /// Edges are added or removed so the SCC is afterwards cycle free.
     fn clone_nodes(&mut self, scc: &Vec<Address>, scc_edges: &HashSet<(Address, Address)>) {
@@ -212,7 +217,7 @@ pub trait FlowGraphOperations {
                     EdgeFlow::BackEdge,
                     MIN_DUPLICATE_BOUND,
                 );
-                self.get_graph_mut().remove_edge(*from, *to);
+                self.remove_edge(from, to);
             } else {
                 self.add_clones_to_graph(
                     &from,
