@@ -322,6 +322,48 @@ mod tests {
         cfg
     }
 
+    ///
+    /// ```
+    ///  0
+    ///  |
+    ///  1     +--+
+    /// | \    |  |
+    /// |  4 <-+-+
+    /// | /
+    /// 2
+    /// |
+    /// 3
+    /// ```
+    fn get_cfg_loop_self_ref() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Entry)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (2, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (2, CFGNodeData::new(NodeType::Normal)),
+            (3, CFGNodeData::new(NodeType::Return)),
+        );
+
+        cfg.add_edge(
+            (2, CFGNodeData::new(NodeType::Normal)),
+            (4, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (4, CFGNodeData::new(NodeType::Normal)),
+            (4, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (4, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg
+    }
+
     fn get_paper_example_cfg_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
@@ -423,12 +465,12 @@ mod tests {
     #[test]
     fn test_cfg_untangle() {
         let mut cfg = get_paper_example_cfg_loop();
-        println!(
-            "{:?}",
-            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
-        );
+        // println!(
+        //     "{:?}",
+        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        // );
         cfg.make_acyclic();
-        println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
+        // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.graph.edge_count(), 22);
         assert!(cfg.graph.contains_edge(0, 1));
@@ -523,15 +565,15 @@ mod tests {
     /// Test if the back-edge logic with jumps to lower addresses works.
     fn test_cfg_loop_subroutine_ret() {
         let mut cfg = get_cfg_no_loop_sub_routine_loop_ret();
-        println!(
-            "Graph:\n{:?}",
-            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
-        );
+        // println!(
+        //     "Graph:\n{:?}",
+        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        // );
         cfg.make_acyclic();
-        println!(
-            "Acyclic:\n{:?}",
-            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel])
-        );
+        // println!(
+        //     "Acyclic:\n{:?}",
+        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel])
+        // );
         assert_eq!(cfg.graph.node_count(), 23);
         assert_eq!(cfg.graph.edge_count(), 37);
 
@@ -714,6 +756,45 @@ mod tests {
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 2);
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 3)), 1);
+    }
+
+    #[test]
+    fn test_cfg_looped_self_ref() {
+        let mut cfg: CFG = get_cfg_loop_self_ref();
+        assert_eq!(cfg.graph.edge_count(), 6);
+        assert_eq!(cfg.graph.node_count(), 5);
+        assert_eq!(cfg.nodes_meta.len(), 5);
+        // println!(
+        //     "{:?}",
+        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        // );
+        cfg.make_acyclic();
+        // println!("{:?}", Dot::with_config(&cfg.graph, &[]));
+        assert_eq!(cfg.graph.edge_count(), 22);
+        assert_eq!(cfg.graph.node_count(), 14);
+        assert_eq!(cfg.nodes_meta.len(), 14);
+        cfg.calc_weight();
+        assert_eq!(cfg.graph.edge_count(), 22);
+        assert_eq!(cfg.graph.node_count(), 14);
+        assert_eq!(cfg.nodes_meta.len(), 14);
+        assert_eq!(cfg.get_weight(), 15);
+        assert_eq!(cfg.get_node_weight(0), 15);
+        assert_eq!(cfg.get_node_weight(1), 8);
+        assert_eq!(cfg.get_node_weight(2), 8);
+        assert_eq!(cfg.get_node_weight(3), 1);
+        assert_eq!(cfg.get_node_weight(4), 7);
+
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 4);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 3)), 1);
+
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 4);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 3)), 1);
+
+        assert_eq!(cfg.get_node_weight(get_clone_addr(4, 1)), 3);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(4, 2)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(4, 3)), 0);
     }
 
     #[test]

@@ -315,7 +315,7 @@ pub struct CFGNodeData {
 impl CFGNodeData {
     pub fn new(ntype: NodeType) -> CFGNodeData {
         CFGNodeData {
-            weight: INVALID_WEIGHT,
+            weight: UNDETERMINED_WEIGHT,
             ntype,
             call_target: INVALID_ADDRESS,
             is_indirect_call: false,
@@ -481,7 +481,7 @@ impl FlowGraphOperations for CFG {
                         }
                 }
             };
-            // Update weight of edges
+            // Update weight of edges/edge sampling bias
             for (k, nw) in succ_weight.iter() {
                 let bias: SamplingBias = SamplingBias {
                     numerator: *nw,
