@@ -536,6 +536,12 @@ mod tests {
     }
 
     #[test]
+    fn test_cfg_add_duplicate_node() {
+        let mut cfg: CFG = get_cfg_single_node();
+        cfg.add_node((0, CFGNodeData::new(NodeType::Return)));
+    }
+
+    #[test]
     fn test_cfg_single_node() {
         let mut cfg: CFG = get_cfg_single_node();
         cfg.make_acyclic();
@@ -544,6 +550,26 @@ mod tests {
         assert_eq!(cfg.nodes_meta.len(), 1);
         cfg.calc_weight();
         assert_eq!(cfg.get_weight(), 1);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Generated weight of CFG has weight 0. Does a return or invalid instruction exists?"
+    )]
+    fn test_cfg_no_return_node() {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.calc_weight();
+    }
+
+    #[test]
+    #[should_panic(expected = "Graph contains cycles. Cannot sort it to topological order.")]
+    fn test_cfg_calc_weight_before_acyclic() {
+        let mut cfg: CFG = get_cfg_single_self_ref();
+        cfg.calc_weight();
     }
 
     #[test]
