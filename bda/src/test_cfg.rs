@@ -8,7 +8,7 @@ mod tests {
 
     use crate::flow_graphs::{
         get_clone_addr, Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight,
-        CFG, ICFG,
+        CFG, ICFG, INVALID_WEIGHT,
     };
 
     const GEE_ADDR: Address = 0;
@@ -246,6 +246,10 @@ mod tests {
             (1, CFGNodeData::new(NodeType::Normal)),
         );
         cfg
+    }
+
+    fn get_cfg_empty() -> CFG {
+        CFG::new()
     }
 
     fn get_paper_example_cfg_loop() -> CFG {
@@ -503,5 +507,16 @@ mod tests {
         assert!(cfg.graph.contains_edge(n_clone(1, 1), 2));
         assert!(cfg.graph.contains_edge(n_clone(1, 2), 2));
         assert!(cfg.graph.contains_edge(n_clone(1, 3), 2));
+    }
+
+    #[test]
+    fn test_cfg_loop_empty() {
+        let mut cfg = get_cfg_empty();
+        cfg.make_acyclic();
+        assert_eq!(cfg.graph.edge_count(), 0);
+        assert_eq!(cfg.graph.node_count(), 0);
+        assert_eq!(cfg.nodes_meta.len(), 0);
+        cfg.calc_weight();
+        assert_eq!(cfg.get_weight(), INVALID_WEIGHT);
     }
 }
