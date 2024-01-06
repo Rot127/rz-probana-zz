@@ -5,9 +5,6 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    println!("cargo:rustc-link-search=/usr/local/lib");
-    println!("cargo:rerun-if-changed=wrapper.h");
-
     let rz_repo: String = match env::var("RZ_REPO_PATH") {
         Ok(v) => v,
         Err(_e) => {
@@ -15,10 +12,15 @@ fn main() {
             std::process::exit(1)
         }
     };
-    let rz_install_root: String = match env::var("RZ_INSTALL_ROOT") {
+    let rz_install_root: String = match env::var("RZ_INSTALL_ROOT_PATH") {
         Ok(v) => v,
         Err(_e) => String::from(""), // Try root
     };
+    println!("cargo:rustc-link-search=/usr/local/lib");
+    println!("cargo:rustc-link-search={}/usr/local/lib", rz_install_root);
+    println!("cargo:rerun-if-changed=wrapper.h");
+
+    println!("RZ_INSTALL_ROOT_PATH={}", rz_install_root);
 
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
@@ -29,6 +31,19 @@ fn main() {
         .clang_arg(format!("-I{}/usr/local/include/librz", rz_install_root))
         .clang_arg(format!(
             "-I{}/usr/local/include/librz/rz_util",
+            rz_install_root
+        ))
+        .clang_arg(format!("-I{}/usr/local/include/librz/sdb", rz_install_root))
+        .clang_arg(format!(
+            "-I{}/usr/local/include/librz/rz_crypto",
+            rz_install_root
+        ))
+        .clang_arg(format!(
+            "-I{}/usr/local/include/librz/rz_il",
+            rz_install_root
+        ))
+        .clang_arg(format!(
+            "-I{}/usr/local/include/librz/rz_il/definitions",
             rz_install_root
         ))
         .clang_arg(format!("-I{}/librz/util/sdb/src/", rz_repo))
