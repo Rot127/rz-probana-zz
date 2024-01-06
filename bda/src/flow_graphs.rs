@@ -46,7 +46,7 @@ pub const INVALID_ADDRESS: Address = u128::MAX;
 pub const MIN_DUPLICATE_BOUND: u64 = 3;
 
 /// Increments the clone count of the [addr] by [c] and returns the result.
-fn get_clone_addr(addr: Address, c: u128) -> Address {
+pub fn get_clone_addr(addr: Address, c: u128) -> Address {
     addr + (c << 64)
 }
 
@@ -532,18 +532,25 @@ impl ICFG {
     /// Adds an edge to the graph.
     /// The edge is only added once.
     pub fn add_edge(&mut self, from: (Address, Procedure), to: (Address, Procedure)) {
-        if !self.procedures.contains_key(&get_raw_addr(from.0)) {
-            self.procedures.insert(from.0, from.1);
+        // Check if a procedure is located at the actual address.
+        // For cloned node addresses we do not save procedures.
+        let from_actual_addr = get_raw_addr(from.0);
+        if !self.procedures.contains_key(&from_actual_addr) {
+            self.procedures.insert(from_actual_addr, from.1);
         }
-        if !self.procedures.contains_key(&get_raw_addr(to.0)) {
-            self.procedures.insert(to.0, to.1);
+        let to_actual_addr = get_raw_addr(to.0);
+        if !self.procedures.contains_key(&to_actual_addr) {
+            self.procedures.insert(to_actual_addr, to.1);
         }
-        if !self
-            .graph
-            .contains_edge(get_raw_addr(from.0), get_raw_addr(to.0))
-        {
+
+        // Add actual edge
+        if !self.graph.contains_edge(from.0, to.0) {
             self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
         }
+    }
+
+    pub fn num_procedures(&self) -> usize {
+        self.procedures.len()
     }
 }
 

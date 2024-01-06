@@ -7,7 +7,8 @@ mod tests {
     use petgraph::dot::{Config, Dot};
 
     use crate::flow_graphs::{
-        Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight, CFG, ICFG,
+        get_clone_addr, Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight,
+        CFG, ICFG,
     };
 
     const GEE_ADDR: Address = 0;
@@ -330,6 +331,19 @@ mod tests {
         assert_eq!(icfg.get_procedure_weight(MAIN_ADDR), 6);
         assert_eq!(icfg.get_procedure_weight(FOO_ADDR), 4);
         assert_eq!(icfg.get_procedure_weight(GEE_ADDR), 2);
+    }
+
+    #[test]
+    fn test_icfg_no_procedure_duplicates() {
+        let mut icfg: ICFG = get_paper_example_icfg();
+        // Add a cloned edge from main -> foo'()
+        icfg.add_edge(
+            (get_clone_addr(MAIN_ADDR, 0), Procedure::new(false)),
+            (get_clone_addr(FOO_ADDR, 1), Procedure::new(false)),
+        );
+        assert_eq!(icfg.num_procedures(), 3);
+        icfg.add_cloned_edge(get_clone_addr(MAIN_ADDR, 1), get_clone_addr(GEE_ADDR, 2));
+        assert_eq!(icfg.num_procedures(), 3);
     }
 
     #[test]
