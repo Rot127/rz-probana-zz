@@ -764,12 +764,12 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 6);
         assert_eq!(cfg.graph.node_count(), 5);
         assert_eq!(cfg.nodes_meta.len(), 5);
-        // println!(
-        //     "{:?}",
-        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
-        // );
+        println!(
+            "{:?}",
+            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        );
         cfg.make_acyclic();
-        // println!("{:?}", Dot::with_config(&cfg.graph, &[]));
+        println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_eq!(cfg.graph.edge_count(), 22);
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.nodes_meta.len(), 14);
