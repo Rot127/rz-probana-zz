@@ -258,6 +258,15 @@ mod tests {
         cfg
     }
 
+    fn get_cfg_single_self_ref() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Return)),
+            (0, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg
+    }
+
     fn get_paper_example_cfg_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
@@ -533,6 +542,29 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 0);
         assert_eq!(cfg.graph.node_count(), 1);
         assert_eq!(cfg.nodes_meta.len(), 1);
+        cfg.calc_weight();
+        assert_eq!(cfg.get_weight(), 1);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "If get_weight() is called on a CFG, the weights must have been calculated before."
+    )]
+    fn test_cfg_no_weight_before_acyclic() {
+        let cfg: CFG = get_cfg_single_self_ref();
+        cfg.get_weight();
+    }
+
+    #[test]
+    fn test_cfg_single_self_ref() {
+        let mut cfg: CFG = get_cfg_single_self_ref();
+        assert_eq!(cfg.graph.edge_count(), 1);
+        assert_eq!(cfg.graph.node_count(), 1);
+        assert_eq!(cfg.nodes_meta.len(), 1);
+        cfg.make_acyclic();
+        assert_eq!(cfg.graph.edge_count(), 3);
+        assert_eq!(cfg.graph.node_count(), 4);
+        assert_eq!(cfg.nodes_meta.len(), 4);
         cfg.calc_weight();
         assert_eq!(cfg.get_weight(), 1);
     }

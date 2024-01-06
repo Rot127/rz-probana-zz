@@ -5,6 +5,7 @@ use petgraph::algo::{tarjan_scc, toposort};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 
+use core::panic;
 use std::collections::{HashMap, HashSet};
 
 pub type FlowGraph = DiGraphMap<Address, SamplingBias>;
@@ -247,16 +248,30 @@ pub trait FlowGraphOperations {
         // SCCs are in reverse topological order. The nodes in each SCC are arbitrary
         for scc in sccs {
             let mut edges: HashSet<(Address, Address)> = HashSet::new();
-            if scc.len() <= 1 {
-                continue;
-            }
-            // Accumulate all edges of an SCC
-            for node in scc.iter() {
+            if scc.len() == 1 {
+                // Only add edges if they self refernce the node
+                let node = match scc.get(0) {
+                    Some(n) => n,
+                    None => panic!("Rust is broken. Vector size changed inbetween."),
+                };
                 for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
-                    edges.insert((incomming, *node));
+                    if incomming == *node {
+                        edges.insert((incomming, *node));
+                    }
                 }
-                for outgoing in self.get_graph().neighbors_directed(*node, Outgoing) {
-                    edges.insert((*node, outgoing));
+                if edges.is_empty() {
+                    // Not a self referencing SCC
+                    continue;
+                }
+            } else {
+                // Accumulate all edges of an SCC
+                for node in scc.iter() {
+                    for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
+                        edges.insert((incomming, *node));
+                    }
+                    for outgoing in self.get_graph().neighbors_directed(*node, Outgoing) {
+                        edges.insert((*node, outgoing));
+                    }
                 }
             }
             scc_groups.push((scc, edges));
