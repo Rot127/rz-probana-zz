@@ -100,6 +100,13 @@ pub struct SamplingBias {
 
 impl std::fmt::Display for SamplingBias {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.numerator == INVALID_WEIGHT && self.denominator == INVALID_WEIGHT {
+            return write!(f, "invalid/invalid");
+        } else if self.numerator == INVALID_WEIGHT {
+            return write!(f, "invalid/{:#x}", self.denominator);
+        } else if self.denominator == INVALID_WEIGHT {
+            return write!(f, "{:#x}/invalid", self.numerator);
+        }
         write!(f, "{:#x}/{:#x}", self.numerator, self.denominator)
     }
 }

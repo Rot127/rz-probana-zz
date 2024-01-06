@@ -7,8 +7,8 @@ mod tests {
     use petgraph::dot::{Config, Dot};
 
     use crate::flow_graphs::{
-        get_clone_addr, Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure, Weight,
-        CFG, ICFG, INVALID_WEIGHT,
+        get_clone_addr, Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure,
+        SamplingBias, Weight, CFG, ICFG, INVALID_WEIGHT,
     };
 
     const GEE_ADDR: Address = 0;
@@ -593,5 +593,25 @@ mod tests {
         assert_eq!(cfg.nodes_meta.len(), 4);
         cfg.calc_weight();
         assert_eq!(cfg.get_weight(), 1);
+    }
+
+    #[test]
+    fn test_sampling_bias_printing() {
+        assert_eq!(
+            SamplingBias::new(INVALID_WEIGHT, INVALID_WEIGHT).to_string(),
+            "invalid/invalid"
+        );
+        assert_eq!(
+            SamplingBias::new(1, INVALID_WEIGHT).to_string(),
+            "0x1/invalid"
+        );
+        assert_eq!(
+            SamplingBias::new(INVALID_WEIGHT, 0xfffffffffffffffe).to_string(),
+            "invalid/0xfffffffffffffffe"
+        );
+        assert_eq!(
+            SamplingBias::new(0xfffffffffffffffe, 0xfffffffffffffffe).to_string(),
+            "0xfffffffffffffffe/0xfffffffffffffffe"
+        );
     }
 }
