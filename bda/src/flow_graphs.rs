@@ -265,7 +265,6 @@ pub trait FlowGraphOperations {
         for group in scc_groups {
             self.clone_nodes(&group.0, &group.1);
         }
-        self.update_weights();
     }
 
     /// Update weights of graph
