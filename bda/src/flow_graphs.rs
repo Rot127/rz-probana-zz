@@ -270,15 +270,14 @@ pub trait FlowGraphOperations {
                     // Not a self referencing SCC
                     continue;
                 }
-            } else {
-                // Accumulate all edges of an SCC
-                for node in scc.iter() {
-                    for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
-                        edges.insert((incomming, *node));
-                    }
-                    for outgoing in self.get_graph().neighbors_directed(*node, Outgoing) {
-                        edges.insert((*node, outgoing));
-                    }
+            }
+            // Accumulate all edges of an SCC
+            for node in scc.iter() {
+                for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
+                    edges.insert((incomming, *node));
+                }
+                for outgoing in self.get_graph().neighbors_directed(*node, Outgoing) {
+                    edges.insert((*node, outgoing));
                 }
             }
             scc_groups.push((scc, edges));

@@ -305,6 +305,23 @@ mod tests {
         cfg
     }
 
+    fn get_cfg_self_ref_loop() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Entry)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (2, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg
+    }
+
     fn get_paper_example_cfg_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
@@ -673,6 +690,30 @@ mod tests {
         assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 3)), 1);
         assert_eq!(cfg.get_node_weight(get_clone_addr(2, 3)), 1);
+    }
+
+    #[test]
+    fn test_cfg_self_ref() {
+        let mut cfg: CFG = get_cfg_self_ref_loop();
+        assert_eq!(cfg.graph.edge_count(), 3);
+        assert_eq!(cfg.graph.node_count(), 3);
+        assert_eq!(cfg.nodes_meta.len(), 3);
+        cfg.make_acyclic();
+        assert_eq!(cfg.graph.edge_count(), 11);
+        assert_eq!(cfg.graph.node_count(), 6);
+        assert_eq!(cfg.nodes_meta.len(), 6);
+        cfg.calc_weight();
+        assert_eq!(cfg.graph.edge_count(), 11);
+        assert_eq!(cfg.graph.node_count(), 6);
+        assert_eq!(cfg.nodes_meta.len(), 6);
+        assert_eq!(cfg.get_weight(), 10);
+        assert_eq!(cfg.get_node_weight(0), 10);
+        assert_eq!(cfg.get_node_weight(1), 4);
+        assert_eq!(cfg.get_node_weight(2), 1);
+
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 3)), 1);
     }
 
     #[test]
