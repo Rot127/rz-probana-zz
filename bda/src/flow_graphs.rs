@@ -523,8 +523,8 @@ impl FlowGraphOperations for CFG {
 
 /// A node in an iCFG describing a procedure.
 pub struct Procedure {
-    // The CFG of the procedure
-    pub cfg: CFG,
+    // The CFG of the procedure. Must be None if already added.
+    pub cfg: Option<CFG>,
     /// Flag if this procedure is malloc.
     pub is_malloc: bool,
 }
@@ -532,8 +532,22 @@ pub struct Procedure {
 impl Procedure {
     pub fn new(is_malloc: bool) -> Procedure {
         Procedure {
-            cfg: CFG::new(),
+            cfg: Some(CFG::new()),
             is_malloc,
+        }
+    }
+
+    pub fn get_cfg(&self) -> &CFG {
+        match &self.cfg {
+            Some(cfg) => &cfg,
+            None => panic!("Procedure has no CFG defined."),
+        }
+    }
+
+    pub fn get_cfg_mut(&mut self) -> &mut CFG {
+        match &mut self.cfg {
+            Some(ref mut cfg) => cfg,
+            None => panic!("Procedure has no CFG defined."),
         }
     }
 }
@@ -576,13 +590,13 @@ impl ICFG {
     }
 
     pub fn get_procedure_weight(&self, proc_addr: Address) -> Weight {
-        get_procedure!(self, proc_addr).cfg.get_weight()
+        get_procedure!(self, proc_addr).get_cfg().get_weight()
     }
 
     fn get_call_weights(&self, procedure: Address) -> HashMap<Address, Weight> {
         let mut p_weights: HashMap<Address, Weight> = HashMap::new();
         for n in self.graph.neighbors_directed(procedure, Outgoing) {
-            let n_weight: Weight = get_procedure!(self, n).cfg.get_weight();
+            let n_weight: Weight = get_procedure!(self, n).get_cfg().get_weight();
             p_weights.insert(n, n_weight);
         }
         p_weights
@@ -591,7 +605,7 @@ impl ICFG {
     fn get_successor_weights(&self, procedure: &Address) -> HashMap<Address, Weight> {
         let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
         for neigh in self.graph.neighbors_directed(*procedure, Outgoing) {
-            let nw: Weight = get_procedure!(self, neigh).cfg.get_weight();
+            let nw: Weight = get_procedure!(self, neigh).get_cfg().get_weight();
             succ_weight.insert(neigh, nw);
         }
         succ_weight
@@ -652,16 +666,16 @@ impl FlowGraphOperations for ICFG {
             // Update the weights of the called procedures.
             for (target_addr, traget_weight) in call_weights.iter() {
                 procedure
-                    .cfg
+                    .get_cfg_mut()
                     .set_call_weight((*target_addr, *traget_weight));
             }
-            procedure.cfg.calc_weight();
+            procedure.get_cfg_mut().calc_weight();
 
             // Update weight of edges
             for (neighbor_addr, neighbor_weight) in succ_weights.iter() {
                 let bias: SamplingBias = SamplingBias {
                     numerator: *neighbor_weight,
-                    denominator: procedure.cfg.get_weight(),
+                    denominator: procedure.get_cfg().get_weight(),
                 };
                 self.graph.add_edge(*paddr, *neighbor_addr, bias);
             }

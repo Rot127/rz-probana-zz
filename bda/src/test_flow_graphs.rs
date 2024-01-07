@@ -124,56 +124,21 @@ mod tests {
     fn get_paper_example_icfg() -> ICFG {
         let mut icfg = ICFG::new();
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
         icfg.add_edge(
-            (
-                MAIN_ADDR,
-                Procedure {
-                    cfg: get_main_cfg(),
-                    is_malloc: false,
-                },
-            ),
-            (
-                FOO_ADDR,
-                Procedure {
-                    cfg: get_foo_cfg(),
-                    is_malloc: false,
-                },
-            ),
+            (MAIN_ADDR,Procedure {cfg: Some(get_main_cfg()), is_malloc: false}),
+            (FOO_ADDR,Procedure {cfg: Some(get_foo_cfg()), is_malloc: false})
         );
-
         icfg.add_edge(
-            (
-                MAIN_ADDR,
-                Procedure {
-                    cfg: get_main_cfg(),
-                    is_malloc: false,
-                },
-            ),
-            (
-                GEE_ADDR,
-                Procedure {
-                    cfg: get_gee_cfg(),
-                    is_malloc: false,
-                },
-            ),
+            (MAIN_ADDR,Procedure {cfg: None, is_malloc: false}),
+            (GEE_ADDR,Procedure {cfg: Some(get_gee_cfg()), is_malloc: false})
         );
-
         icfg.add_edge(
-            (
-                FOO_ADDR,
-                Procedure {
-                    cfg: get_foo_cfg(),
-                    is_malloc: false,
-                },
-            ),
-            (
-                GEE_ADDR,
-                Procedure {
-                    cfg: get_gee_cfg(),
-                    is_malloc: false,
-                },
-            ),
+            (FOO_ADDR,Procedure {cfg: None, is_malloc: false}),
+            (GEE_ADDR,Procedure {cfg: None, is_malloc: false})
         );
+        }
 
         icfg
     }
