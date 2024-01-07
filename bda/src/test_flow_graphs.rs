@@ -679,6 +679,13 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Edge 0x64 => 0xc8 does not exist.")]
+    fn test_cfg_get_invalid_edge() {
+        let cfg: CFG = get_cfg_single_self_ref();
+        cfg.get_edge_weight(100, 200);
+    }
+
+    #[test]
     fn test_cfg_single_self_ref() {
         let mut cfg: CFG = get_cfg_single_self_ref();
         assert_eq!(cfg.graph.edge_count(), 1);
