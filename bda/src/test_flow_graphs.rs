@@ -305,6 +305,35 @@ mod tests {
         cfg
     }
 
+    fn get_cfg_simple_loop_extra_nodes() -> CFG {
+        let mut cfg = CFG::new();
+        cfg.add_edge(
+            (10, CFGNodeData::new(NodeType::Entry)),
+            (0, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (0, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (1, CFGNodeData::new(NodeType::Normal)),
+            (2, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (2, CFGNodeData::new(NodeType::Normal)),
+            (1, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (2, CFGNodeData::new(NodeType::Normal)),
+            (3, CFGNodeData::new(NodeType::Normal)),
+        );
+        cfg.add_edge(
+            (3, CFGNodeData::new(NodeType::Normal)),
+            (13, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg
+    }
+
     fn get_cfg_self_ref_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
@@ -718,6 +747,62 @@ mod tests {
         assert_eq!(cfg.get_edge_weight(0, 1), &(1, 1));
         assert_eq!(cfg.get_edge_weight(1, 2), &(1, 1));
         assert_eq!(cfg.get_edge_weight(2, 3), &(1, 1));
+    }
+
+    #[test]
+    fn test_cfg_simple_loop_single_node_scc() {
+        let mut cfg: CFG = get_cfg_simple_loop_extra_nodes();
+        assert_eq!(cfg.graph.edge_count(), 6);
+        assert_eq!(cfg.graph.node_count(), 6);
+        assert_eq!(cfg.nodes_meta.len(), 6);
+        cfg.make_acyclic();
+        assert_eq!(cfg.graph.edge_count(), 17);
+        assert_eq!(cfg.graph.node_count(), 12);
+        assert_eq!(cfg.nodes_meta.len(), 12);
+        cfg.calc_weight();
+        assert_eq!(cfg.graph.edge_count(), 17);
+        assert_eq!(cfg.graph.node_count(), 12);
+        assert_eq!(cfg.nodes_meta.len(), 12);
+        assert_eq!(cfg.get_weight(), 10);
+        assert_eq!(cfg.get_node_weight(10), 10);
+        assert_eq!(cfg.get_node_weight(0), 10);
+        assert_eq!(cfg.get_node_weight(1), 4);
+        assert_eq!(cfg.get_node_weight(2), 4);
+        assert_eq!(cfg.get_node_weight(3), 1);
+        assert_eq!(cfg.get_node_weight(13), 1);
+
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 3);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 2)), 1);
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(0, 1)), &(4, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(1, 1)), &(3, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(2, 1)), &(2, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(3, 1)), &(1, 10));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(0, 2)), &(4, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(1, 2)), &(3, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(2, 2)), &(2, 2));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 1), get_clone_addr(3, 2)), &(1, 1));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(1, 1)), &(3, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(2, 1)), &(2, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(3, 1)), &(1, 2));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(0, 3)), &(1, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(0, 3)), &(1, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(0, 3)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 2), get_clone_addr(0, 3)), &(1, 1));
+
+        // Single node SCCs
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 3), get_clone_addr(0, 13)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 10), get_clone_addr(0, 0)), &(10, 10));
+        }
     }
 
     #[test]
