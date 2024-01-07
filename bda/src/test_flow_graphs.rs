@@ -509,32 +509,20 @@ mod tests {
 
         // Loop 2 -> 1 -> 2 ...
         assert!(cfg.graph.contains_edge(2, 0x10000000000000001));
-        assert!(cfg
-            .graph
-            .contains_edge(0x10000000000000001, 0x10000000000000002));
-        assert!(cfg
-            .graph
-            .contains_edge(0x10000000000000002, 0x20000000000000001));
-        assert!(cfg
-            .graph
-            .contains_edge(0x20000000000000002, 0x30000000000000001));
-        assert!(cfg
-            .graph
-            .contains_edge(0x30000000000000001, 0x30000000000000002));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert!(cfg.graph.contains_edge(0x10000000000000001, 0x10000000000000002));
+        assert!(cfg.graph.contains_edge(0x10000000000000002, 0x20000000000000001));
+        assert!(cfg.graph.contains_edge(0x20000000000000002, 0x30000000000000001));
+        assert!(cfg.graph.contains_edge(0x30000000000000001, 0x30000000000000002));
+
         // Loop 3 -> 2 -> 3 ...
         assert!(cfg.graph.contains_edge(3, 0x10000000000000002));
-        assert!(cfg
-            .graph
-            .contains_edge(0x10000000000000002, 0x10000000000000003));
-        assert!(cfg
-            .graph
-            .contains_edge(0x10000000000000003, 0x20000000000000002));
-        assert!(cfg
-            .graph
-            .contains_edge(0x20000000000000003, 0x30000000000000002));
-        assert!(cfg
-            .graph
-            .contains_edge(0x30000000000000002, 0x30000000000000003));
+        assert!(cfg.graph.contains_edge(0x10000000000000002, 0x10000000000000003));
+        assert!(cfg.graph.contains_edge(0x10000000000000003, 0x20000000000000002));
+        assert!(cfg.graph.contains_edge(0x20000000000000003, 0x30000000000000002));
+        assert!(cfg.graph.contains_edge(0x30000000000000002, 0x30000000000000003));
+        }
 
         // Into scc edges
         assert!(cfg.graph.contains_edge(0, 0x10000000000000001));
@@ -546,24 +534,15 @@ mod tests {
         assert!(cfg.graph.contains_edge(0x20000000000000003, 4));
         assert!(cfg.graph.contains_edge(0x30000000000000003, 4));
 
-        assert!(cfg
-            .graph
-            .contains_edge(0x10000000000000001, 0x10000000000000002));
-        assert!(cfg
-            .graph
-            .contains_edge(0x10000000000000002, 0x10000000000000003));
-        assert!(cfg
-            .graph
-            .contains_edge(0x20000000000000001, 0x20000000000000002));
-        assert!(cfg
-            .graph
-            .contains_edge(0x20000000000000002, 0x20000000000000003));
-        assert!(cfg
-            .graph
-            .contains_edge(0x30000000000000001, 0x30000000000000002));
-        assert!(cfg
-            .graph
-            .contains_edge(0x30000000000000002, 0x30000000000000003));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert!(cfg.graph.contains_edge(0x10000000000000001, 0x10000000000000002));
+        assert!(cfg.graph.contains_edge(0x10000000000000002, 0x10000000000000003));
+        assert!(cfg.graph.contains_edge(0x20000000000000001, 0x20000000000000002));
+        assert!(cfg.graph.contains_edge(0x20000000000000002, 0x20000000000000003));
+        assert!(cfg.graph.contains_edge(0x30000000000000001, 0x30000000000000002));
+        assert!(cfg.graph.contains_edge(0x30000000000000002, 0x30000000000000003));
+        }
     }
 
     fn n_clone(n: Address, clone_count: u128) -> Address {
