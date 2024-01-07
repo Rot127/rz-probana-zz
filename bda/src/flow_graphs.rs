@@ -47,7 +47,7 @@ pub const INVALID_ADDRESS: Address = u128::MAX;
 pub const MIN_DUPLICATE_BOUND: u64 = 3;
 
 /// Increments the clone count of the [addr] by [c] and returns the result.
-pub fn get_clone_addr(addr: Address, c: u128) -> Address {
+pub fn get_clone_addr(c: u128, addr: Address) -> Address {
     addr + (c << 64)
 }
 
@@ -174,13 +174,13 @@ pub trait FlowGraphOperations {
             let new_edge: (Address, Address) = match flow {
                 EdgeFlow::Outsider => {
                     if *from == *fix_node {
-                        (*from, get_clone_addr(*to, c))
+                        (*from, get_clone_addr(c, *to))
                     } else {
-                        (get_clone_addr(*from, c), *to)
+                        (get_clone_addr(c, *from), *to)
                     }
                 }
-                EdgeFlow::BackEdge => (get_clone_addr(*from, c), get_clone_addr(*to, c + 1)),
-                EdgeFlow::ForwardEdge => (get_clone_addr(*from, c), get_clone_addr(*to, c)),
+                EdgeFlow::BackEdge => (get_clone_addr(c, *from), get_clone_addr(c + 1, *to)),
+                EdgeFlow::ForwardEdge => (get_clone_addr(c, *from), get_clone_addr(c, *to)),
             };
             self.add_cloned_edge(new_edge.0, new_edge.1);
         }

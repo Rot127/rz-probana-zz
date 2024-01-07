@@ -454,11 +454,11 @@ mod tests {
         let mut icfg: ICFG = get_paper_example_icfg();
         // Add a cloned edge from main -> foo'()
         icfg.add_edge(
-            (get_clone_addr(MAIN_ADDR, 0), Procedure::new(false)),
-            (get_clone_addr(FOO_ADDR, 1), Procedure::new(false)),
+            (get_clone_addr(0, MAIN_ADDR), Procedure::new(false)),
+            (get_clone_addr(1, FOO_ADDR), Procedure::new(false)),
         );
         assert_eq!(icfg.num_procedures(), 3);
-        icfg.add_cloned_edge(get_clone_addr(MAIN_ADDR, 1), get_clone_addr(GEE_ADDR, 2));
+        icfg.add_cloned_edge(get_clone_addr(1, MAIN_ADDR), get_clone_addr(2, GEE_ADDR));
         assert_eq!(icfg.num_procedures(), 3);
     }
 
@@ -754,8 +754,8 @@ mod tests {
         assert_eq!(cfg.get_node_weight(2), 1);
 
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 3)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
     }
 
     #[test]
@@ -785,16 +785,16 @@ mod tests {
         assert_eq!(cfg.get_node_weight(4), 7);
 
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 4);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 3)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 4);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 4);
         assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 3)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 2)), 1);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(4, 1)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(4, 2)), 1);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(4, 3)), 0);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 4)), 3);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 4)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 4)), 0);
     }
 
     #[test]
