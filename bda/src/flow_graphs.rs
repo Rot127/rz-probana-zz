@@ -111,6 +111,18 @@ impl std::fmt::Display for SamplingBias {
     }
 }
 
+impl std::cmp::PartialEq for SamplingBias {
+    fn eq(&self, other: &Self) -> bool {
+        self.numerator == other.numerator && self.denominator == other.denominator
+    }
+}
+
+impl std::cmp::PartialEq<(Weight, Weight)> for SamplingBias {
+    fn eq(&self, other: &(Weight, Weight)) -> bool {
+        self.numerator == other.0 && self.denominator == other.1
+    }
+}
+
 impl SamplingBias {
     pub fn new(numerator: u64, denominator: u64) -> Self {
         SamplingBias {
@@ -145,6 +157,13 @@ pub trait FlowGraphOperations {
     /// The CFG and iCFG have to add the meta inforation to the cloned edge
     /// and add it afterwards to the real graph object.
     fn add_cloned_edge(&mut self, from: Address, to: Address);
+
+    fn get_edge_weight(&self, from: Address, to: Address) -> &SamplingBias {
+        match self.get_graph().edge_weight(from, to) {
+            Some(w) => w,
+            None => panic!("Edge {:#x} => {:#x} does not exist.", from, to),
+        }
+    }
 
     /// Adds clones of an edge to the graph of [self].
     /// The edge [from] -> [to] is duplicated [dup_bound] times.

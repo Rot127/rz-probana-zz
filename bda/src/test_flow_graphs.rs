@@ -704,6 +704,13 @@ mod tests {
         assert_eq!(cfg.nodes_meta.len(), 4);
         cfg.calc_weight();
         assert_eq!(cfg.get_weight(), 1);
+        assert_eq!(cfg.get_node_weight(0), 1);
+        assert_eq!(cfg.get_node_weight(1), 1);
+        assert_eq!(cfg.get_node_weight(2), 1);
+        assert_eq!(cfg.get_node_weight(3), 1);
+        assert_eq!(cfg.get_edge_weight(0, 1), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(1, 2), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(2, 3), &(1, 1));
     }
 
     #[test]
@@ -727,11 +734,33 @@ mod tests {
         assert_eq!(cfg.get_node_weight(3), 1);
 
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 2);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 3);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
         assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 3)), 1);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 3)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
+        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 2)), 1);
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(0, 1)), &(4, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(1, 1)), &(3, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(2, 1)), &(2, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(3, 1)), &(1, 10));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(0, 2)), &(4, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(1, 2)), &(3, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(2, 2)), &(2, 2));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 1), get_clone_addr(3, 2)), &(1, 1));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(1, 1)), &(3, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(2, 1)), &(2, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(3, 1)), &(1, 2));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(0, 3)), &(1, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(0, 3)), &(1, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(0, 3)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 2), get_clone_addr(0, 3)), &(1, 1));
+        }
     }
 
     #[test]
@@ -756,6 +785,23 @@ mod tests {
         assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
         assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
         assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(0, 1)), &(4, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(1, 1)), &(3, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(2, 1)), &(2, 10));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(3, 1)), &(1, 10));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(1, 1)), &(3, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(2, 1)), &(2, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(3, 1)), &(1, 2));
+
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(0, 2)), &(1, 4));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(0, 2)), &(1, 3));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(0, 2)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 1), get_clone_addr(0, 2)), &(1, 1));
+        }
     }
 
     #[test]
