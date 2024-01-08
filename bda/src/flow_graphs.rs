@@ -22,7 +22,7 @@ pub const INVALID_WEIGHT: Weight = u64::MAX;
 /// Value for undetermined weights.
 /// This is used for unresolved indirect calls and procedures
 /// which have no weight assigned yet.
-pub const UNDETERMINED_WEIGHT: Weight = 0;
+pub const UNDETERMINED_WEIGHT: Weight = 1;
 
 /// An address. It is used as node identifier. The high 64bits
 /// indicate the the clone ID.
@@ -313,7 +313,7 @@ pub trait FlowGraphOperations {
     }
 
     /// Calculate the node and edge weights over the whole graph.
-    fn calc_weight(&mut self);
+    fn calc_weight(&mut self) -> Weight;
 
     /// Sort the graph in reverse topological order.
     fn sort(&mut self);
@@ -357,6 +357,7 @@ pub struct CFG {
     /// Meta data for every node. Indexed by address.
     pub nodes_meta: HashMap<Address, CFGNodeData>,
     /// Weights of procedures this CFG calls.
+    /// Indexed by procedure address, value = procedure weight.
     pub call_target_weights: HashMap<Address, Weight>,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<Address>,
@@ -380,6 +381,23 @@ macro_rules! get_nodes_meta {
     };
 }
 
+macro_rules! get_call_weight {
+    ( $self:ident, $info:ident ) => {
+        match $self
+            .call_target_weights
+            .get(&get_raw_addr($info.call_target))
+        {
+            Some(w) => *w,
+            None => {
+                panic!(
+                    "Requested weight for procedure {:#x}, but it wasn't added yet.",
+                    $info.call_target
+                )
+            }
+        }
+    };
+}
+
 impl CFG {
     pub fn new() -> CFG {
         CFG {
@@ -390,15 +408,27 @@ impl CFG {
         }
     }
 
+    /// Updates the weight of a procedure.
+    /// If the given procedure is not called from the CFG, it panics.
+    pub fn update_procedure_weight(&mut self, paddr: Address, pweight: Weight) {
+        if !self.call_target_weights.contains_key(&get_raw_addr(paddr)) {
+            panic!(
+                "Attempt to add weight of procedure {:#x} to CFG. But this CFG doesn't call the procedure",
+                get_raw_addr(paddr)
+            )
+        }
+        self.set_call_weight(paddr, pweight);
+    }
+
     pub fn add_call_target_weights(&mut self, call_target_weights: &[&(Address, Weight)]) {
         for cw in call_target_weights {
-            self.call_target_weights.insert(cw.0, cw.1);
+            self.set_call_weight(cw.0, cw.1);
         }
     }
 
-    pub fn set_call_weight(&mut self, call_weight: (Address, Weight)) {
+    fn set_call_weight(&mut self, procedure_addr: Address, proc_weight: Weight) {
         self.call_target_weights
-            .insert(call_weight.0, call_weight.1);
+            .insert(get_raw_addr(procedure_addr), proc_weight);
     }
 
     /// Get the total weight of the CFG.
@@ -438,6 +468,12 @@ impl CFG {
         if !self.graph.contains_edge(from.0, to.0) {
             self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
         }
+        if from.1.ntype == NodeType::Call {
+            self.set_call_weight(from.1.call_target, UNDETERMINED_WEIGHT);
+        }
+        if to.1.ntype == NodeType::Call {
+            self.set_call_weight(to.1.call_target, UNDETERMINED_WEIGHT);
+        }
     }
 
     /// Adds an node to the graph.
@@ -448,6 +484,9 @@ impl CFG {
         }
         self.nodes_meta.insert(node.0, node.1);
         self.graph.add_node(node.0);
+        if node.1.ntype == NodeType::Call {
+            self.set_call_weight(node.1.call_target, UNDETERMINED_WEIGHT);
+        }
     }
 }
 
@@ -469,7 +508,7 @@ impl FlowGraphOperations for CFG {
         self.rev_topograph.reverse();
     }
 
-    fn calc_weight(&mut self) {
+    fn calc_weight(&mut self) -> Weight {
         self.sort();
         for n in self.rev_topograph.iter() {
             let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
@@ -485,20 +524,7 @@ impl FlowGraphOperations for CFG {
                 NodeType::Exit => 1,
                 NodeType::Normal => sum_succ_weight,
                 NodeType::Entry => sum_succ_weight,
-                NodeType::Call => {
-                    sum_succ_weight
-                        * match self.call_target_weights.get(&info.call_target) {
-                            Some(weight) => *weight,
-                            None => {
-                                if info.is_indirect_call {
-                                    // Weight not yet determined. Maybe later during abstract interpretation.
-                                    1
-                                } else {
-                                    panic!("There is no weight set for the called procedure.")
-                                }
-                            }
-                        }
-                }
+                NodeType::Call => sum_succ_weight * get_call_weight!(self, info),
             };
             // Update weight of edges/edge sampling bias
             for (k, nw) in succ_weight.iter() {
@@ -512,6 +538,7 @@ impl FlowGraphOperations for CFG {
         if self.get_weight() == 0 {
             panic!("Generated weight of CFG has weight 0. Does a return or invalid instruction exists?")
         }
+        self.get_weight()
     }
 
     fn add_cloned_edge(&mut self, from: Address, to: Address) {
@@ -530,13 +557,6 @@ pub struct Procedure {
 }
 
 impl Procedure {
-    pub fn new(is_malloc: bool) -> Procedure {
-        Procedure {
-            cfg: Some(CFG::new()),
-            is_malloc,
-        }
-    }
-
     pub fn get_cfg(&self) -> &CFG {
         match &self.cfg {
             Some(cfg) => &cfg,
@@ -593,15 +613,6 @@ impl ICFG {
         get_procedure!(self, proc_addr).get_cfg().get_weight()
     }
 
-    fn get_call_weights(&self, procedure: Address) -> HashMap<Address, Weight> {
-        let mut p_weights: HashMap<Address, Weight> = HashMap::new();
-        for n in self.graph.neighbors_directed(procedure, Outgoing) {
-            let n_weight: Weight = get_procedure!(self, n).get_cfg().get_weight();
-            p_weights.insert(n, n_weight);
-        }
-        p_weights
-    }
-
     fn get_successor_weights(&self, procedure: &Address) -> HashMap<Address, Weight> {
         let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
         for neigh in self.graph.neighbors_directed(*procedure, Outgoing) {
@@ -618,10 +629,16 @@ impl ICFG {
         // For cloned node addresses we do not save procedures.
         let from_actual_addr = get_raw_addr(from.0);
         if !self.procedures.contains_key(&from_actual_addr) {
+            if from.1.cfg.is_none() {
+                panic!("If a new node is added to the iCFG, the procedure can not be None.");
+            }
             self.procedures.insert(from_actual_addr, from.1);
         }
         let to_actual_addr = get_raw_addr(to.0);
         if !self.procedures.contains_key(&to_actual_addr) {
+            if to.1.cfg.is_none() {
+                panic!("If a new node is added to the iCFG, the procedure can not be None.");
+            }
             self.procedures.insert(to_actual_addr, to.1);
         }
 
@@ -655,23 +672,21 @@ impl FlowGraphOperations for ICFG {
     }
 
     /// Calculate the weight of the whole iCFG and all CFGs part of it.
-    fn calc_weight(&mut self) {
+    fn calc_weight(&mut self) -> Weight {
         self.sort();
         for paddr in self.rev_topograph.iter() {
-            // Get weight of all successor procedures
+            // Get weight of all successor procedures (procedures at outgoing edges)
             let succ_weights = self.get_successor_weights(paddr);
-            // Get weight of all procedures this one calls
-            let call_weights: HashMap<Address, Weight> = self.get_call_weights(*paddr);
             let procedure: &mut Procedure = get_procedure_mut!(self, *paddr);
             // Update the weights of the called procedures.
-            for (target_addr, traget_weight) in call_weights.iter() {
+            for (target_proc_addr, target_proc_weight) in succ_weights.iter() {
                 procedure
                     .get_cfg_mut()
-                    .set_call_weight((*target_addr, *traget_weight));
+                    .set_call_weight(*target_proc_addr, *target_proc_weight);
             }
-            procedure.get_cfg_mut().calc_weight();
+            let pweight = procedure.get_cfg_mut().calc_weight();
 
-            // Update weight of edges
+            // Update weight of outgoing edges
             for (neighbor_addr, neighbor_weight) in succ_weights.iter() {
                 let bias: SamplingBias = SamplingBias {
                     numerator: *neighbor_weight,
@@ -679,7 +694,27 @@ impl FlowGraphOperations for ICFG {
                 };
                 self.graph.add_edge(*paddr, *neighbor_addr, bias);
             }
+
+            // Now we know the weight of the procedure at paddr.
+            // Every CFG which calls this procedure, needs to be update with its weight info.
+            for i in self.graph.neighbors_directed(*paddr, Incoming) {
+                get_procedure_mut!(self, i)
+                    .get_cfg_mut()
+                    .update_procedure_weight(*paddr, pweight);
+            }
         }
+        if self.procedures.len() == 0 {
+            return UNDETERMINED_WEIGHT;
+        }
+        get_procedure!(
+            self,
+            match self.rev_topograph.last() {
+                Some(a) => *a,
+                None => panic!("Can not return a weight if no CFG was added."),
+            }
+        )
+        .get_cfg()
+        .get_weight()
     }
 
     fn add_cloned_edge(&mut self, from: Address, to: Address) {

@@ -11,10 +11,75 @@ mod tests {
         SamplingBias, Weight, CFG, ICFG, INVALID_WEIGHT,
     };
 
+    const A_ADDR: Address = 0xa0;
+    const B_ADDR: Address = 0xb0;
+    const C_ADDR: Address = 0xc0;
     const GEE_ADDR: Address = 0;
     const FOO_ADDR: Address = 6;
     const MAIN_ADDR: Address = 11;
     const RANDOM_FCN_ADDR: Address = 0x5a5a5a5a5a5a5a5a;
+
+    /// A -> B -> C -> A
+    ///           \  
+    ///            +--> C -> C ....
+    fn get_endless_loop_icfg() -> ICFG {
+        let mut icfg = ICFG::new();
+        let mut cfg_a = CFG::new();
+        let mut cfg_b = CFG::new();
+        let mut cfg_c = CFG::new();
+
+        cfg_a.add_edge(
+            (0xa0, CFGNodeData::new(NodeType::Entry)),
+            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
+        );
+        cfg_a.add_edge(
+            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
+            (0xa2, CFGNodeData::new(NodeType::Return)),
+        );
+
+        cfg_b.add_edge(
+            (0xb0, CFGNodeData::new(NodeType::Entry)),
+            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
+        );
+        cfg_b.add_edge(
+            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
+            (0xb2, CFGNodeData::new(NodeType::Return)),
+        );
+
+        cfg_c.add_edge(
+            (0xc0, CFGNodeData::new(NodeType::Entry)),
+            (0xc1, CFGNodeData::new_call(A_ADDR, false)),
+        );
+        cfg_c.add_edge(
+            (0xc1, CFGNodeData::new_call(A_ADDR, false)),
+            (0xc2, CFGNodeData::new_call(C_ADDR, false)),
+        );
+        cfg_c.add_edge(
+            (0xc2, CFGNodeData::new_call(C_ADDR, false)),
+            (0xc3, CFGNodeData::new(NodeType::Return)),
+        );
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        icfg.add_edge(
+            (A_ADDR, Procedure { cfg: Some(cfg_a), is_malloc: false }),
+            (B_ADDR, Procedure { cfg: Some(cfg_b), is_malloc: false }),
+        );
+        icfg.add_edge(
+            (B_ADDR, Procedure { cfg: None, is_malloc: false }),
+            (C_ADDR, Procedure { cfg: Some(cfg_c), is_malloc: false }),
+        );
+        icfg.add_edge(
+            (C_ADDR, Procedure { cfg: None, is_malloc: false }),
+            (C_ADDR, Procedure { cfg: None, is_malloc: false }),
+        );
+        icfg.add_edge(
+            (C_ADDR, Procedure { cfg: None, is_malloc: false }),
+            (A_ADDR, Procedure { cfg: None, is_malloc: false }),
+        );
+        }
+        icfg
+    }
 
     /// Returns the CFG of the gee() function
     /// of the BDA paper [^Figure 2.7.]
@@ -127,16 +192,16 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         icfg.add_edge(
-            (MAIN_ADDR,Procedure {cfg: Some(get_main_cfg()), is_malloc: false}),
-            (FOO_ADDR,Procedure {cfg: Some(get_foo_cfg()), is_malloc: false})
+            (MAIN_ADDR, Procedure {cfg: Some(get_main_cfg()), is_malloc: false}),
+            (FOO_ADDR, Procedure {cfg: Some(get_foo_cfg()), is_malloc: false})
         );
         icfg.add_edge(
-            (MAIN_ADDR,Procedure {cfg: None, is_malloc: false}),
-            (GEE_ADDR,Procedure {cfg: Some(get_gee_cfg()), is_malloc: false})
+            (MAIN_ADDR, Procedure {cfg: None, is_malloc: false}),
+            (GEE_ADDR, Procedure {cfg: Some(get_gee_cfg()), is_malloc: false})
         );
         icfg.add_edge(
-            (FOO_ADDR,Procedure {cfg: None, is_malloc: false}),
-            (GEE_ADDR,Procedure {cfg: None, is_malloc: false})
+            (FOO_ADDR, Procedure {cfg: None, is_malloc: false}),
+            (GEE_ADDR, Procedure {cfg: None, is_malloc: false})
         );
         }
 
@@ -447,10 +512,13 @@ mod tests {
     fn test_icfg_no_procedure_duplicates() {
         let mut icfg: ICFG = get_paper_example_icfg();
         // Add a cloned edge from main -> foo'()
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
         icfg.add_edge(
-            (get_clone_addr(0, MAIN_ADDR), Procedure::new(false)),
-            (get_clone_addr(1, FOO_ADDR), Procedure::new(false)),
+            (get_clone_addr(0, MAIN_ADDR), Procedure{cfg: None, is_malloc: false}),
+            (get_clone_addr(1, FOO_ADDR), Procedure{cfg: None, is_malloc: false}),
         );
+        }
         assert_eq!(icfg.num_procedures(), 3);
         icfg.add_cloned_edge(get_clone_addr(1, MAIN_ADDR), get_clone_addr(2, GEE_ADDR));
         assert_eq!(icfg.num_procedures(), 3);
@@ -897,5 +965,12 @@ mod tests {
             SamplingBias::new(0xfffffffffffffffe, 0xfffffffffffffffe).to_string(),
             "0xfffffffffffffffe/0xfffffffffffffffe"
         );
+    }
+
+    #[test]
+    fn test_icfg_acyclic() {
+        let mut icfg = get_endless_loop_icfg();
+        icfg.make_acyclic();
+        icfg.calc_weight();
     }
 }
