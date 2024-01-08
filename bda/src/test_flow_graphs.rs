@@ -972,5 +972,22 @@ mod tests {
         let mut icfg = get_endless_loop_icfg();
         icfg.make_acyclic();
         icfg.calc_weight();
+        // In this edge case, we can resolve a loop, but each path has the weight of 1.
+        // Sincen no CFG has a branch.
+        assert_eq!(icfg.get_procedure_weight(0xa0), 1);
+        assert_eq!(icfg.get_procedure_weight(0xb0), 1);
+        assert_eq!(icfg.get_procedure_weight(0xc0), 1);
+
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xa0)), 1);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xb0)), 1);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xc0)), 1);
+
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 1);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 1);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 1);
+
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 1);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 1);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 1);
     }
 }
