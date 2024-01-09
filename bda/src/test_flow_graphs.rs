@@ -62,20 +62,83 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         icfg.add_edge(
-            (A_ADDR, Procedure { cfg: Some(cfg_a), is_malloc: false }),
-            (B_ADDR, Procedure { cfg: Some(cfg_b), is_malloc: false }),
+            (A_ADDR, Procedure::new(Some(cfg_a), false )),
+            (B_ADDR, Procedure::new(Some(cfg_b), false )),
         );
         icfg.add_edge(
-            (B_ADDR, Procedure { cfg: None, is_malloc: false }),
-            (C_ADDR, Procedure { cfg: Some(cfg_c), is_malloc: false }),
+            (B_ADDR, Procedure::new(None, false )),
+            (C_ADDR, Procedure::new(Some(cfg_c), false )),
         );
         icfg.add_edge(
-            (C_ADDR, Procedure { cfg: None, is_malloc: false }),
-            (C_ADDR, Procedure { cfg: None, is_malloc: false }),
+            (C_ADDR, Procedure::new(None, false )),
+            (C_ADDR, Procedure::new(None, false )),
         );
         icfg.add_edge(
-            (C_ADDR, Procedure { cfg: None, is_malloc: false }),
-            (A_ADDR, Procedure { cfg: None, is_malloc: false }),
+            (C_ADDR, Procedure::new(None, false )),
+            (A_ADDR, Procedure::new(None, false )),
+        );
+        }
+        icfg
+    }
+
+    fn get_endless_loop_icfg_branch() -> ICFG {
+        let mut icfg = ICFG::new();
+        let mut cfg_a = CFG::new();
+        let mut cfg_b = CFG::new();
+        let mut cfg_d = CFG::new();
+
+        cfg_a.add_edge(
+            (0xa0, CFGNodeData::new(NodeType::Entry)),
+            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
+        );
+        cfg_a.add_edge(
+            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
+            (0xa2, CFGNodeData::new(NodeType::Return)),
+        );
+
+        cfg_b.add_edge(
+            (0xb0, CFGNodeData::new(NodeType::Entry)),
+            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
+        );
+        cfg_b.add_edge(
+            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
+            (0xb2, CFGNodeData::new(NodeType::Return)),
+        );
+
+        cfg_d.add_edge(
+            (0xd0, CFGNodeData::new(NodeType::Entry)),
+            (0xd1, CFGNodeData::new_call(A_ADDR, false)),
+        );
+        cfg_d.add_edge(
+            (0xd1, CFGNodeData::new_call(A_ADDR, false)),
+            (0xd3, CFGNodeData::new(NodeType::Return)),
+        );
+        cfg_d.add_edge(
+            (0xd0, CFGNodeData::new(NodeType::Entry)),
+            (0xd2, CFGNodeData::new_call(D_ADDR, false)),
+        );
+        cfg_d.add_edge(
+            (0xd2, CFGNodeData::new_call(D_ADDR, false)),
+            (0xd3, CFGNodeData::new(NodeType::Return)),
+        );
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        icfg.add_edge(
+            (A_ADDR, Procedure::new(Some(cfg_a), false)),
+            (B_ADDR, Procedure::new(Some(cfg_b), false)),
+        );
+        icfg.add_edge(
+            (B_ADDR, Procedure::new(None, false)),
+            (D_ADDR, Procedure::new(Some(cfg_d), false)),
+        );
+        icfg.add_edge(
+            (D_ADDR, Procedure::new(None, false)),
+            (D_ADDR, Procedure::new(None, false)),
+        );
+        icfg.add_edge(
+            (D_ADDR, Procedure::new(None, false)),
+            (A_ADDR, Procedure::new(None, false)),
         );
         }
         icfg
@@ -192,16 +255,16 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         icfg.add_edge(
-            (MAIN_ADDR, Procedure {cfg: Some(get_main_cfg()), is_malloc: false}),
-            (FOO_ADDR, Procedure {cfg: Some(get_foo_cfg()), is_malloc: false})
+            (MAIN_ADDR, Procedure::new(Some(get_main_cfg()), false)),
+            (FOO_ADDR, Procedure::new(Some(get_foo_cfg()), false))
         );
         icfg.add_edge(
-            (MAIN_ADDR, Procedure {cfg: None, is_malloc: false}),
-            (GEE_ADDR, Procedure {cfg: Some(get_gee_cfg()), is_malloc: false})
+            (MAIN_ADDR, Procedure::new(None, false)),
+            (GEE_ADDR, Procedure::new(Some(get_gee_cfg()), false))
         );
         icfg.add_edge(
-            (FOO_ADDR, Procedure {cfg: None, is_malloc: false}),
-            (GEE_ADDR, Procedure {cfg: None, is_malloc: false})
+            (FOO_ADDR, Procedure::new(None, false)),
+            (GEE_ADDR, Procedure::new(None, false))
         );
         }
 
@@ -515,8 +578,8 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         icfg.add_edge(
-            (get_clone_addr(0, MAIN_ADDR), Procedure{cfg: None, is_malloc: false}),
-            (get_clone_addr(1, FOO_ADDR), Procedure{cfg: None, is_malloc: false}),
+            (get_clone_addr(0, MAIN_ADDR), Procedure::new(None, false)),
+            (get_clone_addr(1, FOO_ADDR), Procedure::new(None, false)),
         );
         }
         assert_eq!(icfg.num_procedures(), 3);
@@ -968,7 +1031,7 @@ mod tests {
     }
 
     #[test]
-    fn test_icfg_acyclic() {
+    fn test_icfg_endless_acyclic() {
         let mut icfg = get_endless_loop_icfg();
         icfg.make_acyclic();
         icfg.calc_weight();
@@ -989,5 +1052,29 @@ mod tests {
         assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 1);
         assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 1);
         assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 1);
+    }
+
+    #[test]
+    fn test_icfg_endless_with_branch_acyclic() {
+        let mut icfg = get_endless_loop_icfg_branch();
+        icfg.make_acyclic();
+        icfg.calc_weight();
+        // In this edge case, we can resolve a loop, but each path has the weight of 1.
+        // Sincen no CFG has a branch.
+        assert_eq!(icfg.get_procedure_weight(0xa0), 16);
+        assert_eq!(icfg.get_procedure_weight(0xb0), 16);
+        assert_eq!(icfg.get_procedure_weight(0xc0), 16);
+
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xa0)), 8);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xb0)), 8);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xc0)), 8);
+
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 4);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 4);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 4);
+
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 2);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 2);
+        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 2);
     }
 }

@@ -551,12 +551,16 @@ impl FlowGraphOperations for CFG {
 /// A node in an iCFG describing a procedure.
 pub struct Procedure {
     // The CFG of the procedure. Must be None if already added.
-    pub cfg: Option<CFG>,
+    cfg: Option<CFG>,
     /// Flag if this procedure is malloc.
-    pub is_malloc: bool,
+    is_malloc: bool,
 }
 
 impl Procedure {
+    pub fn new(cfg: Option<CFG>, is_malloc: bool) -> Procedure {
+        Procedure { cfg, is_malloc }
+    }
+
     pub fn get_cfg(&self) -> &CFG {
         match &self.cfg {
             Some(cfg) => &cfg,
@@ -607,6 +611,14 @@ impl ICFG {
             procedures: HashMap::new(),
             rev_topograph: Vec::new(),
         }
+    }
+
+    pub fn get_procedure(&self, proc_addr: Address) -> &Procedure {
+        get_procedure!(self, proc_addr)
+    }
+
+    pub fn get_procedure_mut(&mut self, proc_addr: Address) -> &mut Procedure {
+        get_procedure_mut!(self, proc_addr)
     }
 
     pub fn get_procedure_weight(&self, proc_addr: Address) -> Weight {
