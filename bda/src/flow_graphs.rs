@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use petgraph::algo::{tarjan_scc, toposort};
+use petgraph::algo::tarjan_scc;
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 
 use core::panic;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-pub type FlowGraph = DiGraphMap<Address, SamplingBias>;
+pub type FlowGraph = DiGraphMap<NodeId, SamplingBias>;
 
 pub type Weight = u64;
 
@@ -24,67 +24,66 @@ pub const INVALID_WEIGHT: Weight = u64::MAX;
 /// which have no weight assigned yet.
 pub const UNDETERMINED_WEIGHT: Weight = 1;
 
-/// An address. It is used as node identifier. The high 64bits
-/// indicate the the clone ID.
-/// Each node, which is part of a loop, gets duplicated
+pub type Address = u64;
+
+/// Each node in an iCFG or CFG gets assigned an ID.
+/// This id, which is part of a loop, gets duplicated
 /// up to i times to resolve cycles. [^2.4.3]
 ///
-/// We can sacrifice some of the high bits to the lower
-/// bits if we need 48bit addresses (or other) in the future.
 ///
 /// [^2.4.3] https://doi.org/10.25394/PGS.23542014.v1
-pub type Address = u128;
-
-/// Returns the address value without the clone ID.
-pub fn get_raw_addr(addr: Address) -> u128 {
-    addr & 0xffffffffffffffff
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub struct NodeId {
+    pub icfg_clone_id: u32,
+    pub cfg_clone_id: u32,
+    pub address: Address,
 }
 
-pub const INVALID_ADDRESS: Address = u128::MAX;
+pub const INVALID_NODE_ID: NodeId = NodeId {
+    icfg_clone_id: u32::MAX,
+    cfg_clone_id: u32::MAX,
+    address: u64::MAX,
+};
+
+impl NodeId {
+    pub fn new(icfg_clone_id: u32, cfg_clone_id: u32, address: u64) -> NodeId {
+        NodeId {
+            icfg_clone_id,
+            cfg_clone_id,
+            address,
+        }
+    }
+
+    pub fn get_orig_node_id(&self) -> NodeId {
+        NodeId {
+            icfg_clone_id: 0,
+            cfg_clone_id: 0,
+            address: self.address,
+        }
+    }
+}
+
+impl std::fmt::Display for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "({}:{}:{:#x})",
+            self.icfg_clone_id, self.cfg_clone_id, self.address
+        )
+    }
+}
+
+impl std::cmp::PartialEq<u128> for NodeId {
+    fn eq(&self, other: &u128) -> bool {
+        self.icfg_clone_id == (*other >> 96) as u32
+            && self.cfg_clone_id == ((*other >> 64) as u32 & u32::MAX)
+            && self.address == *other as u64
+    }
+}
 
 /// Minimum times nodes of a loop get duplicated in a graph
 /// to make it loop free.
-pub const MIN_DUPLICATE_BOUND: u64 = 3;
-
-/// Increments the clone count of the [addr] by [c] and returns the result.
-pub fn get_clone_addr(c: u128, addr: Address) -> Address {
-    addr + (c << 64)
-}
-
-/// The node type of a CFG.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NodeType {
-    /// First node of a procedure. It has only incomming
-    /// edges from other procedures and always a weight of
-    ///
-    ///   W\[iaddr\] = W\[successor\]
-    ///
-    Entry,
-    /// A node without any special meaning in the graph.
-    /// It's weight is:
-    ///
-    ///   foreach s in addr.successors:
-    ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
-    ///
-    Normal,
-    /// A node which calls a procedure.
-    /// Its weight is defined as:
-    ///
-    ///   W\[iaddr\] = W\[ret_addr\] × W\[callee\]
-    ///
-    Call,
-    /// A return node. This is always a leaf and always has
-    ///
-    ///   W\[iaddr\] = 1
-    ///
-    Return,
-    /// A node which exits the procedure without return.
-    /// Its weight is defined by:
-    ///
-    ///   W\[iaddr\] = 1
-    ///
-    Exit,
-}
+pub const MIN_DUPLICATE_BOUND: u32 = 3;
 
 /// Sampling bias of each path. Used as edge weight.
 ///
@@ -92,10 +91,10 @@ pub enum NodeType {
 /// If from node A 6000 paths can be reached and the outgoing
 /// edge (A, B) leads to 40 of those, the sampling bias is 40/6000
 /// for edge (A, B)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SamplingBias {
-    numerator: Weight,
-    denominator: Weight,
+    pub numerator: Weight,
+    pub denominator: Weight,
 }
 
 impl std::fmt::Display for SamplingBias {
@@ -156,14 +155,17 @@ pub trait FlowGraphOperations {
     /// Add a cloned edge to the graph.
     /// The CFG and iCFG have to add the meta inforation to the cloned edge
     /// and add it afterwards to the real graph object.
-    fn add_cloned_edge(&mut self, from: Address, to: Address);
+    fn add_cloned_edge(&mut self, from: NodeId, to: NodeId);
 
-    fn get_edge_weight(&self, from: Address, to: Address) -> &SamplingBias {
+    fn get_edge_weight(&self, from: NodeId, to: NodeId) -> &SamplingBias {
         match self.get_graph().edge_weight(from, to) {
             Some(w) => w,
-            None => panic!("Edge {:#x} => {:#x} does not exist.", from, to),
+            None => panic!("Edge {} => {} does not exist.", from, to),
         }
     }
+
+    /// Returns the next (incremented) clone of [id] by returning a copy of [id].
+    fn get_next_node_id_clone(increment: u32, nid: NodeId) -> NodeId;
 
     /// Adds clones of an edge to the graph of [self].
     /// The edge [from] -> [to] is duplicated [dup_bound] times.
@@ -173,33 +175,38 @@ pub trait FlowGraphOperations {
     /// from/to the cloned node are added.
     fn add_clones_to_graph(
         &mut self,
-        from: &Address,
-        to: &Address,
-        fix_node: &Address,
+        from: &NodeId,
+        to: &NodeId,
+        fix_node: &NodeId,
         flow: EdgeFlow,
-        dup_bound: u64,
+        dup_bound: u32,
     ) {
         assert!(
             from == fix_node
                 || to == fix_node
-                || (*fix_node == INVALID_ADDRESS && flow != EdgeFlow::Outsider)
+                || (*fix_node == INVALID_NODE_ID && flow != EdgeFlow::Outsider)
         );
 
         for i in 0..=dup_bound {
-            let c = i as u128;
             if flow == EdgeFlow::BackEdge && i == dup_bound {
                 break;
             }
-            let new_edge: (Address, Address) = match flow {
+            let new_edge: (NodeId, NodeId) = match flow {
                 EdgeFlow::Outsider => {
                     if *from == *fix_node {
-                        (*from, get_clone_addr(c, *to))
+                        (*from, Self::get_next_node_id_clone(i, *to))
                     } else {
-                        (get_clone_addr(c, *from), *to)
+                        (Self::get_next_node_id_clone(i, *from), *to)
                     }
                 }
-                EdgeFlow::BackEdge => (get_clone_addr(c, *from), get_clone_addr(c + 1, *to)),
-                EdgeFlow::ForwardEdge => (get_clone_addr(c, *from), get_clone_addr(c, *to)),
+                EdgeFlow::BackEdge => (
+                    Self::get_next_node_id_clone(i, *from),
+                    Self::get_next_node_id_clone(i + 1, *to),
+                ),
+                EdgeFlow::ForwardEdge => (
+                    Self::get_next_node_id_clone(i, *from),
+                    Self::get_next_node_id_clone(i, *to),
+                ),
             };
             self.add_cloned_edge(new_edge.0, new_edge.1);
         }
@@ -210,18 +217,18 @@ pub trait FlowGraphOperations {
     /// to the higher address.
     /// This function is only valid, if both nodes
     /// are part of the same strongly connected component.
-    fn is_back_edge(&self, from: &Address, to: &Address) -> bool {
-        from >= to
+    fn is_back_edge(&self, from: &NodeId, to: &NodeId) -> bool {
+        from.address >= to.address
     }
 
     /// Remove an edge from the graph.
-    fn remove_edge(&mut self, from: &Address, to: &Address) {
+    fn remove_edge(&mut self, from: &NodeId, to: &NodeId) {
         self.get_graph_mut().remove_edge(*from, *to);
     }
 
     /// Clones the nodes of an SCC within the graph of [self].
     /// Edges are added or removed so the SCC is afterwards cycle free.
-    fn clone_nodes(&mut self, scc: &Vec<Address>, scc_edges: &HashSet<(Address, Address)>) {
+    fn clone_nodes(&mut self, scc: &Vec<NodeId>, scc_edges: &HashSet<(NodeId, NodeId)>) {
         for (from, to) in scc_edges {
             if !scc.contains(&from) {
                 // Edge into the SCC
@@ -240,7 +247,7 @@ pub trait FlowGraphOperations {
                 self.add_clones_to_graph(
                     &from,
                     &to,
-                    &INVALID_ADDRESS,
+                    &INVALID_NODE_ID,
                     EdgeFlow::BackEdge,
                     MIN_DUPLICATE_BOUND,
                 );
@@ -249,7 +256,7 @@ pub trait FlowGraphOperations {
                 self.add_clones_to_graph(
                     &from,
                     &to,
-                    &INVALID_ADDRESS,
+                    &INVALID_NODE_ID,
                     EdgeFlow::ForwardEdge,
                     MIN_DUPLICATE_BOUND,
                 );
@@ -269,11 +276,11 @@ pub trait FlowGraphOperations {
         // Strongly connected components
         let sccs = tarjan_scc(self.get_graph());
         // The SCC and Edges from, to and within the SCC
-        let mut scc_groups: Vec<(Vec<Address>, HashSet<(Address, Address)>)> = Vec::new();
+        let mut scc_groups: Vec<(Vec<NodeId>, HashSet<(NodeId, NodeId)>)> = Vec::new();
 
         // SCCs are in reverse topological order. The nodes in each SCC are arbitrary
         for scc in sccs {
-            let mut edges: HashSet<(Address, Address)> = HashSet::new();
+            let mut edges: HashSet<(NodeId, NodeId)> = HashSet::new();
             if scc.len() == 1 {
                 // Only add edges if they self refernce the node
                 let node = match scc.get(0) {
@@ -305,7 +312,11 @@ pub trait FlowGraphOperations {
         for group in scc_groups {
             self.clone_nodes(&group.0, &group.1);
         }
+        self.clean_up_acyclic()
     }
+
+    /// Specific clean up tasks after making the graph acyclic.
+    fn clean_up_acyclic(&mut self);
 
     /// Update weights of graph
     fn update_weights(&mut self) {
@@ -321,419 +332,6 @@ pub trait FlowGraphOperations {
     fn get_graph_mut(&mut self) -> &mut FlowGraph;
 
     fn get_graph(&self) -> &FlowGraph;
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CFGNodeData {
-    pub weight: Weight,
-    pub ntype: NodeType,
-    pub call_target: Address,
-    pub is_indirect_call: bool,
-}
-
-impl CFGNodeData {
-    pub fn new(ntype: NodeType) -> CFGNodeData {
-        CFGNodeData {
-            weight: UNDETERMINED_WEIGHT,
-            ntype,
-            call_target: INVALID_ADDRESS,
-            is_indirect_call: false,
-        }
-    }
-    pub fn new_call(call_target: Address, is_indirect_call: bool) -> CFGNodeData {
-        CFGNodeData {
-            weight: UNDETERMINED_WEIGHT,
-            ntype: NodeType::Call,
-            call_target,
-            is_indirect_call,
-        }
-    }
-}
-
-/// A control-flow graph of a procedure
-pub struct CFG {
-    /// The graph. Nodes are the addresses of instruction words
-    pub graph: DiGraphMap<Address, SamplingBias>,
-    /// Meta data for every node. Indexed by address.
-    pub nodes_meta: HashMap<Address, CFGNodeData>,
-    /// Weights of procedures this CFG calls.
-    /// Indexed by procedure address, value = procedure weight.
-    pub call_target_weights: HashMap<Address, Weight>,
-    /// Reverse topoloical sorted graph
-    rev_topograph: Vec<Address>,
-}
-
-macro_rules! get_nodes_meta_mut {
-    ( $cfg:ident, $addr:expr ) => {
-        match $cfg.nodes_meta.get_mut(&$addr) {
-            Some(m) => m,
-            None => panic!("The CFG has no meta info for node {}.", $addr),
-        }
-    };
-}
-
-macro_rules! get_nodes_meta {
-    ( $cfg:ident, $addr:expr ) => {
-        match $cfg.nodes_meta.get(&$addr) {
-            Some(m) => m,
-            None => panic!("The CFG has no meta info for node {}.", $addr),
-        }
-    };
-}
-
-macro_rules! get_call_weight {
-    ( $self:ident, $info:ident ) => {
-        match $self
-            .call_target_weights
-            .get(&get_raw_addr($info.call_target))
-        {
-            Some(w) => *w,
-            None => {
-                panic!(
-                    "Requested weight for procedure {:#x}, but it wasn't added yet.",
-                    $info.call_target
-                )
-            }
-        }
-    };
-}
-
-impl CFG {
-    pub fn new() -> CFG {
-        CFG {
-            graph: DiGraphMap::new(),
-            nodes_meta: HashMap::new(),
-            call_target_weights: HashMap::new(),
-            rev_topograph: Vec::new(),
-        }
-    }
-
-    /// Updates the weight of a procedure.
-    /// If the given procedure is not called from the CFG, it panics.
-    pub fn update_procedure_weight(&mut self, paddr: Address, pweight: Weight) {
-        if !self.call_target_weights.contains_key(&get_raw_addr(paddr)) {
-            panic!(
-                "Attempt to add weight of procedure {:#x} to CFG. But this CFG doesn't call the procedure",
-                get_raw_addr(paddr)
-            )
-        }
-        self.set_call_weight(paddr, pweight);
-    }
-
-    pub fn add_call_target_weights(&mut self, call_target_weights: &[&(Address, Weight)]) {
-        for cw in call_target_weights {
-            self.set_call_weight(cw.0, cw.1);
-        }
-    }
-
-    fn set_call_weight(&mut self, procedure_addr: Address, proc_weight: Weight) {
-        self.call_target_weights
-            .insert(get_raw_addr(procedure_addr), proc_weight);
-    }
-
-    /// Get the total weight of the CFG.
-    pub fn get_node_weight(&self, node: Address) -> Weight {
-        if self.graph.node_count() == 0 {
-            return INVALID_WEIGHT;
-        }
-        get_nodes_meta!(self, node).weight
-    }
-
-    /// Get the total weight of the CFG.
-    pub fn get_weight(&self) -> Weight {
-        if self.graph.node_count() == 0 {
-            return INVALID_WEIGHT;
-        }
-        let entry_addr = match self.rev_topograph.last() {
-            Some(first) => *first,
-            None => panic!(
-                "If get_weight() is called on a CFG, the weights must have been calculated before."
-            ),
-        };
-        get_nodes_meta!(self, entry_addr).weight
-    }
-
-    /// Adds an edge to the graph.
-    /// The edge is only added once.
-    pub fn add_edge(&mut self, from: (Address, CFGNodeData), to: (Address, CFGNodeData)) {
-        if from.0 == to.0 {
-            assert_eq!(from.1, to.1);
-        }
-        if !self.nodes_meta.contains_key(&from.0) {
-            self.nodes_meta.insert(from.0, from.1);
-        }
-        if !self.nodes_meta.contains_key(&to.0) {
-            self.nodes_meta.insert(to.0, to.1);
-        }
-        if !self.graph.contains_edge(from.0, to.0) {
-            self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
-        }
-        if from.1.ntype == NodeType::Call {
-            self.set_call_weight(from.1.call_target, UNDETERMINED_WEIGHT);
-        }
-        if to.1.ntype == NodeType::Call {
-            self.set_call_weight(to.1.call_target, UNDETERMINED_WEIGHT);
-        }
-    }
-
-    /// Adds an node to the graph.
-    /// If the node was present before, it nothing is done.
-    pub fn add_node(&mut self, node: (Address, CFGNodeData)) {
-        if self.nodes_meta.contains_key(&node.0) && self.graph.contains_node(node.0) {
-            return;
-        }
-        self.nodes_meta.insert(node.0, node.1);
-        self.graph.add_node(node.0);
-        if node.1.ntype == NodeType::Call {
-            self.set_call_weight(node.1.call_target, UNDETERMINED_WEIGHT);
-        }
-    }
-}
-
-impl FlowGraphOperations for CFG {
-    fn get_graph_mut(&mut self) -> &mut FlowGraph {
-        &mut self.graph
-    }
-
-    fn get_graph(&self) -> &FlowGraph {
-        &self.graph
-    }
-
-    fn sort(&mut self) {
-        // Remove cycles
-        self.rev_topograph = match toposort(&self.graph, None) {
-            Ok(graph) => graph,
-            Err(_) => panic!("Graph contains cycles. Cannot sort it to topological order."),
-        };
-        self.rev_topograph.reverse();
-    }
-
-    fn calc_weight(&mut self) -> Weight {
-        self.sort();
-        for n in self.rev_topograph.iter() {
-            let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
-            for neigh in self.graph.neighbors_directed(*n, Outgoing) {
-                let nw: Weight = get_nodes_meta!(self, neigh).weight;
-                succ_weight.insert(neigh, nw);
-            }
-
-            let info: &mut CFGNodeData = get_nodes_meta_mut!(self, n);
-            let sum_succ_weight = succ_weight.values().sum();
-            info.weight = match info.ntype {
-                NodeType::Return => 1,
-                NodeType::Exit => 1,
-                NodeType::Normal => sum_succ_weight,
-                NodeType::Entry => sum_succ_weight,
-                NodeType::Call => sum_succ_weight * get_call_weight!(self, info),
-            };
-            // Update weight of edges/edge sampling bias
-            for (k, nw) in succ_weight.iter() {
-                let bias: SamplingBias = SamplingBias {
-                    numerator: *nw,
-                    denominator: info.weight,
-                };
-                self.graph.add_edge(*n, *k, bias);
-            }
-        }
-        if self.get_weight() == 0 {
-            panic!("Generated weight of CFG has weight 0. Does a return or invalid instruction exists?")
-        }
-        self.get_weight()
-    }
-
-    fn add_cloned_edge(&mut self, from: Address, to: Address) {
-        let from_info: &CFGNodeData = get_nodes_meta!(self, get_raw_addr(from));
-        let to_info: &CFGNodeData = get_nodes_meta!(self, get_raw_addr(to));
-        self.add_edge((from, *from_info), (to, *to_info));
-    }
-}
-
-/// A node in an iCFG describing a procedure.
-pub struct Procedure {
-    // The CFG of the procedure. Must be None if already added.
-    cfg: Option<CFG>,
-    /// Flag if this procedure is malloc.
-    is_malloc: bool,
-}
-
-impl Procedure {
-    pub fn new(cfg: Option<CFG>, is_malloc: bool) -> Procedure {
-        Procedure { cfg, is_malloc }
-    }
-
-    pub fn get_cfg(&self) -> &CFG {
-        match &self.cfg {
-            Some(cfg) => &cfg,
-            None => panic!("Procedure has no CFG defined."),
-        }
-    }
-
-    pub fn get_cfg_mut(&mut self) -> &mut CFG {
-        match &mut self.cfg {
-            Some(ref mut cfg) => cfg,
-            None => panic!("Procedure has no CFG defined."),
-        }
-    }
-}
-
-/// An inter-procedual control flow graph.
-pub struct ICFG {
-    /// The actual graph. Nodes are indexed by address of the procedures.
-    graph: DiGraphMap<Address, SamplingBias>,
-    /// Map of procedures in the CFG. Indexed by entry point address.
-    procedures: HashMap<Address, Procedure>,
-    /// Reverse topoloical sorted graph
-    rev_topograph: Vec<Address>,
-}
-
-macro_rules! get_procedure_mut {
-    ( $icfg:ident, $addr:expr ) => {
-        match $icfg.procedures.get_mut(&get_raw_addr($addr)) {
-            Some(p) => p,
-            None => panic!("The iCFG has no procedure for {}.", $addr),
-        }
-    };
-}
-
-macro_rules! get_procedure {
-    ( $icfg:ident, $addr:expr ) => {
-        match $icfg.procedures.get(&get_raw_addr($addr)) {
-            Some(p) => p,
-            None => panic!("The iCFG has no procedure for {}.", $addr),
-        }
-    };
-}
-
-impl ICFG {
-    pub fn new() -> ICFG {
-        ICFG {
-            graph: DiGraphMap::new(),
-            procedures: HashMap::new(),
-            rev_topograph: Vec::new(),
-        }
-    }
-
-    pub fn get_procedure(&self, proc_addr: Address) -> &Procedure {
-        get_procedure!(self, proc_addr)
-    }
-
-    pub fn get_procedure_mut(&mut self, proc_addr: Address) -> &mut Procedure {
-        get_procedure_mut!(self, proc_addr)
-    }
-
-    pub fn get_procedure_weight(&self, proc_addr: Address) -> Weight {
-        get_procedure!(self, proc_addr).get_cfg().get_weight()
-    }
-
-    fn get_successor_weights(&self, procedure: &Address) -> HashMap<Address, Weight> {
-        let mut succ_weight: HashMap<Address, Weight> = HashMap::new();
-        for neigh in self.graph.neighbors_directed(*procedure, Outgoing) {
-            let nw: Weight = get_procedure!(self, neigh).get_cfg().get_weight();
-            succ_weight.insert(neigh, nw);
-        }
-        succ_weight
-    }
-
-    /// Adds an edge to the graph.
-    /// The edge is only added once.
-    pub fn add_edge(&mut self, from: (Address, Procedure), to: (Address, Procedure)) {
-        // Check if a procedure is located at the actual address.
-        // For cloned node addresses we do not save procedures.
-        let from_actual_addr = get_raw_addr(from.0);
-        if !self.procedures.contains_key(&from_actual_addr) {
-            if from.1.cfg.is_none() {
-                panic!("If a new node is added to the iCFG, the procedure can not be None.");
-            }
-            self.procedures.insert(from_actual_addr, from.1);
-        }
-        let to_actual_addr = get_raw_addr(to.0);
-        if !self.procedures.contains_key(&to_actual_addr) {
-            if to.1.cfg.is_none() {
-                panic!("If a new node is added to the iCFG, the procedure can not be None.");
-            }
-            self.procedures.insert(to_actual_addr, to.1);
-        }
-
-        // Add actual edge
-        if !self.graph.contains_edge(from.0, to.0) {
-            self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
-        }
-    }
-
-    pub fn num_procedures(&self) -> usize {
-        self.procedures.len()
-    }
-}
-
-impl FlowGraphOperations for ICFG {
-    fn get_graph_mut(&mut self) -> &mut FlowGraph {
-        &mut self.graph
-    }
-
-    fn get_graph(&self) -> &FlowGraph {
-        &self.graph
-    }
-
-    fn sort(&mut self) {
-        // Remove cycles
-        self.rev_topograph = match toposort(&self.graph, None) {
-            Ok(graph) => graph,
-            Err(_) => panic!("Graph contains cycles. Cannot sort it to topological order."),
-        };
-        self.rev_topograph.reverse();
-    }
-
-    /// Calculate the weight of the whole iCFG and all CFGs part of it.
-    fn calc_weight(&mut self) -> Weight {
-        self.sort();
-        for paddr in self.rev_topograph.iter() {
-            // Get weight of all successor procedures (procedures at outgoing edges)
-            let succ_weights = self.get_successor_weights(paddr);
-            let procedure: &mut Procedure = get_procedure_mut!(self, *paddr);
-            // Update the weights of the called procedures.
-            for (target_proc_addr, target_proc_weight) in succ_weights.iter() {
-                procedure
-                    .get_cfg_mut()
-                    .set_call_weight(*target_proc_addr, *target_proc_weight);
-            }
-            let pweight = procedure.get_cfg_mut().calc_weight();
-
-            // Update weight of outgoing edges
-            for (neighbor_addr, neighbor_weight) in succ_weights.iter() {
-                let bias: SamplingBias = SamplingBias {
-                    numerator: *neighbor_weight,
-                    denominator: procedure.get_cfg().get_weight(),
-                };
-                self.graph.add_edge(*paddr, *neighbor_addr, bias);
-            }
-
-            // Now we know the weight of the procedure at paddr.
-            // Every CFG which calls this procedure, needs to be update with its weight info.
-            for i in self.graph.neighbors_directed(*paddr, Incoming) {
-                get_procedure_mut!(self, i)
-                    .get_cfg_mut()
-                    .update_procedure_weight(*paddr, pweight);
-            }
-        }
-        if self.procedures.len() == 0 {
-            return UNDETERMINED_WEIGHT;
-        }
-        get_procedure!(
-            self,
-            match self.rev_topograph.last() {
-                Some(a) => *a,
-                None => panic!("Can not return a weight if no CFG was added."),
-            }
-        )
-        .get_cfg()
-        .get_weight()
-    }
-
-    fn add_cloned_edge(&mut self, from: Address, to: Address) {
-        if !self.graph.contains_edge(from, to) {
-            self.graph.add_edge(from, to, SamplingBias::new_unset());
-        }
-    }
 }
 
 // - Translate graph

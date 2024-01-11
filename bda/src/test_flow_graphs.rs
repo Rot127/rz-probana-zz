@@ -4,16 +4,18 @@
 #[cfg(test)]
 mod tests {
 
-    use petgraph::dot::{Config, Dot};
+    use petgraph::dot::Dot;
 
-    use crate::flow_graphs::{
-        get_clone_addr, Address, CFGNodeData, FlowGraphOperations, NodeType, Procedure,
-        SamplingBias, Weight, CFG, ICFG, INVALID_WEIGHT,
+    use crate::{
+        cfg::{CFGNodeData, CFGNodeType, CFG},
+        flow_graphs::{Address, FlowGraphOperations, NodeId, SamplingBias, Weight, INVALID_WEIGHT},
+        icfg::{Procedure, ICFG},
     };
 
     const A_ADDR: Address = 0xa0;
     const B_ADDR: Address = 0xb0;
     const C_ADDR: Address = 0xc0;
+    const D_ADDR: Address = 0xd0;
     const GEE_ADDR: Address = 0;
     const FOO_ADDR: Address = 6;
     const MAIN_ADDR: Address = 11;
@@ -28,54 +30,54 @@ mod tests {
         let mut cfg_b = CFG::new();
         let mut cfg_c = CFG::new();
 
-        cfg_a.add_edge(
-            (0xa0, CFGNodeData::new(NodeType::Entry)),
-            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
-        );
-        cfg_a.add_edge(
-            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
-            (0xa2, CFGNodeData::new(NodeType::Return)),
-        );
-
-        cfg_b.add_edge(
-            (0xb0, CFGNodeData::new(NodeType::Entry)),
-            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
-        );
-        cfg_b.add_edge(
-            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
-            (0xb2, CFGNodeData::new(NodeType::Return)),
-        );
-
-        cfg_c.add_edge(
-            (0xc0, CFGNodeData::new(NodeType::Entry)),
-            (0xc1, CFGNodeData::new_call(A_ADDR, false)),
-        );
-        cfg_c.add_edge(
-            (0xc1, CFGNodeData::new_call(A_ADDR, false)),
-            (0xc2, CFGNodeData::new_call(C_ADDR, false)),
-        );
-        cfg_c.add_edge(
-            (0xc2, CFGNodeData::new_call(C_ADDR, false)),
-            (0xc3, CFGNodeData::new(NodeType::Return)),
-        );
-
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
+        cfg_a.add_edge(
+            (NodeId::new(0, 0, 0xa0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(NodeId::new(0, 0, B_ADDR), false)),
+        );
+        cfg_a.add_edge(
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(NodeId::new(0, 0, B_ADDR), false)),
+            (NodeId::new(0, 0, 0xa2), CFGNodeData::new(CFGNodeType::Return)),
+        );
+
+        cfg_b.add_edge(
+            (NodeId::new(0, 0, 0xb0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(NodeId::new(0, 0, C_ADDR), false)),
+        );
+        cfg_b.add_edge(
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(NodeId::new(0, 0, C_ADDR), false)),
+            (NodeId::new(0, 0, 0xb2), CFGNodeData::new(CFGNodeType::Return)),
+        );
+
+        cfg_c.add_edge(
+            (NodeId::new(0, 0, 0xc0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0xc1), CFGNodeData::new_call(NodeId::new(0, 0, A_ADDR), false)),
+        );
+        cfg_c.add_edge(
+            (NodeId::new(0, 0, 0xc1), CFGNodeData::new_call(NodeId::new(0, 0, A_ADDR), false)),
+            (NodeId::new(0, 0, 0xc2), CFGNodeData::new_call(NodeId::new(0, 0, C_ADDR), false)),
+        );
+        cfg_c.add_edge(
+            (NodeId::new(0, 0, 0xc2), CFGNodeData::new_call(NodeId::new(0, 0, C_ADDR), false)),
+            (NodeId::new(0, 0, 0xc3), CFGNodeData::new(CFGNodeType::Return)),
+        );
+
         icfg.add_edge(
-            (A_ADDR, Procedure::new(Some(cfg_a), false )),
-            (B_ADDR, Procedure::new(Some(cfg_b), false )),
+            (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false)),
+            (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false)),
         );
         icfg.add_edge(
-            (B_ADDR, Procedure::new(None, false )),
-            (C_ADDR, Procedure::new(Some(cfg_c), false )),
+            (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, C_ADDR), Procedure::new(Some(cfg_c), false)),
         );
         icfg.add_edge(
-            (C_ADDR, Procedure::new(None, false )),
-            (C_ADDR, Procedure::new(None, false )),
+            (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false)),
         );
         icfg.add_edge(
-            (C_ADDR, Procedure::new(None, false )),
-            (A_ADDR, Procedure::new(None, false )),
+            (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false)),
         );
         }
         icfg
@@ -87,58 +89,58 @@ mod tests {
         let mut cfg_b = CFG::new();
         let mut cfg_d = CFG::new();
 
-        cfg_a.add_edge(
-            (0xa0, CFGNodeData::new(NodeType::Entry)),
-            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
-        );
-        cfg_a.add_edge(
-            (0xa1, CFGNodeData::new_call(B_ADDR, false)),
-            (0xa2, CFGNodeData::new(NodeType::Return)),
-        );
-
-        cfg_b.add_edge(
-            (0xb0, CFGNodeData::new(NodeType::Entry)),
-            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
-        );
-        cfg_b.add_edge(
-            (0xb1, CFGNodeData::new_call(C_ADDR, false)),
-            (0xb2, CFGNodeData::new(NodeType::Return)),
-        );
-
-        cfg_d.add_edge(
-            (0xd0, CFGNodeData::new(NodeType::Entry)),
-            (0xd1, CFGNodeData::new_call(A_ADDR, false)),
-        );
-        cfg_d.add_edge(
-            (0xd1, CFGNodeData::new_call(A_ADDR, false)),
-            (0xd3, CFGNodeData::new(NodeType::Return)),
-        );
-        cfg_d.add_edge(
-            (0xd0, CFGNodeData::new(NodeType::Entry)),
-            (0xd2, CFGNodeData::new_call(D_ADDR, false)),
-        );
-        cfg_d.add_edge(
-            (0xd2, CFGNodeData::new_call(D_ADDR, false)),
-            (0xd3, CFGNodeData::new(NodeType::Return)),
-        );
-
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
+        cfg_a.add_edge(
+            (NodeId::new(0, 0, 0xa0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(NodeId::new(0, 0, B_ADDR), false)),
+        );
+        cfg_a.add_edge(
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(NodeId::new(0, 0, B_ADDR), false)),
+            (NodeId::new(0, 0, 0xa2), CFGNodeData::new(CFGNodeType::Return)),
+        );
+
+        cfg_b.add_edge(
+            (NodeId::new(0, 0, 0xb0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(NodeId::new(0, 0, D_ADDR), false)),
+        );
+        cfg_b.add_edge(
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(NodeId::new(0, 0, D_ADDR), false)),
+            (NodeId::new(0, 0, 0xb2), CFGNodeData::new(CFGNodeType::Return)),
+        );
+
+        cfg_d.add_edge(
+            (NodeId::new(0, 0, 0xd0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0xd1), CFGNodeData::new_call(NodeId::new(0, 0, A_ADDR), false)),
+        );
+        cfg_d.add_edge(
+            (NodeId::new(0, 0, 0xd1), CFGNodeData::new_call(NodeId::new(0, 0, A_ADDR), false)),
+            (NodeId::new(0, 0, 0xd3), CFGNodeData::new(CFGNodeType::Return)),
+        );
+        cfg_d.add_edge(
+            (NodeId::new(0, 0, 0xd0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0xd2), CFGNodeData::new_call(NodeId::new(0, 0, D_ADDR), false)),
+        );
+        cfg_d.add_edge(
+            (NodeId::new(0, 0, 0xd2), CFGNodeData::new_call(NodeId::new(0, 0, D_ADDR), false)),
+            (NodeId::new(0, 0, 0xd3), CFGNodeData::new(CFGNodeType::Return)),
+        );
+
         icfg.add_edge(
-            (A_ADDR, Procedure::new(Some(cfg_a), false)),
-            (B_ADDR, Procedure::new(Some(cfg_b), false)),
+            (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false)),
+            (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false)),
         );
         icfg.add_edge(
-            (B_ADDR, Procedure::new(None, false)),
-            (D_ADDR, Procedure::new(Some(cfg_d), false)),
+            (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, D_ADDR), Procedure::new(Some(cfg_d), false)),
         );
         icfg.add_edge(
-            (D_ADDR, Procedure::new(None, false)),
-            (D_ADDR, Procedure::new(None, false)),
+            (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false)),
         );
         icfg.add_edge(
-            (D_ADDR, Procedure::new(None, false)),
-            (A_ADDR, Procedure::new(None, false)),
+            (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false)),
         );
         }
         icfg
@@ -152,27 +154,27 @@ mod tests {
 
         // gee()
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Entry)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         // if (input()) ... else ...
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (3, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Normal)),
         );
         // *a = 0
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (4, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 4), CFGNodeData::new(CFGNodeType::Return)),
         );
         // *a = 2
         cfg.add_edge(
-            (3, CFGNodeData::new(NodeType::Normal)),
-            (4, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 4), CFGNodeData::new(CFGNodeType::Return)),
         );
 
         cfg
@@ -184,33 +186,36 @@ mod tests {
     fn get_foo_cfg() -> CFG {
         let mut cfg = CFG::new();
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
         // foo()
         cfg.add_edge(
-            (6, CFGNodeData::new(NodeType::Entry)),
-            (7, CFGNodeData::new_call(GEE_ADDR, false)),
+            (NodeId::new(0, 0, 6), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 7), CFGNodeData::new_call(NodeId::new(0, 0, GEE_ADDR), false)),
         );
 
         // gee()
         cfg.add_edge(
-            (7, CFGNodeData::new_call(GEE_ADDR, false)),
-            (8, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 7), CFGNodeData::new_call(NodeId::new(0, 0, GEE_ADDR), false)),
+            (NodeId::new(0, 0, 8), CFGNodeData::new(CFGNodeType::Normal)),
         );
 
         // if (intput())
         cfg.add_edge(
-            (8, CFGNodeData::new(NodeType::Normal)),
-            (9, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 8), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 9), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (8, CFGNodeData::new(NodeType::Normal)),
-            (10, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 8), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Return)),
         );
 
         // *a += 1
         cfg.add_edge(
-            (9, CFGNodeData::new(NodeType::Normal)),
-            (10, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 9), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Return)),
         );
+        }
 
         cfg
     }
@@ -221,30 +226,33 @@ mod tests {
     fn get_main_cfg() -> CFG {
         let mut cfg = CFG::new();
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
         // main()
         cfg.add_edge(
-            (11, CFGNodeData::new(NodeType::Entry)),
-            (12, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new(CFGNodeType::Normal)),
         );
         // if (input()) ... else ...
         cfg.add_edge(
-            (12, CFGNodeData::new(NodeType::Normal)),
-            (13, CFGNodeData::new_call(GEE_ADDR, false)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new_call(NodeId::new(0, 0, GEE_ADDR), false)),
         );
         cfg.add_edge(
-            (12, CFGNodeData::new(NodeType::Normal)),
-            (14, CFGNodeData::new_call(FOO_ADDR, false)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 14), CFGNodeData::new_call(NodeId::new(0, 0, FOO_ADDR), false)),
         );
         // gee()
         cfg.add_edge(
-            (13, CFGNodeData::new_call(GEE_ADDR, false)),
-            (15, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new_call(NodeId::new(0, 0, GEE_ADDR), false)),
+            (NodeId::new(0, 0, 15), CFGNodeData::new(CFGNodeType::Return)),
         );
         // foo()
         cfg.add_edge(
-            (14, CFGNodeData::new_call(FOO_ADDR, false)),
-            (15, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 14), CFGNodeData::new_call(NodeId::new(0, 0, FOO_ADDR), false)),
+            (NodeId::new(0, 0, 15), CFGNodeData::new(CFGNodeType::Return)),
         );
+        }
 
         cfg
     }
@@ -255,16 +263,16 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         icfg.add_edge(
-            (MAIN_ADDR, Procedure::new(Some(get_main_cfg()), false)),
-            (FOO_ADDR, Procedure::new(Some(get_foo_cfg()), false))
+            (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(Some(get_main_cfg()), false)),
+            (NodeId::new(0, 0, FOO_ADDR), Procedure::new(Some(get_foo_cfg()), false))
         );
         icfg.add_edge(
-            (MAIN_ADDR, Procedure::new(None, false)),
-            (GEE_ADDR, Procedure::new(Some(get_gee_cfg()), false))
+            (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, GEE_ADDR), Procedure::new(Some(get_gee_cfg()), false))
         );
         icfg.add_edge(
-            (FOO_ADDR, Procedure::new(None, false)),
-            (GEE_ADDR, Procedure::new(None, false))
+            (NodeId::new(0, 0, FOO_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, GEE_ADDR), Procedure::new(None, false))
         );
         }
 
@@ -274,28 +282,28 @@ mod tests {
     fn get_cfg_no_loop_sub_routine() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (10, CFGNodeData::new(NodeType::Entry)),
-            (11, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 10), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (11, CFGNodeData::new(NodeType::Normal)),
-            (0, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (12, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (12, CFGNodeData::new(NodeType::Normal)),
-            (13, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg
     }
@@ -303,40 +311,40 @@ mod tests {
     fn get_cfg_no_loop_sub_routine_loop_ret() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (0, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg.add_edge(
-            (10, CFGNodeData::new(NodeType::Entry)),
-            (11, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 10), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (11, CFGNodeData::new(NodeType::Normal)),
-            (12, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (12, CFGNodeData::new(NodeType::Normal)),
-            (13, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (13, CFGNodeData::new(NodeType::Normal)),
-            (14, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 14), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg.add_edge(
-            (13, CFGNodeData::new(NodeType::Normal)),
-            (11, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (11, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg
     }
@@ -347,15 +355,15 @@ mod tests {
 
     fn get_cfg_single_node() -> CFG {
         let mut cfg = CFG::new();
-        cfg.add_node((0, CFGNodeData::new(NodeType::Return)));
+        cfg.add_node((NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Return)));
         cfg
     }
 
     fn get_cfg_single_self_ref() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Return)),
-            (0, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg
     }
@@ -363,16 +371,16 @@ mod tests {
     fn get_cfg_linear() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Entry)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (3, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg
     }
@@ -380,20 +388,20 @@ mod tests {
     fn get_cfg_simple_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Entry)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (3, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg
     }
@@ -401,28 +409,28 @@ mod tests {
     fn get_cfg_simple_loop_extra_nodes() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (10, CFGNodeData::new(NodeType::Entry)),
-            (0, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 10), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (3, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (3, CFGNodeData::new(NodeType::Normal)),
-            (13, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg
     }
@@ -430,16 +438,16 @@ mod tests {
     fn get_cfg_self_ref_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Entry)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg
     }
@@ -459,29 +467,29 @@ mod tests {
     fn get_cfg_loop_self_ref() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Entry)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (3, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Return)),
         );
 
         cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (4, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 4), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (4, CFGNodeData::new(NodeType::Normal)),
-            (4, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 4), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 4), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (4, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 4), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg
     }
@@ -489,30 +497,30 @@ mod tests {
     fn get_paper_example_cfg_loop() -> CFG {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Entry)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
-        );
-        // Back edge
-        cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
-        );
-        cfg.add_edge(
-            (2, CFGNodeData::new(NodeType::Normal)),
-            (3, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
         );
         // Back edge
         cfg.add_edge(
-            (3, CFGNodeData::new(NodeType::Normal)),
-            (2, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.add_edge(
-            (3, CFGNodeData::new(NodeType::Normal)),
-            (4, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Normal)),
+        );
+        // Back edge
+        cfg.add_edge(
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Normal)),
+        );
+        cfg.add_edge(
+            (NodeId::new(0, 0, 3), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 4), CFGNodeData::new(CFGNodeType::Return)),
         );
         cfg
     }
@@ -520,14 +528,17 @@ mod tests {
     fn get_unset_indirect_call_cfg() -> CFG {
         let mut cfg = CFG::new();
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Entry)),
-            (1, CFGNodeData::new_call(RANDOM_FCN_ADDR, true)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_call(NodeId::new(0, 0, RANDOM_FCN_ADDR), true)),
         );
         cfg.add_edge(
-            (1, CFGNodeData::new_call(RANDOM_FCN_ADDR, true)),
-            (2, CFGNodeData::new(NodeType::Return)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_call(NodeId::new(0, 0, RANDOM_FCN_ADDR), true)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new(CFGNodeType::Return)),
         );
+        }
 
         cfg
     }
@@ -544,11 +555,11 @@ mod tests {
     fn test_cfg_weight_calc_no_call() {
         let mut gee_cfg = get_gee_cfg();
         gee_cfg.calc_weight();
-        assert_node_weight(gee_cfg.nodes_meta.get(&0), 2);
-        assert_node_weight(gee_cfg.nodes_meta.get(&1), 2);
-        assert_node_weight(gee_cfg.nodes_meta.get(&2), 1);
-        assert_node_weight(gee_cfg.nodes_meta.get(&3), 1);
-        assert_node_weight(gee_cfg.nodes_meta.get(&4), 1);
+        assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 0)), 2);
+        assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 1)), 2);
+        assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 2)), 1);
+        assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 3)), 1);
+        assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 4)), 1);
         assert_eq!(gee_cfg.get_weight(), 2);
     }
 
@@ -556,19 +567,19 @@ mod tests {
     fn test_undiscovered_indirect_call() {
         let mut cfg = get_unset_indirect_call_cfg();
         cfg.calc_weight();
-        assert_node_weight(cfg.nodes_meta.get(&0), 1);
-        cfg.add_call_target_weights(&[&(RANDOM_FCN_ADDR, 10)]);
+        assert_node_weight(cfg.nodes_meta.get(&NodeId::new(0, 0, 0)), 1);
+        cfg.add_call_target_weights(&[&(NodeId::new(0, 0, RANDOM_FCN_ADDR), 10)]);
         cfg.calc_weight();
-        assert_node_weight(cfg.nodes_meta.get(&0), 10);
+        assert_node_weight(cfg.nodes_meta.get(&NodeId::new(0, 0, 0)), 10);
     }
 
     #[test]
     fn test_icfg_weight_calc() {
         let mut icfg: ICFG = get_paper_example_icfg();
         icfg.calc_weight();
-        assert_eq!(icfg.get_procedure_weight(MAIN_ADDR), 6);
-        assert_eq!(icfg.get_procedure_weight(FOO_ADDR), 4);
-        assert_eq!(icfg.get_procedure_weight(GEE_ADDR), 2);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, MAIN_ADDR)), 6);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, FOO_ADDR)), 4);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, GEE_ADDR)), 2);
     }
 
     #[test]
@@ -578,12 +589,12 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         icfg.add_edge(
-            (get_clone_addr(0, MAIN_ADDR), Procedure::new(None, false)),
-            (get_clone_addr(1, FOO_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(None, false)),
+            (NodeId::new(0, 0, FOO_ADDR), Procedure::new(None, false)),
         );
         }
         assert_eq!(icfg.num_procedures(), 3);
-        icfg.add_cloned_edge(get_clone_addr(1, MAIN_ADDR), get_clone_addr(2, GEE_ADDR));
+        icfg.add_cloned_edge(NodeId::new(0, 0, MAIN_ADDR), NodeId::new(0, 0, GEE_ADDR));
         assert_eq!(icfg.num_procedures(), 3);
     }
 
@@ -598,51 +609,44 @@ mod tests {
         // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.graph.edge_count(), 22);
-        assert!(cfg.graph.contains_edge(0, 1));
-        assert!(cfg.graph.contains_edge(1, 2));
-        assert!(cfg.graph.contains_edge(2, 3));
-        assert!(cfg.graph.contains_edge(3, 4));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 2), NodeId::new(0, 0, 3)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 3), NodeId::new(0, 0, 4)));
 
         // Loop 2 -> 1 -> 2 ...
-        assert!(cfg.graph.contains_edge(2, 0x10000000000000001));
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-        {
-        assert!(cfg.graph.contains_edge(0x10000000000000001, 0x10000000000000002));
-        assert!(cfg.graph.contains_edge(0x10000000000000002, 0x20000000000000001));
-        assert!(cfg.graph.contains_edge(0x20000000000000002, 0x30000000000000001));
-        assert!(cfg.graph.contains_edge(0x30000000000000001, 0x30000000000000002));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 2), NodeId::new(0, 1, 0x1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 0x1), NodeId::new(0, 1, 0x2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 0x2), NodeId::new(0, 2, 0x1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 0x2), NodeId::new(0, 3, 0x1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 0x1), NodeId::new(0, 3, 0x2)));
 
         // Loop 3 -> 2 -> 3 ...
-        assert!(cfg.graph.contains_edge(3, 0x10000000000000002));
-        assert!(cfg.graph.contains_edge(0x10000000000000002, 0x10000000000000003));
-        assert!(cfg.graph.contains_edge(0x10000000000000003, 0x20000000000000002));
-        assert!(cfg.graph.contains_edge(0x20000000000000003, 0x30000000000000002));
-        assert!(cfg.graph.contains_edge(0x30000000000000002, 0x30000000000000003));
-        }
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 3), NodeId::new(0, 1, 0x2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 0x2), NodeId::new(0, 1, 0x3)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 0x3), NodeId::new(0, 2, 0x2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 0x3), NodeId::new(0, 3, 0x2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 0x2), NodeId::new(0, 3, 0x3)));
 
         // Into scc edges
-        assert!(cfg.graph.contains_edge(0, 0x10000000000000001));
-        assert!(cfg.graph.contains_edge(0, 0x20000000000000001));
-        assert!(cfg.graph.contains_edge(0, 0x30000000000000001));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 0), NodeId::new(0, 1, 0x1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 0), NodeId::new(0, 2, 0x1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 0), NodeId::new(0, 3, 0x1)));
 
         // Out of scc edges
-        assert!(cfg.graph.contains_edge(0x10000000000000003, 4));
-        assert!(cfg.graph.contains_edge(0x20000000000000003, 4));
-        assert!(cfg.graph.contains_edge(0x30000000000000003, 4));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 0x3), NodeId::new(0, 0, 4)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 0x3), NodeId::new(0, 0, 4)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 0x3), NodeId::new(0, 0, 4)));
 
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-        {
-        assert!(cfg.graph.contains_edge(0x10000000000000001, 0x10000000000000002));
-        assert!(cfg.graph.contains_edge(0x10000000000000002, 0x10000000000000003));
-        assert!(cfg.graph.contains_edge(0x20000000000000001, 0x20000000000000002));
-        assert!(cfg.graph.contains_edge(0x20000000000000002, 0x20000000000000003));
-        assert!(cfg.graph.contains_edge(0x30000000000000001, 0x30000000000000002));
-        assert!(cfg.graph.contains_edge(0x30000000000000002, 0x30000000000000003));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 1), NodeId::new(0, 1, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 2), NodeId::new(0, 1, 3)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 1), NodeId::new(0, 2, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 2), NodeId::new(0, 2, 3)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 1), NodeId::new(0, 3, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 2), NodeId::new(0, 3, 3)));
         }
-    }
-
-    fn n_clone(n: Address, clone_count: u128) -> Address {
-        (clone_count << 64) | (n & 0xffffffffffffffff)
     }
 
     #[test]
@@ -657,12 +661,15 @@ mod tests {
         // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 7);
         assert_eq!(cfg.graph.edge_count(), 6);
-        assert!(cfg.graph.contains_edge(10, 11));
-        assert!(cfg.graph.contains_edge(11, 0));
-        assert!(cfg.graph.contains_edge(0, 1));
-        assert!(cfg.graph.contains_edge(1, 2));
-        assert!(cfg.graph.contains_edge(2, 12));
-        assert!(cfg.graph.contains_edge(12, 13));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 10), NodeId::new(0, 0, 11)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 0, 0)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 2), NodeId::new(0, 0, 12)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 12), NodeId::new(0, 0, 13)));
+        }
     }
 
     #[test]
@@ -681,48 +688,51 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 23);
         assert_eq!(cfg.graph.edge_count(), 37);
 
-        assert!(cfg.graph.contains_edge(10, 11));
-        assert!(cfg.graph.contains_edge(11, 12));
-        assert!(cfg.graph.contains_edge(12, 13));
-        assert!(cfg.graph.contains_edge(13, 14));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 10), NodeId::new(0, 0, 11)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 0, 12)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 12), NodeId::new(0, 0, 13)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 13), NodeId::new(0, 0, 14)));
 
-        assert!(cfg.graph.contains_edge(0, 1));
-        assert!(cfg.graph.contains_edge(1, 2));
-        assert!(cfg.graph.contains_edge(11, 1));
-        assert!(cfg.graph.contains_edge(11, n_clone(1, 1)));
-        assert!(cfg.graph.contains_edge(11, n_clone(1, 2)));
-        assert!(cfg.graph.contains_edge(11, n_clone(1, 3)));
-        assert!(cfg.graph.contains_edge(n_clone(11, 1), 1));
-        assert!(cfg.graph.contains_edge(n_clone(11, 2), 1));
-        assert!(cfg.graph.contains_edge(n_clone(11, 3), 1));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 0),  NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 1),  NodeId::new(0, 0, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 1, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 2, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 3, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 11), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 11), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 11), NodeId::new(0, 0, 1)));
 
-        assert!(cfg.graph.contains_edge(n_clone(10, 0), n_clone(11, 1)));
-        assert!(cfg.graph.contains_edge(n_clone(10, 0), n_clone(11, 2)));
-        assert!(cfg.graph.contains_edge(n_clone(10, 0), n_clone(11, 3)));
-        assert!(cfg.graph.contains_edge(n_clone(13, 0), n_clone(11, 1)));
-        assert!(cfg.graph.contains_edge(n_clone(13, 1), n_clone(11, 2)));
-        assert!(cfg.graph.contains_edge(n_clone(13, 2), n_clone(11, 3)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 10), NodeId::new(0, 1, 11)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 10), NodeId::new(0, 2, 11)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 10), NodeId::new(0, 3, 11)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 13), NodeId::new(0, 1, 11)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 13), NodeId::new(0, 2, 11)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 13), NodeId::new(0, 3, 11)));
 
-        assert!(cfg.graph.contains_edge(n_clone(11, 1), n_clone(12, 1)));
-        assert!(cfg.graph.contains_edge(n_clone(12, 1), n_clone(13, 1)));
-        assert!(cfg.graph.contains_edge(n_clone(11, 2), n_clone(12, 2)));
-        assert!(cfg.graph.contains_edge(n_clone(12, 2), n_clone(13, 2)));
-        assert!(cfg.graph.contains_edge(n_clone(11, 3), n_clone(12, 3)));
-        assert!(cfg.graph.contains_edge(n_clone(12, 3), n_clone(13, 3)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 11), NodeId::new(0, 1, 12)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 12), NodeId::new(0, 1, 13)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 11), NodeId::new(0, 2, 12)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 12), NodeId::new(0, 2, 13)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 11), NodeId::new(0, 3, 12)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 12), NodeId::new(0, 3, 13)));
 
-        assert!(cfg.graph.contains_edge(n_clone(13, 1), n_clone(14, 0)));
-        assert!(cfg.graph.contains_edge(n_clone(13, 2), n_clone(14, 0)));
-        assert!(cfg.graph.contains_edge(n_clone(13, 3), n_clone(14, 0)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 13), NodeId::new(0, 0, 14)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 13), NodeId::new(0, 0, 14)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 13), NodeId::new(0, 0, 14)));
 
-        assert!(cfg.graph.contains_edge(1, n_clone(0, 1)));
-        assert!(cfg.graph.contains_edge(n_clone(0, 1), n_clone(1, 1)));
-        assert!(cfg.graph.contains_edge(n_clone(1, 1), n_clone(0, 2)));
-        assert!(cfg.graph.contains_edge(n_clone(0, 2), n_clone(1, 2)));
-        assert!(cfg.graph.contains_edge(n_clone(1, 2), n_clone(0, 3)));
-        assert!(cfg.graph.contains_edge(n_clone(0, 3), n_clone(1, 3)));
-        assert!(cfg.graph.contains_edge(n_clone(1, 1), 2));
-        assert!(cfg.graph.contains_edge(n_clone(1, 2), 2));
-        assert!(cfg.graph.contains_edge(n_clone(1, 3), 2));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 1), NodeId::new(0, 1, 0)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 0), NodeId::new(0, 1, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 1), NodeId::new(0, 2, 0)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 0), NodeId::new(0, 2, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 1), NodeId::new(0, 3, 0)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 0), NodeId::new(0, 3, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 1), NodeId::new(0, 0, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 1), NodeId::new(0, 0, 2)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 1), NodeId::new(0, 0, 2)));
+        }
     }
 
     #[test]
@@ -739,7 +749,7 @@ mod tests {
     #[test]
     fn test_cfg_add_duplicate_node() {
         let mut cfg: CFG = get_cfg_single_node();
-        cfg.add_node((0, CFGNodeData::new(NodeType::Return)));
+        cfg.add_node((NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Return)));
     }
 
     #[test]
@@ -760,8 +770,8 @@ mod tests {
     fn test_cfg_no_return_node() {
         let mut cfg = CFG::new();
         cfg.add_edge(
-            (0, CFGNodeData::new(NodeType::Normal)),
-            (1, CFGNodeData::new(NodeType::Normal)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new(CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new(CFGNodeType::Normal)),
         );
         cfg.calc_weight();
     }
@@ -783,10 +793,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Edge 0x64 => 0xc8 does not exist.")]
+    #[should_panic(expected = "Edge (0:0:0x64) => (0:0:0xc8) does not exist.")]
     fn test_cfg_get_invalid_edge() {
         let cfg: CFG = get_cfg_single_self_ref();
-        cfg.get_edge_weight(100, 200);
+        cfg.get_edge_weight(NodeId::new(0, 0, 100), NodeId::new(0, 0, 200));
     }
 
     #[test]
@@ -815,13 +825,16 @@ mod tests {
         assert_eq!(cfg.nodes_meta.len(), 4);
         cfg.calc_weight();
         assert_eq!(cfg.get_weight(), 1);
-        assert_eq!(cfg.get_node_weight(0), 1);
-        assert_eq!(cfg.get_node_weight(1), 1);
-        assert_eq!(cfg.get_node_weight(2), 1);
-        assert_eq!(cfg.get_node_weight(3), 1);
-        assert_eq!(cfg.get_edge_weight(0, 1), &(1, 1));
-        assert_eq!(cfg.get_edge_weight(1, 2), &(1, 1));
-        assert_eq!(cfg.get_edge_weight(2, 3), &(1, 1));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 0, 3)), &(1, 1));
+        }
     }
 
     #[test]
@@ -839,44 +852,44 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 12);
         assert_eq!(cfg.nodes_meta.len(), 12);
         assert_eq!(cfg.get_weight(), 10);
-        assert_eq!(cfg.get_node_weight(10), 10);
-        assert_eq!(cfg.get_node_weight(0), 10);
-        assert_eq!(cfg.get_node_weight(1), 4);
-        assert_eq!(cfg.get_node_weight(2), 4);
-        assert_eq!(cfg.get_node_weight(3), 1);
-        assert_eq!(cfg.get_node_weight(13), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 10)), 10);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 13)), 1);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 2)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 3);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(0, 1)), &(4, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(1, 1)), &(3, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(2, 1)), &(2, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(3, 1)), &(1, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(4, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 1, 1)), &(3, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 2, 1)), &(2, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 3, 1)), &(1, 10));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(0, 2)), &(4, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(1, 2)), &(3, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(2, 2)), &(2, 2));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 1), get_clone_addr(3, 2)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(4, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 1, 2)), &(3, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 2, 2)), &(2, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 1), NodeId::new(0, 3, 2)), &(1, 1));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(1, 1)), &(3, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(2, 1)), &(2, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(3, 1)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 1, 1)), &(3, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 2, 1)), &(2, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 3, 1)), &(1, 2));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(0, 3)), &(1, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(0, 3)), &(1, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(0, 3)), &(1, 2));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 2), get_clone_addr(0, 3)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 0, 3)), &(1, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 0, 3)), &(1, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 0, 3)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 2), NodeId::new(0, 0, 3)), &(1, 1));
 
         // Single node SCCs
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 3), get_clone_addr(0, 13)), &(1, 1));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 10), get_clone_addr(0, 0)), &(10, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 3), NodeId::new(0, 0, 13)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 10), NodeId::new(0, 0, 0)), &(10, 10));
         }
     }
 
@@ -895,38 +908,38 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 10);
         assert_eq!(cfg.nodes_meta.len(), 10);
         assert_eq!(cfg.get_weight(), 10);
-        assert_eq!(cfg.get_node_weight(0), 10);
-        assert_eq!(cfg.get_node_weight(1), 4);
-        assert_eq!(cfg.get_node_weight(2), 4);
-        assert_eq!(cfg.get_node_weight(3), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 2)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 3);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(0, 1)), &(4, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(1, 1)), &(3, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(2, 1)), &(2, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(3, 1)), &(1, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(4, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 1, 1)), &(3, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 2, 1)), &(2, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 3, 1)), &(1, 10));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(0, 2)), &(4, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(1, 2)), &(3, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(2, 2)), &(2, 2));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 1), get_clone_addr(3, 2)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(4, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 1, 2)), &(3, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 2, 2)), &(2, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 1), NodeId::new(0, 3, 2)), &(1, 1));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(1, 1)), &(3, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(2, 1)), &(2, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(3, 1)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 1, 1)), &(3, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 2, 1)), &(2, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 3, 1)), &(1, 2));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 2), get_clone_addr(0, 3)), &(1, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 2), get_clone_addr(0, 3)), &(1, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 2), get_clone_addr(0, 3)), &(1, 2));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 2), get_clone_addr(0, 3)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 0, 3)), &(1, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 0, 3)), &(1, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 0, 3)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 2), NodeId::new(0, 0, 3)), &(1, 1));
         }
     }
 
@@ -945,29 +958,29 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 6);
         assert_eq!(cfg.nodes_meta.len(), 6);
         assert_eq!(cfg.get_weight(), 10);
-        assert_eq!(cfg.get_node_weight(0), 10);
-        assert_eq!(cfg.get_node_weight(1), 4);
-        assert_eq!(cfg.get_node_weight(2), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 1);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(0, 1)), &(4, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(1, 1)), &(3, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(2, 1)), &(2, 10));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 0), get_clone_addr(3, 1)), &(1, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(4, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 1, 1)), &(3, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 2, 1)), &(2, 10));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 3, 1)), &(1, 10));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(1, 1)), &(3, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(2, 1)), &(2, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(3, 1)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 1, 1)), &(3, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 2, 1)), &(2, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 3, 1)), &(1, 2));
 
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(0, 1), get_clone_addr(0, 2)), &(1, 4));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(1, 1), get_clone_addr(0, 2)), &(1, 3));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(2, 1), get_clone_addr(0, 2)), &(1, 2));
-        assert_eq!(cfg.get_edge_weight(get_clone_addr(3, 1), get_clone_addr(0, 2)), &(1, 1));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(1, 4));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 0, 2)), &(1, 3));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 0, 2)), &(1, 2));
+        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 1), NodeId::new(0, 0, 2)), &(1, 1));
         }
     }
 
@@ -977,12 +990,12 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 6);
         assert_eq!(cfg.graph.node_count(), 5);
         assert_eq!(cfg.nodes_meta.len(), 5);
-        println!(
-            "{:?}",
-            Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
-        );
+        // println!(
+        //     "{:?}",
+        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
+        // );
         cfg.make_acyclic();
-        println!("{:?}", Dot::with_config(&cfg.graph, &[]));
+        // println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_eq!(cfg.graph.edge_count(), 22);
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.nodes_meta.len(), 14);
@@ -991,23 +1004,23 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.nodes_meta.len(), 14);
         assert_eq!(cfg.get_weight(), 15);
-        assert_eq!(cfg.get_node_weight(0), 15);
-        assert_eq!(cfg.get_node_weight(1), 8);
-        assert_eq!(cfg.get_node_weight(2), 8);
-        assert_eq!(cfg.get_node_weight(3), 1);
-        assert_eq!(cfg.get_node_weight(4), 7);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 15);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 8);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 8);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 4)), 7);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 1)), 4);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 1)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 2)), 4);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 2)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
 
-        assert_eq!(cfg.get_node_weight(get_clone_addr(1, 4)), 3);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(2, 4)), 1);
-        assert_eq!(cfg.get_node_weight(get_clone_addr(3, 4)), 0);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 4)), 3);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 4)), 1);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 4)), 0);
     }
 
     #[test]
@@ -1037,21 +1050,21 @@ mod tests {
         icfg.calc_weight();
         // In this edge case, we can resolve a loop, but each path has the weight of 1.
         // Sincen no CFG has a branch.
-        assert_eq!(icfg.get_procedure_weight(0xa0), 1);
-        assert_eq!(icfg.get_procedure_weight(0xb0), 1);
-        assert_eq!(icfg.get_procedure_weight(0xc0), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xa0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xb0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xc0)), 1);
 
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xa0)), 1);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xb0)), 1);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xc0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xa0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xb0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xc0)), 1);
 
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 1);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 1);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xa0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xb0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xc0)), 1);
 
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 1);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 1);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xa0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xb0)), 1);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xc0)), 1);
     }
 
     #[test]
@@ -1059,22 +1072,28 @@ mod tests {
         let mut icfg = get_endless_loop_icfg_branch();
         icfg.make_acyclic();
         icfg.calc_weight();
-        // In this edge case, we can resolve a loop, but each path has the weight of 1.
-        // Sincen no CFG has a branch.
-        assert_eq!(icfg.get_procedure_weight(0xa0), 16);
-        assert_eq!(icfg.get_procedure_weight(0xb0), 16);
-        assert_eq!(icfg.get_procedure_weight(0xc0), 16);
+        println!(
+            "{:?}",
+            Dot::with_config(
+                &icfg.get_procedure(NodeId::new(0, 0, 0xa0)).get_cfg().graph,
+                &[]
+            )
+        );
 
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xa0)), 8);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xb0)), 8);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(1, 0xc0)), 8);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xa0)), 2);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xb0)), 2);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xd0)), 2);
 
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 4);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 4);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 4);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xa0)), 4);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xb0)), 4);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xd0)), 4);
 
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xa0)), 2);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xb0)), 2);
-        assert_eq!(icfg.get_procedure_weight(get_clone_addr(2, 0xc0)), 2);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xa0)), 8);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xb0)), 8);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xd0)), 8);
+
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xa0)), 16);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xb0)), 16);
+        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xd0)), 16);
     }
 }
