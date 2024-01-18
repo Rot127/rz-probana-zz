@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+#[macro_use]
+mod bindgen_blocklist;
+
 use std::env;
 use std::path::PathBuf;
 
@@ -22,7 +25,7 @@ fn main() {
 
     println!("RZ_INSTALL_ROOT_PATH={}", rz_install_root);
 
-    let bindings = bindgen::Builder::default()
+    let bindings_setup = bindgen::Builder::default()
         .header("wrapper.h")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
@@ -46,7 +49,8 @@ fn main() {
             "-I{}/usr/local/include/librz/rz_il/definitions",
             rz_install_root
         ))
-        .clang_arg(format!("-I{}/librz/util/sdb/src/", rz_repo))
+        .clang_arg(format!("-I{}/librz/util/sdb/src/", rz_repo));
+    let bindings = block_list!(bindings_setup)
         .generate()
         // Unwrap the Result and panic on failure.
         .expect("Unable to generate bindings");

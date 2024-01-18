@@ -29,7 +29,7 @@ sudo meson install -C build
 cd ..
 
 cargo build
-cargo test
+cargo test --lib
 ```
 
 ## Dev
