@@ -4,6 +4,12 @@
 macro_rules! block_list {
     ($bindings:ident) => {
         $bindings
+            // We redefine them because the .data member is otherwise defined a mutable.
+            // This is a problem, because we can define the RzAnalysisPlugin struct only
+            // as const. And hence the assignment fails.
+            .blocklist_item("RzLibStruct")
+            .blocklist_item("rz_lib_struct_t")
+            .blocklist_item("RzLibStructFunc")
             // Block anonymous enums. See https://github.com/rust-lang/rust-bindgen/issues/2596
             .blocklist_item("FP_NAN")
             .blocklist_item("FP_ZERO")

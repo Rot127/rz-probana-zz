@@ -3,7 +3,31 @@
 
 use cty::c_void;
 
-use crate::RzAnalysisPlugin;
+use crate::flow_graphs::{Address, FlowGraph, NodeId, SamplingBias, UNDETERMINED_WEIGHT};
+use crate::{
+    rz_core_graph_icfg, RzAnalysis, RzAnalysisOp, RzAnalysisOpMask, RzAnalysisPlugin, RzCore,
+    RzGraph, RzGraphNode, RzGraphNodeInfo, RzLibType, RzLibType_RZ_LIB_TYPE_ANALYSIS, RzList,
+    RzListIter, RZ_VERSION,
+};
+
+// We redefine this struct and don't use the auto-generated one.
+// Because the .data member is otherwise defined a mutable.
+// This is a problem, because we can define the RzAnalysisPlugin struct only
+// as const. And hence the assignment fails.
+#[doc = " \\brief Represent the content of a plugin\n\n This structure should be pointed by the 'rizin_plugin' symbol found in the\n loaded library (e.g. .so file)."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rz_lib_struct_t {
+    #[doc = "< type of the plugin to load"]
+    pub type_: RzLibType,
+    #[doc = "< pointer to data handled by plugin handler (e.g. RzBinPlugin, RzAsmPlugin, etc.)"]
+    pub data: *const ::std::os::raw::c_void,
+    #[doc = "< rizin version this plugin was compiled for"]
+    pub version: *const ::std::os::raw::c_char,
+    pub free: ::std::option::Option<unsafe extern "C" fn(data: *mut ::std::os::raw::c_void)>,
+}
+
+pub type RzLibStruct = rz_lib_struct_t;
 
 pub const rz_analysis_plugin_probana: RzAnalysisPlugin = RzAnalysisPlugin {
     name: "rz_probana".as_ptr().cast(),
@@ -29,6 +53,76 @@ pub const rz_analysis_plugin_probana: RzAnalysisPlugin = RzAnalysisPlugin {
     esil_fini: None,
     il_config: None,
 };
+
+pub const rizin_plugin: RzLibStruct = RzLibStruct {
+    type_: RzLibType_RZ_LIB_TYPE_ANALYSIS,
+    data: &rz_analysis_plugin_probana as *const _ as *const c_void,
+    version: RZ_VERSION.as_ptr().cast(),
+    free: None,
+};
+
+fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> {
+    let mut vec: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> = Vec::new();
+    let len = unsafe { (*list).length };
+    vec.reserve(len as usize);
+    let mut iter: *mut RzListIter = unsafe { (*list).head };
+    let mut elem: *mut RzGraphNode = unsafe { (*iter).elem as *mut RzGraphNode };
+    let mut info: *mut RzGraphNodeInfo = unsafe { (*elem).data as *mut RzGraphNodeInfo };
+    for _ in 0..len {
+        vec.push((elem, info));
+        iter = unsafe { (*iter).next };
+        elem = unsafe { (*iter).elem as *mut RzGraphNode };
+        info = unsafe { (*elem).data as *mut RzGraphNodeInfo };
+    }
+    vec
+}
+
+fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
+    let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
+        graph_nodes_list_to_vec(unsafe { (*rz_graph).nodes });
+    let mut graph: FlowGraph = FlowGraph::new();
+    for (node, node_info) in nodes {
+        let out_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
+            graph_nodes_list_to_vec(unsafe { (*node).out_nodes });
+        let in_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
+            graph_nodes_list_to_vec(unsafe { (*node).in_nodes });
+        let node_addr: Address = unsafe { (*node_info).offset };
+        for (_, out_node_info) in out_nodes {
+            let out_addr: Address = unsafe { (*out_node_info).offset };
+            graph.add_edge(
+                NodeId::from(node_addr),
+                NodeId::from(out_addr),
+                SamplingBias::new_unset(),
+            );
+        }
+        for (_, in_node_info) in in_nodes {
+            let in_addr: Address = unsafe { (*in_node_info).offset };
+            graph.add_edge(
+                NodeId::from(in_addr),
+                NodeId::from(node_addr),
+                SamplingBias::new_unset(),
+            );
+        }
+    }
+    graph
+}
+
+pub extern "C" fn run_probability_analysis(
+    a: *mut RzAnalysis,
+    op: *mut RzAnalysisOp,
+    addr: ::std::os::raw::c_ulonglong,
+    data: *const ::std::os::raw::c_uchar,
+    len: ::std::os::raw::c_int,
+    mask: RzAnalysisOpMask,
+) -> ::std::os::raw::c_int {
+    // get iCFG
+    let icfg = get_graph(unsafe { rz_core_graph_icfg((*a).core as *mut RzCore) });
+    let cfg = get_graph(unsafe { rz_core_graph_cfg((*a).core as *mut RzCore) });
+    // Run analysis
+
+    // Return some dummy value
+    1
+}
 
 pub extern "C" fn rz_probana_init(_user: *mut *mut c_void) -> bool {
     true

@@ -124,9 +124,7 @@ macro_rules! get_call_weight {
     ( $self:ident, $info:ident ) => {
         match $self.call_target_weights.get(&$info.call_target) {
             Some(w) => *w,
-            None => {
-                1
-            }
+            None => 1,
         }
     };
 }

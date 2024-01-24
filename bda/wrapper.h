@@ -3,4 +3,6 @@
 
 #include <rz_analysis.h>
 #include <rz_graph.h>
+#include <rz_lib.h>
+#include <rz_core.h>
 

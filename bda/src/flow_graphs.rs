@@ -39,6 +39,12 @@ pub struct NodeId {
     pub address: Address,
 }
 
+impl std::convert::From<Address> for NodeId {
+    fn from(value: u64) -> NodeId {
+        NodeId::new(0, 0, value)
+    }
+}
+
 pub const INVALID_NODE_ID: NodeId = NodeId {
     icfg_clone_id: u32::MAX,
     cfg_clone_id: u32::MAX,
