@@ -6,7 +6,8 @@ use cty::c_void;
 use crate::flow_graphs::{Address, FlowGraph, NodeId, SamplingBias, UNDETERMINED_WEIGHT};
 use crate::{
     rz_core_graph_icfg, RzAnalysis, RzAnalysisOp, RzAnalysisOpMask, RzAnalysisPlugin, RzCore,
-    RzGraph, RzGraphNode, RzGraphNodeInfo, RzLibType, RzLibType_RZ_LIB_TYPE_ANALYSIS, RzList,
+    RzGraph, RzGraphNode, RzGraphNodeInfo, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzLibType, RzLibType_RZ_LIB_TYPE_ANALYSIS, RzList,
     RzListIter, RZ_VERSION,
 };
 
@@ -77,6 +78,23 @@ fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzG
     vec
 }
 
+macro_rules! get_node_address {
+    ( $node_info:ident ) => {
+        unsafe {
+            match (*$node_info).type_ {
+                RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG => {
+                    (*$node_info).__bindgen_anon_1.cfg.address
+                }
+                RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG => {
+                    (*$node_info).__bindgen_anon_1.icfg.address
+                }
+                _ => panic!("Node type {} not handled.", (*$node_info).type_),
+            }
+        }
+    };
+}
+
+/// Converts a graph from RIzin to our internal FlowGraph representation.
 fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
         graph_nodes_list_to_vec(unsafe { (*rz_graph).nodes });
@@ -86,9 +104,9 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
             graph_nodes_list_to_vec(unsafe { (*node).out_nodes });
         let in_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
             graph_nodes_list_to_vec(unsafe { (*node).in_nodes });
-        let node_addr: Address = unsafe { (*node_info).offset };
+        let node_addr: Address = get_node_address!(node_info);
         for (_, out_node_info) in out_nodes {
-            let out_addr: Address = unsafe { (*out_node_info).offset };
+            let out_addr: Address = get_node_address!(out_node_info);
             graph.add_edge(
                 NodeId::from(node_addr),
                 NodeId::from(out_addr),
@@ -96,7 +114,7 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
             );
         }
         for (_, in_node_info) in in_nodes {
-            let in_addr: Address = unsafe { (*in_node_info).offset };
+            let in_addr: Address = get_node_address!(in_node_info);
             graph.add_edge(
                 NodeId::from(in_addr),
                 NodeId::from(node_addr),
