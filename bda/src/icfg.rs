@@ -89,6 +89,14 @@ impl ICFG {
         }
     }
 
+    pub fn new_graph(graph: FlowGraph) -> ICFG {
+        ICFG {
+            graph,
+            procedures: HashMap::new(),
+            rev_topograph: Vec::new(),
+        }
+    }
+
     pub fn get_procedure(&self, proc_nid: NodeId) -> &Procedure {
         get_procedure!(self, proc_nid)
     }
@@ -99,6 +107,10 @@ impl ICFG {
 
     pub fn get_procedure_weight(&self, proc_nid: NodeId) -> Weight {
         get_procedure!(self, proc_nid).get_cfg().get_weight()
+    }
+
+    pub fn add_procedure(&mut self, node_id: NodeId, proc: Procedure) {
+        self.procedures.insert(node_id, proc);
     }
 
     fn get_successor_weights(&self, procedure: &NodeId) -> HashMap<NodeId, Weight> {

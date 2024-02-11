@@ -26,6 +26,8 @@ pub const UNDETERMINED_WEIGHT: Weight = 1;
 
 pub type Address = u64;
 
+pub const MAX_ADDRESS: Address = u64::MAX;
+
 /// Each node in an iCFG or CFG gets assigned an ID.
 /// This id, which is part of a loop, gets duplicated
 /// up to i times to resolve cycles. [^2.4.3]
@@ -56,6 +58,14 @@ impl NodeId {
         NodeId {
             icfg_clone_id,
             cfg_clone_id,
+            address,
+        }
+    }
+
+    pub fn new_original(address: Address) -> NodeId {
+        NodeId {
+            icfg_clone_id: 0,
+            cfg_clone_id: 0,
             address,
         }
     }

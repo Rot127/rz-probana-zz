@@ -139,6 +139,15 @@ impl CFG {
         }
     }
 
+    pub fn new_graph(graph: FlowGraph) -> CFG {
+        CFG {
+            graph,
+            nodes_meta: HashMap::new(),
+            call_target_weights: HashMap::new(),
+            rev_topograph: Vec::new(),
+        }
+    }
+
     /// Clones itself and updates the node IDs with the given iCFG clone id
     pub fn get_clone(&self, icfg_clone_id: u32) -> CFG {
         let mut cloned_cfg: CFG = self.clone();
@@ -254,6 +263,11 @@ impl CFG {
         if node.1.ntype == CFGNodeType::Call {
             self.set_call_weight(node.1.call_target, UNDETERMINED_WEIGHT);
         }
+    }
+
+    pub fn add_node_data(&mut self, node_id: NodeId, data: CFGNodeData) {
+        assert!(self.graph.contains_node(node_id));
+        self.nodes_meta.insert(node_id, data);
     }
 }
 
