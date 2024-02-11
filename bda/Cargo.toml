@@ -15,3 +15,6 @@ rand = "0.8.5"
 
 [build-dependencies]
 bindgen = "0.69.1"
+
+[lib]
+crate-type = ["cdylib"]
