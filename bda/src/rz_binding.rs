@@ -12,8 +12,13 @@ use crate::{
     rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_core_graph_cfg,
     rz_core_graph_icfg, RzAnalysis, RzAnalysisOp, RzAnalysisOpMask, RzAnalysisPlugin, RzCore,
     RzGraph, RzGraphNode, RzGraphNodeInfo, RzGraphNodeSubType,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzLibType,
-    RzLibType_RZ_LIB_TYPE_ANALYSIS, RzList, RzListIter, RZ_VERSION,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzLibType, RzLibType_RZ_LIB_TYPE_ANALYSIS, RzList,
+    RzListIter, RZ_VERSION,
 };
 
 // We redefine this struct and don't use the auto-generated one.
@@ -58,13 +63,6 @@ pub const rz_analysis_plugin_probana: RzAnalysisPlugin = RzAnalysisPlugin {
     esil_trap: None,
     esil_fini: None,
     il_config: None,
-};
-
-pub const rizin_plugin: RzLibStruct = RzLibStruct {
-    type_: RzLibType_RZ_LIB_TYPE_ANALYSIS,
-    data: &rz_analysis_plugin_probana as *const _ as *const c_void,
-    version: RZ_VERSION.as_ptr().cast(),
-    free: None,
 };
 
 fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> {
@@ -132,7 +130,7 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
 
 fn convert_rz_cfg_node_type(rz_node_type: RzGraphNodeSubType) -> CFGNodeType {
     match rz_node_type {
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE => CFGNodeType::Normal,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE => CFGNodeType::Normal,
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY => CFGNodeType::Entry,
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL => CFGNodeType::Call,
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN => CFGNodeType::Return,
@@ -146,7 +144,7 @@ fn convert_rz_cfg_node_type(rz_node_type: RzGraphNodeSubType) -> CFGNodeType {
 fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
         graph_nodes_list_to_vec(unsafe { (*rz_cfg).nodes });
-    for (node, node_info) in nodes {
+    for (_, node_info) in nodes {
         assert!(unsafe { (*node_info).type_ == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG });
         let nid = NodeId::new_original(unsafe { (*node_info).__bindgen_anon_1.cfg.address });
         let ntype = convert_rz_cfg_node_type(unsafe { (*node_info).subtype });
@@ -165,13 +163,22 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     }
 }
 
+#[allow(dead_code)]
+pub const rizin_plugin: RzLibStruct = RzLibStruct {
+    type_: RzLibType_RZ_LIB_TYPE_ANALYSIS,
+    data: &rz_analysis_plugin_probana as *const _ as *const c_void,
+    version: RZ_VERSION.as_ptr().cast(),
+    free: None,
+};
+
+#[allow(dead_code)]
 pub extern "C" fn run_probability_analysis(
     a: *mut RzAnalysis,
-    op: *mut RzAnalysisOp,
-    addr: ::std::os::raw::c_ulonglong,
-    data: *const ::std::os::raw::c_uchar,
-    len: ::std::os::raw::c_int,
-    mask: RzAnalysisOpMask,
+    _op: *mut RzAnalysisOp,
+    _addr: ::std::os::raw::c_ulonglong,
+    _data: *const ::std::os::raw::c_uchar,
+    _len: ::std::os::raw::c_int,
+    _mask: RzAnalysisOpMask,
 ) -> ::std::os::raw::c_int {
     // get iCFG
     let mut icfg = ICFG::new_graph(get_graph(unsafe {
