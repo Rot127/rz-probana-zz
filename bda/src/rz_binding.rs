@@ -120,11 +120,13 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     }
 }
 
-pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) -> ::std::os::raw::c_int {
+pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) {
     // get iCFG
-    let mut icfg = ICFG::new_graph(get_graph(unsafe {
-        rz_core_graph_icfg((*a).core as *mut RzCore)
-    }));
+    let rz_icfg = unsafe { rz_core_graph_icfg((*a).core as *mut RzCore) };
+    if rz_icfg.is_null() {
+        return;
+    }
+    let mut icfg = ICFG::new_graph(get_graph(rz_icfg));
     // TODO: Consider moving both loops into a method of the iCFG.
     // So we can get rid of the copying the node IDs.
     let mut nodes: Vec<NodeId> = Vec::new();
@@ -133,6 +135,9 @@ pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) -> ::std::os::raw::c_int 
     }
     for n in nodes {
         let rz_cfg = unsafe { rz_core_graph_cfg((*a).core as *mut RzCore, n.address) };
+        if rz_cfg.is_null() {
+            return;
+        }
         icfg.add_procedure(
             n,
             Procedure::new(Some(CFG::new_graph(get_graph(rz_cfg))), unsafe {
@@ -145,9 +150,6 @@ pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) -> ::std::os::raw::c_int 
         set_cfg_node_data(icfg.get_procedure_mut(n).get_cfg_mut(), rz_cfg);
     }
     // Run analysis
-
-    // Return some dummy value
-    1
 }
 
 pub extern "C" fn rz_analysis_bda_handler(
