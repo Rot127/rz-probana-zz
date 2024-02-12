@@ -12,5 +12,5 @@ pub mod flow_graphs;
 pub mod icfg;
 mod path_sampler;
 mod post_analysis;
-mod rz_binding;
+pub mod rz_binding;
 mod test_flow_graphs;

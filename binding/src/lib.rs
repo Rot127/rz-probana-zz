@@ -1,13 +1,13 @@
-// SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
+// SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use cty::c_void;
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
 
-use crate::{
-    rz_cmd_desc_group_new, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_cmd_help,
-    RzCmdDesc, RzCmdDescHelp, RzCmdStatus, RzCore, RzCorePlugin, RzLibType,
-    RzLibType_RZ_LIB_TYPE_CORE, RZ_VERSION,
-};
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+use cty::c_void;
 
 // We redefine this struct and don't use the auto-generated one.
 // Because the .data member is otherwise defined a mutable.
@@ -97,12 +97,6 @@ pub const rizin_plugin: RzLibStruct = RzLibStruct {
     is_plugin_owned: true,
 };
 
-#[no_mangle]
-pub extern "C" fn rizin_plugin_function() -> RzLibStruct {
+pub extern "C" fn rizin_plugin_function_probana() -> RzLibStruct {
     rizin_plugin
 }
-
-// CMD handler
-
-// RzCmdDesc *analyze_everything_cd = rz_cmd_desc_argv_new(core->rcmd, aa_cd, "aaa", rz_analyze_everything_handler, &analyze_everything_help);
-// rz_warn_if_fail(analyze_everything_cd);

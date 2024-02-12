@@ -2,15 +2,14 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 
 [package]
-name = "probana"
+name = "probana-zz"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cty = "0.2.2"
-
-[build-dependencies]
-bindgen = "0.69.1"
+binding = { path = "../binding", version = "0.1.0" }
+bda = { path = "../bda", version = "0.1.0" }
+osprey = { path = "../osprey", version = "0.1.0" }
 
 [lib]
 crate-type = ["rlib", "cdylib"]

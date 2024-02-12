@@ -10,7 +10,7 @@ edition = "2021"
 
 [dependencies]
 bda = { path = "../bda" }
-probana = { path = "../probana" }
+binding = { path = "../binding", version = "0.1.0" }
 
 [lib]
 crate-type = ["rlib", "cdylib"]
