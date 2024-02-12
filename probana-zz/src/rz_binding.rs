@@ -9,9 +9,10 @@ use std::ptr::null;
 
 use bda::rz_binding::rz_analysis_bda_handler;
 use binding::{
-    rz_cmd_desc_group_new, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_cmd_help,
-    RzCmdDesc, RzCmdDescHelp, RzCmdStatus, RzCore, RzCorePlugin, RzLibStruct,
-    RzLibType_RZ_LIB_TYPE_CORE, RZ_VERSION,
+    rz_cmd_desc_arg_t__bindgen_ty_1, rz_cmd_desc_arg_t__bindgen_ty_1__bindgen_ty_1,
+    rz_cmd_desc_argv_new, rz_cmd_desc_group_new, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK,
+    rz_core_cmd_help, RzCmdDesc, RzCmdDescArg, RzCmdDescHelp, RzCmdStatus, RzCore, RzCorePlugin,
+    RzLibStruct, RzLibType_RZ_LIB_TYPE_CORE, RZ_VERSION,
 };
 use cty::c_void;
 
@@ -90,6 +91,21 @@ pub const rizin_plugin_probana: RzLibStruct = RzLibStruct {
     is_plugin_owned: true,
 };
 
+pub const analysis_bda_help_args: RzCmdDescArg = RzCmdDescArg {
+    name: null(),
+    optional: false,
+    no_space: false,
+    type_: 0,
+    flags: 0,
+    default_value: null(),
+    __bindgen_anon_1: rz_cmd_desc_arg_t__bindgen_ty_1 {
+        choices: rz_cmd_desc_arg_t__bindgen_ty_1__bindgen_ty_1 {
+            choices: "\0".as_ptr() as *mut *const i8,
+            choices_cb: None,
+        },
+    },
+};
+
 pub const analysis_bda_help: RzCmdDescHelp = RzCmdDescHelp {
     summary: "Run bda dependency analysis (algorithm: BDA).\0"
         .as_ptr()
@@ -103,20 +119,19 @@ pub const analysis_bda_help: RzCmdDescHelp = RzCmdDescHelp {
     sort_subcommands: false,
     details: null(),
     details_cb: None,
-    args: null(),
+    args: &analysis_bda_help_args,
 };
 
 pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
     unsafe {
         let binding_cd: *mut RzCmdDesc = get_probana_cmd_desc(core);
-        rz_cmd_desc_group_new(
+        rz_cmd_desc_argv_new(
             (*core).rcmd,
             binding_cd,
             "aaaaPb\0".as_ptr().cast(),
             Some(rz_analysis_bda_handler),
             &analysis_bda_help,
-            &analysis_bda_help,
-        )
+        );
     };
     true
 }
