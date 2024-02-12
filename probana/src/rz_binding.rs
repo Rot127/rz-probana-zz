@@ -24,6 +24,7 @@ pub struct rz_lib_struct_t {
     #[doc = "< rizin version this plugin was compiled for"]
     pub version: *const ::std::os::raw::c_char,
     pub free: ::std::option::Option<unsafe extern "C" fn(data: *mut ::std::os::raw::c_void)>,
+    pub is_plugin_owned: bool,
 }
 
 pub const analysis_probana_help: RzCmdDescHelp = RzCmdDescHelp {
@@ -104,7 +105,13 @@ pub const rizin_plugin: RzLibStruct = RzLibStruct {
     data: &rz_core_plugin_probana as *const _ as *const c_void,
     version: RZ_VERSION.as_ptr().cast(),
     free: None,
+    is_plugin_owned: true,
 };
+
+#[no_mangle]
+pub extern "C" fn rizin_plugin_function() -> RzLibStruct {
+    rizin_plugin
+}
 
 // CMD handler
 
