@@ -4,8 +4,8 @@
 use cty::c_void;
 
 use crate::{
-    rz_cmd_desc_argv_new, rz_cmd_desc_group_new, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK,
-    rz_core_cmd_help, RzCmdDesc, RzCmdDescHelp, RzCmdStatus, RzCore, RzCorePlugin, RzLibType,
+    rz_cmd_desc_group_new, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_cmd_help,
+    RzCmdDesc, RzCmdDescHelp, RzCmdStatus, RzCore, RzCorePlugin, RzLibType,
     RzLibType_RZ_LIB_TYPE_CORE, RZ_VERSION,
 };
 
@@ -28,23 +28,20 @@ pub struct rz_lib_struct_t {
 }
 
 pub const analysis_probana_help: RzCmdDescHelp = RzCmdDescHelp {
-    summary: "Probabalistic binary analysis algorithms".as_ptr().cast(),
-    description: "Probabalistic binary analysis algorithms BDA, OSPREY and StochFuzz"
+    summary: "Probabalistic binary analysis algorithms\0".as_ptr().cast(),
+    description: "Probabalistic binary analysis algorithms BDA, OSPREY and StochFuzz\0"
         .as_ptr()
         .cast(),
-    args_str: "".as_ptr().cast(),
-    usage: "".as_ptr().cast(),
-    options: "".as_ptr().cast(),
+    args_str: "\0".as_ptr().cast(),
+    usage: std::ptr::null(),
+    options: std::ptr::null(),
     sort_subcommands: false,
-    details: "".as_ptr().cast(),
+    details: std::ptr::null(),
     details_cb: None,
-    args: "".as_ptr().cast(),
+    args: std::ptr::null(),
 };
 
-pub const help_msg_aaaaP: *const i8 =
-    "Usage:\0aaaaP\0[bof]\0aaaaPb\0Run BDA.\0aaaaPo\0Run Osprey\0aaaaPf\0Run StochFuzz\0"
-        .as_ptr()
-        .cast();
+pub const help_msg_aaaaP: *const i8 = "Usage:\0aaaaP\0".as_ptr().cast();
 
 pub extern "C" fn rz_analysis_probana_handler(
     core: *mut RzCore,
@@ -62,9 +59,9 @@ pub fn get_probana_cmd_desc(core: *mut RzCore) -> *mut RzCmdDesc {
     unsafe {
         rz_cmd_desc_group_new(
             (*core).rcmd,
-            rz_cmd_get_desc((*core).rcmd, "aaaa".as_ptr().cast()),
-            "aaaaP".as_ptr().cast(),
-            Some(rz_analysis_probana_handler),
+            rz_cmd_get_desc((*core).rcmd, "aa\0".as_ptr().cast()),
+            "aaaaP\0".as_ptr().cast(),
+            None,
             &analysis_probana_help,
             &analysis_probana_help,
         )
@@ -72,27 +69,19 @@ pub fn get_probana_cmd_desc(core: *mut RzCore) -> *mut RzCmdDesc {
 }
 
 pub extern "C" fn rz_probana_init_core(core: *mut RzCore) -> bool {
-    unsafe {
-        let probana_cd: *mut RzCmdDesc = get_probana_cmd_desc(core);
-        rz_cmd_desc_argv_new(
-            (*core).rcmd,
-            probana_cd,
-            "aaaaPb".as_ptr().cast(),
-            Some(rz_analysis_probana_handler),
-            &analysis_probana_help,
-        )
-    };
+    // Just register the group
+    get_probana_cmd_desc(core);
     true
 }
 
 pub const rz_core_plugin_probana: RzCorePlugin = RzCorePlugin {
-    name: "Probana".as_ptr().cast(),
-    desc: "Probabalistic binary analysis algorithms designed by Zhuo Zhang."
+    name: "Probana\0".as_ptr().cast(),
+    desc: "Probabalistic binary analysis algorithms designed by Zhuo Zhang.\0"
         .as_ptr()
         .cast(),
-    license: "LGPL-3.0-only".as_ptr().cast(),
-    author: "Rot127".as_ptr().cast(),
-    version: "0.1".as_ptr().cast(),
+    license: "LGPL-3.0-only\0".as_ptr().cast(),
+    author: "Rot127\0".as_ptr().cast(),
+    version: "0.1\0".as_ptr().cast(),
     init: Some(rz_probana_init_core),
     fini: None,
     analysis: None,

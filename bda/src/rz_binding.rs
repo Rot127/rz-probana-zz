@@ -161,19 +161,19 @@ pub extern "C" fn rz_analysis_bda_handler(
 }
 
 pub const analysis_bda_help: RzCmdDescHelp = RzCmdDescHelp {
-    summary: "Run bda dependency analysis (algorithm: BDA)."
+    summary: "Run bda dependency analysis (algorithm: BDA).\0"
         .as_ptr()
         .cast(),
-    description: "Detect memory dependencies via abstract interpretation over sampled paths."
+    description: "Detect memory dependencies via abstract interpretation over sampled paths.\0"
         .as_ptr()
         .cast(),
-    args_str: "".as_ptr().cast(),
-    usage: "".as_ptr().cast(),
-    options: "".as_ptr().cast(),
+    args_str: std::ptr::null(),
+    usage: std::ptr::null(),
+    options: std::ptr::null(),
     sort_subcommands: false,
-    details: "".as_ptr().cast(),
+    details: std::ptr::null(),
     details_cb: None,
-    args: "".as_ptr().cast(),
+    args: std::ptr::null(),
 };
 
 pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
@@ -191,13 +191,13 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
 }
 
 pub const rz_core_plugin_bda: RzCorePlugin = RzCorePlugin {
-    name: "BDA".as_ptr().cast(),
-    desc: "Dependency detection algorithm by Zhuo Zhang."
+    name: "BDA\0".as_ptr().cast(),
+    desc: "Dependency detection algorithm by Zhuo Zhang.\0"
         .as_ptr()
         .cast(),
-    license: "LGPL-3.0-only".as_ptr().cast(),
-    author: "Rot127".as_ptr().cast(),
-    version: "0.1".as_ptr().cast(),
+    license: "LGPL-3.0-only\0".as_ptr().cast(),
+    author: "Rot127\0".as_ptr().cast(),
+    version: "0.1\0".as_ptr().cast(),
     init: Some(rz_bda_init_core),
     fini: None,
     analysis: None,
