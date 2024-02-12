@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use binding::rz_lib_struct_t;
-use cty::c_void;
+use std::ptr::null;
+
+use binding::{log_rz, rz_log_level_RZ_LOGLVL_WARN, RzCmdStatus};
 
 use crate::cfg::{CFGNodeData, CFGNodeType, CFG};
 use crate::flow_graphs::{
@@ -10,35 +11,16 @@ use crate::flow_graphs::{
 };
 use crate::icfg::{Procedure, ICFG};
 use binding::{
-    rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_cmd_desc_group_new,
+    rz_analysis_function_is_malloc, rz_analysis_get_function_at,
     rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg,
-    rz_core_graph_icfg, rz_log_level_RZ_LOGLVL_ERROR, rz_log_level_RZ_LOGLVL_INFO,
-    rz_log_level_RZ_LOGLVL_WARN, RzAnalysis, RzCmdDesc, RzCmdDescHelp, RzCmdStatus, RzCore,
-    RzCorePlugin, RzGraph, RzGraphNode, RzGraphNodeInfo, RzGraphNodeSubType,
-    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    rz_core_graph_icfg, RzAnalysis, RzCore, RzGraph, RzGraphNode, RzGraphNodeInfo,
+    RzGraphNodeSubType, RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzLibType_RZ_LIB_TYPE_CORE, RzList, RzListIter,
-    RZ_VERSION,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList, RzListIter,
 };
-
-macro_rules! log {
-    ($level:expr, $($args: expr),*) => {
-        print!("{}", match $level {
-            rz_log_level_RZ_LOGLVL_INFO => "INFO: ",
-            rz_log_level_RZ_LOGLVL_WARN => "WARNING: ",
-            rz_log_level_RZ_LOGLVL_ERROR => "ERROR: ",
-            _ => "UNKNOWN: "
-        });
-        print!("{}:{} ", file!(), line!());
-        $(
-            print!("{}", $args);
-        )*
-        println!(""); // to get a new line at the end
-    }
-}
 
 fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> {
     let mut vec: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> = Vec::new();
@@ -138,7 +120,6 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     }
 }
 
-#[allow(dead_code)]
 pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) -> ::std::os::raw::c_int {
     // get iCFG
     let mut icfg = ICFG::new_graph(get_graph(unsafe {
@@ -174,71 +155,13 @@ pub extern "C" fn rz_analysis_bda_handler(
     _argc: i32,
     _argv: *mut *const i8,
 ) -> RzCmdStatus {
-    if unsafe { (*core).analysis.cast_const() == std::ptr::null() } {
-        log!(
+    if unsafe { (*core).analysis.cast_const() == null() } {
+        log_rz(
             rz_log_level_RZ_LOGLVL_WARN,
-            "core.analysis is null. Without it it cannot run the analysis."
+            "core.analysis is null. Without it it cannot run the analysis.",
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }
     run_bda_analysis(unsafe { (*core).analysis });
     return rz_cmd_status_t_RZ_CMD_STATUS_OK;
-}
-
-pub const analysis_bda_help: RzCmdDescHelp = RzCmdDescHelp {
-    summary: "Run bda dependency analysis (algorithm: BDA).\0"
-        .as_ptr()
-        .cast(),
-    description: "Detect memory dependencies via abstract interpretation over sampled paths.\0"
-        .as_ptr()
-        .cast(),
-    args_str: std::ptr::null(),
-    usage: std::ptr::null(),
-    options: std::ptr::null(),
-    sort_subcommands: false,
-    details: std::ptr::null(),
-    details_cb: None,
-    args: std::ptr::null(),
-};
-
-pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
-    unsafe {
-        let binding_cd: *mut RzCmdDesc = ::binding::get_probana_cmd_desc(core);
-        rz_cmd_desc_group_new(
-            (*core).rcmd,
-            binding_cd,
-            "aaaaPb\0".as_ptr().cast(),
-            Some(rz_analysis_bda_handler),
-            &analysis_bda_help,
-            &analysis_bda_help,
-        )
-    };
-    true
-}
-
-pub const rz_core_plugin_bda: RzCorePlugin = RzCorePlugin {
-    name: "BDA\0".as_ptr().cast(),
-    desc: "Dependency detection algorithm by Zhuo Zhang.\0"
-        .as_ptr()
-        .cast(),
-    license: "LGPL-3.0-only\0".as_ptr().cast(),
-    author: "Rot127\0".as_ptr().cast(),
-    version: "0.1\0".as_ptr().cast(),
-    init: Some(rz_bda_init_core),
-    fini: None,
-    analysis: None,
-};
-
-pub type RzLibStruct = rz_lib_struct_t;
-#[allow(dead_code)]
-pub const rizin_plugin: RzLibStruct = RzLibStruct {
-    type_: RzLibType_RZ_LIB_TYPE_CORE, // Until RzArch is introduced, we leave this as a core plugin, so we can add the command.
-    data: &rz_core_plugin_bda as *const _ as *const c_void,
-    version: RZ_VERSION.as_ptr().cast(),
-    free: None,
-    is_plugin_owned: true,
-};
-
-pub extern "C" fn rizin_plugin_function_bda() -> RzLibStruct {
-    rizin_plugin
 }

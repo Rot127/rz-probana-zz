@@ -5,15 +5,13 @@ use std::collections::{HashMap, HashSet};
 
 use petgraph::{
     algo::toposort,
-    graphmap::NodeTrait,
     Direction::{Incoming, Outgoing},
 };
 
 use crate::{
-    cfg::{CFGNodeData, CFGNodeType, CFG},
+    cfg::{CFGNodeType, CFG},
     flow_graphs::{
-        FlowGraph, FlowGraphOperations, NodeId, SamplingBias, Weight, INVALID_WEIGHT,
-        UNDETERMINED_WEIGHT,
+        FlowGraph, FlowGraphOperations, NodeId, SamplingBias, Weight, UNDETERMINED_WEIGHT,
     },
 };
 
