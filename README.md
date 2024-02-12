@@ -12,9 +12,9 @@ Implementations of probabilistic binary analysis algorithms by [Zhuo Zhang (х╝ах
 **Papers**
 
 - [All (thesis)](https://doi.org/10.25394/PGS.23542014.v1)
-- [BDA](https://www.cs.purdue.edu/homes/zhan3299/res/OOPSLA19.pdf)
-- [OSPREY](https://www.cs.purdue.edu/homes/zhan3299/res/SP21a.pdf)
-- [StochFuzz](https://www.cs.purdue.edu/homes/zhan3299/res/SP21b.pdf)
+- [BDA](https://www.cs.purdue.edu/homes/zhan3299/res/OOPSLA19.pdf) - [Archived](https://web.archive.org/web/20230513202447/https://www.cs.purdue.edu/homes/zhan3299/res/OOPSLA19.pdf)
+- [OSPREY](https://www.cs.purdue.edu/homes/zhan3299/res/SP21a.pdf) - [Archived](https://web.archive.org/web/20221127114938/https://www.cs.purdue.edu/homes/zhan3299/res/SP21a.pdf)
+- [StochFuzz](https://www.cs.purdue.edu/homes/zhan3299/res/SP21b.pdf) - [Archived](https://web.archive.org/web/20240119062852/https://www.cs.purdue.edu/homes/zhan3299/res/SP21b.pdf)
 
 ## Build
 
