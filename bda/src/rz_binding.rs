@@ -8,16 +8,16 @@ use crate::flow_graphs::{
     Address, FlowGraph, FlowGraphOperations, NodeId, SamplingBias, MAX_ADDRESS, UNDETERMINED_WEIGHT,
 };
 use crate::icfg::{Procedure, ICFG};
-use crate::{
-    rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_core_graph_cfg,
-    rz_core_graph_icfg, RzAnalysis, RzAnalysisOp, RzAnalysisOpMask, RzAnalysisPlugin, RzCore,
-    RzGraph, RzGraphNode, RzGraphNodeInfo, RzGraphNodeSubType,
-    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+use probana::{
+    rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_cmd_desc_argv_new,
+    rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg, rz_core_graph_icfg, RzAnalysis, RzCmdDesc,
+    RzCmdDescHelp, RzCmdStatus, RzCore, RzCorePlugin, RzGraph, RzGraphNode, RzGraphNodeInfo,
+    RzGraphNodeSubType, RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzLibType, RzLibType_RZ_LIB_TYPE_ANALYSIS, RzList,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzLibType, RzLibType_RZ_LIB_TYPE_CORE, RzList,
     RzListIter, RZ_VERSION,
 };
 
@@ -37,33 +37,6 @@ pub struct rz_lib_struct_t {
     pub version: *const ::std::os::raw::c_char,
     pub free: ::std::option::Option<unsafe extern "C" fn(data: *mut ::std::os::raw::c_void)>,
 }
-
-pub type RzLibStruct = rz_lib_struct_t;
-
-pub const rz_analysis_plugin_probana: RzAnalysisPlugin = RzAnalysisPlugin {
-    name: "rz_probana".as_ptr().cast(),
-    desc: "Probabilistic Binary Analysis Algorithms".as_ptr().cast(),
-    license: "LGPL-3.0-only".as_ptr().cast(),
-    arch: "".as_ptr().cast(),
-    author: "Rot127".as_ptr().cast(),
-    version: "0.1".as_ptr().cast(),
-    bits: 0,
-    esil: 0,
-    fileformat_type: 0,
-    init: Some(rz_probana_init),
-    fini: None,
-    archinfo: None,
-    analysis_mask: None,
-    preludes: None,
-    address_bits: None,
-    op: None,
-    get_reg_profile: None,
-    esil_init: None,
-    esil_post_loop: None,
-    esil_trap: None,
-    esil_fini: None,
-    il_config: None,
-};
 
 fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> {
     let mut vec: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> = Vec::new();
@@ -164,22 +137,7 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
 }
 
 #[allow(dead_code)]
-pub const rizin_plugin: RzLibStruct = RzLibStruct {
-    type_: RzLibType_RZ_LIB_TYPE_ANALYSIS,
-    data: &rz_analysis_plugin_probana as *const _ as *const c_void,
-    version: RZ_VERSION.as_ptr().cast(),
-    free: None,
-};
-
-#[allow(dead_code)]
-pub extern "C" fn run_probability_analysis(
-    a: *mut RzAnalysis,
-    _op: *mut RzAnalysisOp,
-    _addr: ::std::os::raw::c_ulonglong,
-    _data: *const ::std::os::raw::c_uchar,
-    _len: ::std::os::raw::c_int,
-    _mask: RzAnalysisOpMask,
-) -> ::std::os::raw::c_int {
+pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) -> ::std::os::raw::c_int {
     // get iCFG
     let mut icfg = ICFG::new_graph(get_graph(unsafe {
         rz_core_graph_icfg((*a).core as *mut RzCore)
@@ -209,6 +167,68 @@ pub extern "C" fn run_probability_analysis(
     1
 }
 
-pub extern "C" fn rz_probana_init(_user: *mut *mut c_void) -> bool {
+pub extern "C" fn rz_analysis_bda_handler(
+    core: *mut RzCore,
+    _argc: i32,
+    _argv: *mut *const i8,
+) -> RzCmdStatus {
+    run_bda_analysis(unsafe { (*core).analysis });
+    return rz_cmd_status_t_RZ_CMD_STATUS_OK;
+}
+
+pub const analysis_bda_help: RzCmdDescHelp = RzCmdDescHelp {
+    summary: "Run bda dependency analysis (algorithm: BDA)."
+        .as_ptr()
+        .cast(),
+    description: "Detect memory dependencies via abstract interpretation over sampled paths."
+        .as_ptr()
+        .cast(),
+    args_str: "".as_ptr().cast(),
+    usage: "".as_ptr().cast(),
+    options: "".as_ptr().cast(),
+    sort_subcommands: false,
+    details: "".as_ptr().cast(),
+    details_cb: None,
+    args: "".as_ptr().cast(),
+};
+
+pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
+    unsafe {
+        let probana_cd: *mut RzCmdDesc = ::probana::rz_binding::get_probana_cmd_desc(core);
+        rz_cmd_desc_argv_new(
+            (*core).rcmd,
+            probana_cd,
+            "aaaaPb".as_ptr().cast(),
+            Some(rz_analysis_bda_handler),
+            &analysis_bda_help,
+        )
+    };
     true
 }
+
+pub const rz_core_plugin_bda: RzCorePlugin = RzCorePlugin {
+    name: "BDA".as_ptr().cast(),
+    desc: "Dependency detection algorithm by Zhuo Zhang."
+        .as_ptr()
+        .cast(),
+    license: "LGPL-3.0-only".as_ptr().cast(),
+    author: "Rot127".as_ptr().cast(),
+    version: "0.1".as_ptr().cast(),
+    init: Some(rz_bda_init_core),
+    fini: None,
+    analysis: None,
+};
+
+pub type RzLibStruct = rz_lib_struct_t;
+#[allow(dead_code)]
+pub const rizin_plugin: RzLibStruct = RzLibStruct {
+    type_: RzLibType_RZ_LIB_TYPE_CORE, // Until RzArch is introduced, we leave this as a core plugin, so we can add the command.
+    data: &rz_core_plugin_bda as *const _ as *const c_void,
+    version: RZ_VERSION.as_ptr().cast(),
+    free: None,
+};
+
+// CMD handler
+
+// RzCmdDesc *analyze_everything_cd = rz_cmd_desc_argv_new(core->rcmd, aa_cd, "aaa", rz_analyze_everything_handler, &analyze_everything_help);
+// rz_warn_if_fail(analyze_everything_cd);

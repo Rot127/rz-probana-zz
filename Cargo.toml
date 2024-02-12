@@ -4,6 +4,7 @@
 [workspace]
 
 members = [
+  "probana",
   "bda",
   "osprey",
   "stochfuzz"
