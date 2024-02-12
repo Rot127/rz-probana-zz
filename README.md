@@ -32,6 +32,14 @@ cargo build
 cargo test --lib
 ```
 
+## Install
+
+```sh
+rizin -H | grep RZ_USER_PLUGINS
+mkdir -p <RZ_USER_PLUGINS>
+ln -s target/debug/libprobana_zz.so <RZ_USER_PLUGINS>/libprobana_zz.so
+```
+
 ## Dev
 
 ```
