@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 
 use binding::{log_rz, rz_log_level_RZ_LOGLVL_WARN, RzCmdStatus};
 
@@ -27,13 +27,17 @@ fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzG
     let len = unsafe { (*list).length };
     vec.reserve(len as usize);
     let mut iter: *mut RzListIter = unsafe { (*list).head };
-    let mut elem: *mut RzGraphNode = unsafe { (*iter).elem as *mut RzGraphNode };
-    let mut info: *mut RzGraphNodeInfo = unsafe { (*elem).data as *mut RzGraphNodeInfo };
-    for _ in 0..len {
+    if iter.is_null() {
+        return vec;
+    }
+    loop {
+        let elem: *mut RzGraphNode = unsafe { (*iter).elem as *mut RzGraphNode };
+        let info: *mut RzGraphNodeInfo = unsafe { (*elem).data as *mut RzGraphNodeInfo };
         vec.push((elem, info));
+        if unsafe { *iter }.next == null_mut() {
+            break;
+        }
         iter = unsafe { (*iter).next };
-        elem = unsafe { (*iter).elem as *mut RzGraphNode };
-        info = unsafe { (*elem).data as *mut RzGraphNodeInfo };
     }
     vec
 }
