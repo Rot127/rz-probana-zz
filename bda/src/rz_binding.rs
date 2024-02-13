@@ -3,7 +3,10 @@
 
 use std::ptr::{null, null_mut};
 
-use binding::{log_rz, rz_log_level_RZ_LOGLVL_WARN, RzCmdStatus};
+use binding::{
+    log_rz, rz_log_level_RZ_LOGLVL_WARN, RzCmdStatus,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
+};
 
 use crate::cfg::{CFGNodeData, CFGNodeType, CFG};
 use crate::flow_graphs::{
@@ -16,6 +19,9 @@ use binding::{
     rz_core_graph_icfg, RzAnalysis, RzCore, RzGraph, RzGraphNode, RzGraphNodeInfo,
     RzGraphNodeSubType, RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_CALL,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_EXIT,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_RETURN,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
@@ -90,12 +96,16 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
 }
 
 fn convert_rz_cfg_node_type(rz_node_type: RzGraphNodeSubType) -> CFGNodeType {
-    match rz_node_type {
+    let type_without_cond = rz_node_type & !RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND;
+    match type_without_cond {
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE => CFGNodeType::Normal,
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY => CFGNodeType::Entry,
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL => CFGNodeType::Call,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_CALL => CFGNodeType::Call,
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN => CFGNodeType::Return,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_RETURN => CFGNodeType::Return,
         RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT => CFGNodeType::Exit,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_EXIT => CFGNodeType::Return,
         _ => {
             panic!("RzGraphNodeSubType {} not handled.", rz_node_type)
         }
