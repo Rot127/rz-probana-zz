@@ -7,13 +7,18 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+/// Write a log message in Rizin style.
 pub fn log_rz(level: rz_log_level, msg: &str) {
     print!(
         "{}",
         match level {
+            rz_log_level_RZ_LOGLVL_SILLY => "SILLY: ",
+            rz_log_level_RZ_LOGLVL_DEBUG => "DEBUG: ",
+            rz_log_level_RZ_LOGLVL_VERBOSE => "VERBOSE: ",
             rz_log_level_RZ_LOGLVL_INFO => "INFO: ",
-            rz_log_level_RZ_LOGLVL_WARN => "WARNING: ",
+            rz_log_level_RZ_LOGLVL_WARN => "WARN: ",
             rz_log_level_RZ_LOGLVL_ERROR => "ERROR: ",
+            rz_log_level_RZ_LOGLVL_FATAL => "FATAL: ",
             _ => "UNKNOWN: ",
         }
     );
