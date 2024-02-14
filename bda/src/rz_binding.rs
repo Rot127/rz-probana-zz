@@ -4,7 +4,7 @@
 use std::ptr::{null, null_mut};
 
 use binding::{
-    log_rz, rz_log_level_RZ_LOGLVL_WARN, RzCmdStatus,
+    log_rz, rz_log_level_RZ_LOGLVL_DEBUG, rz_log_level_RZ_LOGLVL_WARN, RzCmdStatus,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
 };
 
@@ -45,6 +45,7 @@ fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzG
         }
         iter = unsafe { (*iter).next };
     }
+    assert_eq!(len, vec.len().try_into().unwrap());
     vec
 }
 
@@ -92,6 +93,16 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
             );
         }
     }
+    assert_eq!(graph.node_count(), unsafe { (*rz_graph).n_nodes } as usize);
+    assert_eq!(graph.edge_count(), unsafe { (*rz_graph).n_edges } as usize);
+    log_rz(
+        rz_log_level_RZ_LOGLVL_DEBUG,
+        format!(
+            "Parsed a graph with {} nodes and {} edges.",
+            graph.node_count(),
+            graph.edge_count(),
+        ),
+    );
     graph
 }
 
@@ -174,7 +185,7 @@ pub extern "C" fn rz_analysis_bda_handler(
     if unsafe { (*core).analysis.cast_const() == null() } {
         log_rz(
             rz_log_level_RZ_LOGLVL_WARN,
-            "core.analysis is null. Without it it cannot run the analysis.",
+            "core.analysis is null. Without it it cannot run the analysis.".to_string(),
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }

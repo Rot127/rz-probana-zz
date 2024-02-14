@@ -8,7 +8,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 /// Write a log message in Rizin style.
-pub fn log_rz(level: rz_log_level, msg: &str) {
+pub fn log_rz(level: rz_log_level, msg: String) {
     print!(
         "{}",
         match level {
