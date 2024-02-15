@@ -4,8 +4,8 @@
 use std::ptr::{null, null_mut};
 
 use binding::{
-    log_rz, rz_log_level_RZ_LOGLVL_DEBUG, rz_log_level_RZ_LOGLVL_WARN, RzCmdStatus,
-    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
+    log_rizn_style, log_rz, RzCmdStatus, RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
+    LOG_DEBUG, LOG_WARN,
 };
 
 use crate::cfg::{CFGNodeData, CFGNodeType, CFG};
@@ -34,6 +34,7 @@ fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzG
     vec.reserve(len as usize);
     let mut iter: *mut RzListIter = unsafe { (*list).head };
     if iter.is_null() {
+        assert_eq!(len, vec.len().try_into().unwrap());
         return vec;
     }
     loop {
@@ -65,7 +66,7 @@ macro_rules! get_node_info_address {
     };
 }
 
-/// Converts a graph from RIzin to our internal FlowGraph representation.
+/// Converts a graph from Rizin to our internal FlowGraph representation.
 fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
         graph_nodes_list_to_vec(unsafe { (*rz_graph).nodes });
@@ -76,12 +77,17 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
         let in_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
             graph_nodes_list_to_vec(unsafe { (*node).in_nodes });
         let node_addr: Address = get_node_info_address!(node_info);
+        let num_neigh = in_nodes.len() + out_nodes.len();
         for (_, out_node_info) in out_nodes {
             let out_addr: Address = get_node_info_address!(out_node_info);
             graph.add_edge(
                 NodeId::from(node_addr),
                 NodeId::from(out_addr),
                 SamplingBias::new_unset(),
+            );
+            log_rz!(
+                LOG_DEBUG,
+                format!("Added edge {:#x} -> {:#x}", node_addr, out_addr)
             );
         }
         for (_, in_node_info) in in_nodes {
@@ -91,17 +97,26 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
                 NodeId::from(node_addr),
                 SamplingBias::new_unset(),
             );
+            log_rz!(
+                LOG_DEBUG,
+                format!("Added edge {:#x} -> {:#x}", in_addr, node_addr)
+            );
+        }
+        if num_neigh == 0 {
+            graph.add_node(NodeId::from(node_addr));
+            log_rz!(LOG_DEBUG, format!("Added single node: {:#x}", node_addr));
         }
     }
     assert_eq!(graph.node_count(), unsafe { (*rz_graph).n_nodes } as usize);
     assert_eq!(graph.edge_count(), unsafe { (*rz_graph).n_edges } as usize);
-    log_rz(
-        rz_log_level_RZ_LOGLVL_DEBUG,
+
+    log_rz!(
+        LOG_DEBUG,
         format!(
             "Parsed a graph with {} nodes and {} edges.",
             graph.node_count(),
             graph.edge_count(),
-        ),
+        )
     );
     graph
 }
@@ -183,9 +198,9 @@ pub extern "C" fn rz_analysis_bda_handler(
     _argv: *mut *const i8,
 ) -> RzCmdStatus {
     if unsafe { (*core).analysis.cast_const() == null() } {
-        log_rz(
-            rz_log_level_RZ_LOGLVL_WARN,
-            "core.analysis is null. Without it it cannot run the analysis.".to_string(),
+        log_rz!(
+            LOG_WARN,
+            "core.analysis is null. Without it it cannot run the analysis.".to_string()
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }

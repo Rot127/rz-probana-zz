@@ -7,22 +7,37 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+#[macro_export]
+macro_rules! log_rz {
+    ($level:ident, $msg:expr) => {
+        log_rizn_style($level, $msg, line!())
+    };
+}
+
+pub const LOG_SILLY: u32 = rz_log_level_RZ_LOGLVL_SILLY;
+pub const LOG_DEBUG: u32 = rz_log_level_RZ_LOGLVL_DEBUG;
+pub const LOG_VERBOSE: u32 = rz_log_level_RZ_LOGLVL_VERBOSE;
+pub const LOG_INFO: u32 = rz_log_level_RZ_LOGLVL_INFO;
+pub const LOG_WARN: u32 = rz_log_level_RZ_LOGLVL_WARN;
+pub const LOG_ERROR: u32 = rz_log_level_RZ_LOGLVL_ERROR;
+pub const LOG_FATAL: u32 = rz_log_level_RZ_LOGLVL_FATAL;
+
 /// Write a log message in Rizin style.
-pub fn log_rz(level: rz_log_level, msg: String) {
+pub fn log_rizn_style(level: rz_log_level, msg: String, line: u32) {
     print!(
         "{}",
         match level {
-            rz_log_level_RZ_LOGLVL_SILLY => "SILLY: ",
-            rz_log_level_RZ_LOGLVL_DEBUG => "DEBUG: ",
-            rz_log_level_RZ_LOGLVL_VERBOSE => "VERBOSE: ",
-            rz_log_level_RZ_LOGLVL_INFO => "INFO: ",
-            rz_log_level_RZ_LOGLVL_WARN => "WARN: ",
-            rz_log_level_RZ_LOGLVL_ERROR => "ERROR: ",
-            rz_log_level_RZ_LOGLVL_FATAL => "FATAL: ",
+            LOG_SILLY => "SILLY: ",
+            LOG_DEBUG => "DEBUG: ",
+            LOG_VERBOSE => "VERBOSE: ",
+            LOG_INFO => "INFO: ",
+            LOG_WARN => "WARN: ",
+            LOG_ERROR => "ERROR: ",
+            LOG_FATAL => "FATAL: ",
             _ => "UNKNOWN: ",
         }
     );
-    print!("{}:{} ", file!(), line!());
+    print!("{}:{} ", file!(), line);
     print!("{}", msg);
     println!(""); // to get a new line at the end
 }
