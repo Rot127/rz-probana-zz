@@ -151,6 +151,7 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
         cfg.add_node_data(
             nid,
             CFGNodeData {
+                addr: nid.address,
                 weight: UNDETERMINED_WEIGHT,
                 ntype,
                 call_target,

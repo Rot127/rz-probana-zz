@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::flow_graphs::{
-    FlowGraph, FlowGraphOperations, NodeId, SamplingBias, Weight, INVALID_NODE_ID, INVALID_WEIGHT,
-    UNDETERMINED_WEIGHT,
+    Address, FlowGraph, FlowGraphOperations, NodeId, SamplingBias, Weight, INVALID_NODE_ID,
+    INVALID_WEIGHT, UNDETERMINED_WEIGHT,
 };
 
 /// The node type of a CFG.
@@ -47,15 +47,23 @@ pub enum CFGNodeType {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CFGNodeData {
+    pub addr: Address,
     pub weight: Weight,
     pub ntype: CFGNodeType,
     pub call_target: NodeId,
     pub is_indirect_call: bool,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct CFGIWordNodeData {
+    pub addr: Address,
+    pub insn: Vec<CFGNodeData>,
+}
+
 impl CFGNodeData {
-    pub fn new(ntype: CFGNodeType) -> CFGNodeData {
+    pub fn new(addr: Address, ntype: CFGNodeType) -> CFGNodeData {
         CFGNodeData {
+            addr,
             weight: UNDETERMINED_WEIGHT,
             ntype,
             call_target: INVALID_NODE_ID,
@@ -68,8 +76,9 @@ impl CFGNodeData {
         clone
     }
 
-    pub fn new_call(call_target: NodeId, is_indirect_call: bool) -> CFGNodeData {
+    pub fn new_call(addr: Address, call_target: NodeId, is_indirect_call: bool) -> CFGNodeData {
         CFGNodeData {
+            addr,
             weight: UNDETERMINED_WEIGHT,
             ntype: CFGNodeType::Call,
             call_target,
