@@ -4,11 +4,11 @@
 use std::ptr::{null, null_mut};
 
 use binding::{
-    log_rizn_style, log_rz, RzCmdStatus, RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
-    LOG_DEBUG, LOG_WARN,
+    log_rizn_style, log_rz, rz_core_graph_cfg_iwords, RzCmdStatus,
+    RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND, LOG_DEBUG, LOG_WARN,
 };
 
-use crate::cfg::{CFGNodeData, CFGNodeType, CFG};
+use crate::cfg::{CFGNodeData, InsnNodeType, CFG};
 use crate::flow_graphs::{
     Address, FlowGraph, FlowGraphOperations, NodeId, SamplingBias, MAX_ADDRESS, UNDETERMINED_WEIGHT,
 };
@@ -25,7 +25,8 @@ use binding::{
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN,
     RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList, RzListIter,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList,
+    RzListIter,
 };
 
 fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> {
@@ -56,6 +57,9 @@ macro_rules! get_node_info_address {
             match (*$node_info).type_ {
                 RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG => {
                     (*$node_info).__bindgen_anon_1.cfg.address
+                }
+                RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD => {
+                    (*$node_info).__bindgen_anon_1.cfg_iword.address
                 }
                 RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG => {
                     (*$node_info).__bindgen_anon_1.icfg.address
@@ -121,17 +125,17 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
     graph
 }
 
-fn convert_rz_cfg_node_type(rz_node_type: RzGraphNodeSubType) -> CFGNodeType {
+fn convert_rz_cfg_node_type(rz_node_type: RzGraphNodeSubType) -> InsnNodeType {
     let type_without_cond = rz_node_type & !RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND;
     match type_without_cond {
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE => CFGNodeType::Normal,
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY => CFGNodeType::Entry,
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL => CFGNodeType::Call,
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_CALL => CFGNodeType::Call,
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN => CFGNodeType::Return,
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_RETURN => CFGNodeType::Return,
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT => CFGNodeType::Exit,
-        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_EXIT => CFGNodeType::Return,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_NONE => InsnNodeType::Normal,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY => InsnNodeType::Entry,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL => InsnNodeType::Call,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_CALL => InsnNodeType::Call,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN => InsnNodeType::Return,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_RETURN => InsnNodeType::Return,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT => InsnNodeType::Exit,
+        RzGraphNodeSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_EXIT => InsnNodeType::Return,
         _ => {
             panic!("RzGraphNodeSubType {} not handled.", rz_node_type)
         }
@@ -147,7 +151,7 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
         let ntype = convert_rz_cfg_node_type(unsafe { (*node_info).subtype });
         let call_target =
             NodeId::new_original(unsafe { (*node_info).__bindgen_anon_1.cfg.call_address });
-        let is_indirect_call = ntype == CFGNodeType::Call && call_target.address == MAX_ADDRESS;
+        let is_indirect_call = ntype == InsnNodeType::Call && call_target.address == MAX_ADDRESS;
         cfg.add_node_data(
             nid,
             CFGNodeData {
@@ -175,7 +179,12 @@ pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) {
         nodes.push(n);
     }
     for n in nodes {
-        let rz_cfg = unsafe { rz_core_graph_cfg((*a).core as *mut RzCore, n.address) };
+        let get_iword_cfg = unsafe { (*(*a).cur).decode_iword.is_some() };
+        let rz_cfg = if get_iword_cfg {
+            unsafe { rz_core_graph_cfg_iwords((*a).core as *mut RzCore, n.address) }
+        } else {
+            unsafe { rz_core_graph_cfg((*a).core as *mut RzCore, n.address) }
+        };
         if rz_cfg.is_null() {
             return;
         }

@@ -9,7 +9,7 @@ use petgraph::{
 };
 
 use crate::{
-    cfg::{CFGNodeType, CFG},
+    cfg::{InsnNodeType, CFG},
     flow_graphs::{
         FlowGraph, FlowGraphOperations, NodeId, SamplingBias, Weight, UNDETERMINED_WEIGHT,
     },
@@ -170,7 +170,7 @@ impl FlowGraphOperations for ICFG {
                 if from == p_id {
                     proc.get_cfg_mut().set_call_weight(*to, UNDETERMINED_WEIGHT);
                     for nmeta in proc.get_cfg_mut().nodes_meta.values_mut() {
-                        if nmeta.ntype == CFGNodeType::Call
+                        if nmeta.ntype == InsnNodeType::Call
                             && nmeta.call_target.get_orig_node_id() == to.get_orig_node_id()
                         {
                             nmeta.call_target = *to;

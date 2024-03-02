@@ -7,7 +7,7 @@ mod tests {
     use petgraph::dot::Dot;
 
     use crate::{
-        cfg::{CFGNodeData, CFGNodeType, CFG},
+        cfg::{CFGNodeData, InsnNodeType, CFG},
         flow_graphs::{Address, FlowGraphOperations, NodeId, SamplingBias, Weight, INVALID_WEIGHT},
         icfg::{Procedure, ICFG},
     };
@@ -33,34 +33,34 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         cfg_a.add_edge(
-            (NodeId::new(0, 0, 0xa0), CFGNodeData::new(0xa0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
+            (NodeId::new(0, 0, 0xa0), CFGNodeData::new_single(0xa0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
         );
         cfg_a.add_edge(
-            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
-            (NodeId::new(0, 0, 0xa2), CFGNodeData::new(0xa2, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
+            (NodeId::new(0, 0, 0xa2), CFGNodeData::new_single(0xa2, InsnNodeType::Return)),
         );
 
         cfg_b.add_edge(
-            (NodeId::new(0, 0, 0xb0), CFGNodeData::new(0xb0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(0xb1, NodeId::new(0, 0, C_ADDR), false)),
+            (NodeId::new(0, 0, 0xb0), CFGNodeData::new_single(0xb0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false)),
         );
         cfg_b.add_edge(
-            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(0xb1, NodeId::new(0, 0, C_ADDR), false)),
-            (NodeId::new(0, 0, 0xb2), CFGNodeData::new(0xb2, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false)),
+            (NodeId::new(0, 0, 0xb2), CFGNodeData::new_single(0xb2, InsnNodeType::Return)),
         );
 
         cfg_c.add_edge(
-            (NodeId::new(0, 0, 0xc0), CFGNodeData::new(0xc0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 0xc1), CFGNodeData::new_call(0xc1, NodeId::new(0, 0, A_ADDR), false)),
+            (NodeId::new(0, 0, 0xc0), CFGNodeData::new_single(0xc0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 0xc1), CFGNodeData::new_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false)),
         );
         cfg_c.add_edge(
-            (NodeId::new(0, 0, 0xc1), CFGNodeData::new_call(0xc1, NodeId::new(0, 0, A_ADDR), false)),
-            (NodeId::new(0, 0, 0xc2), CFGNodeData::new_call(0xc2, NodeId::new(0, 0, C_ADDR), false)),
+            (NodeId::new(0, 0, 0xc1), CFGNodeData::new_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false)),
+            (NodeId::new(0, 0, 0xc2), CFGNodeData::new_single_call(0xc2, NodeId::new(0, 0, C_ADDR), false)),
         );
         cfg_c.add_edge(
-            (NodeId::new(0, 0, 0xc2), CFGNodeData::new_call(0xc2, NodeId::new(0, 0, C_ADDR), false)),
-            (NodeId::new(0, 0, 0xc3), CFGNodeData::new(0xc3, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0xc2), CFGNodeData::new_single_call(0xc2, NodeId::new(0, 0, C_ADDR), false)),
+            (NodeId::new(0, 0, 0xc3), CFGNodeData::new_single(0xc3, InsnNodeType::Return)),
         );
 
         icfg.add_edge(
@@ -92,38 +92,38 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         cfg_a.add_edge(
-            (NodeId::new(0, 0, 0xa0), CFGNodeData::new(0xa0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
+            (NodeId::new(0, 0, 0xa0), CFGNodeData::new_single(0xa0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
         );
         cfg_a.add_edge(
-            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
-            (NodeId::new(0, 0, 0xa2), CFGNodeData::new(0xa2, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0xa1), CFGNodeData::new_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false)),
+            (NodeId::new(0, 0, 0xa2), CFGNodeData::new_single(0xa2, InsnNodeType::Return)),
         );
 
         cfg_b.add_edge(
-            (NodeId::new(0, 0, 0xb0), CFGNodeData::new(0xb0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(0xb1, NodeId::new(0, 0, D_ADDR), false)),
+            (NodeId::new(0, 0, 0xb0), CFGNodeData::new_single(0xb0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_single_call(0xb1, NodeId::new(0, 0, D_ADDR), false)),
         );
         cfg_b.add_edge(
-            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_call(0xb1, NodeId::new(0, 0, D_ADDR), false)),
-            (NodeId::new(0, 0, 0xb2), CFGNodeData::new(0xb2, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0xb1), CFGNodeData::new_single_call(0xb1, NodeId::new(0, 0, D_ADDR), false)),
+            (NodeId::new(0, 0, 0xb2), CFGNodeData::new_single(0xb2, InsnNodeType::Return)),
         );
 
         cfg_d.add_edge(
-            (NodeId::new(0, 0, 0xd0), CFGNodeData::new(0xd0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 0xd1), CFGNodeData::new_call(0xd1, NodeId::new(0, 0, A_ADDR), false)),
+            (NodeId::new(0, 0, 0xd0), CFGNodeData::new_single(0xd0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 0xd1), CFGNodeData::new_single_call(0xd1, NodeId::new(0, 0, A_ADDR), false)),
         );
         cfg_d.add_edge(
-            (NodeId::new(0, 0, 0xd1), CFGNodeData::new_call(0xd1, NodeId::new(0, 0, A_ADDR), false)),
-            (NodeId::new(0, 0, 0xd3), CFGNodeData::new(0xd3, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0xd1), CFGNodeData::new_single_call(0xd1, NodeId::new(0, 0, A_ADDR), false)),
+            (NodeId::new(0, 0, 0xd3), CFGNodeData::new_single(0xd3, InsnNodeType::Return)),
         );
         cfg_d.add_edge(
-            (NodeId::new(0, 0, 0xd0), CFGNodeData::new(0xd0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 0xd2), CFGNodeData::new_call(0xd2, NodeId::new(0, 0, D_ADDR), false)),
+            (NodeId::new(0, 0, 0xd0), CFGNodeData::new_single(0xd0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 0xd2), CFGNodeData::new_single_call(0xd2, NodeId::new(0, 0, D_ADDR), false)),
         );
         cfg_d.add_edge(
-            (NodeId::new(0, 0, 0xd2), CFGNodeData::new_call(0xd2, NodeId::new(0, 0, D_ADDR), false)),
-            (NodeId::new(0, 0, 0xd3), CFGNodeData::new(0xd3, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 0xd2), CFGNodeData::new_single_call(0xd2, NodeId::new(0, 0, D_ADDR), false)),
+            (NodeId::new(0, 0, 0xd3), CFGNodeData::new_single(0xd3, InsnNodeType::Return)),
         );
 
         icfg.add_edge(
@@ -156,54 +156,54 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Entry),
+                CFGNodeData::new_single(0, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         // if (input()) ... else ...
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Normal),
+                CFGNodeData::new_single(3, InsnNodeType::Normal),
             ),
         );
         // *a = 0
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 4),
-                CFGNodeData::new(4, CFGNodeType::Return),
+                CFGNodeData::new_single(4, InsnNodeType::Return),
             ),
         );
         // *a = 2
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Normal),
+                CFGNodeData::new_single(3, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 4),
-                CFGNodeData::new(4, CFGNodeType::Return),
+                CFGNodeData::new_single(4, InsnNodeType::Return),
             ),
         );
 
@@ -220,30 +220,30 @@ mod tests {
         {
         // foo()
         cfg.add_edge(
-            (NodeId::new(0, 0, 6), CFGNodeData::new(6, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 7), CFGNodeData::new_call(7, NodeId::new(0, 0, GEE_ADDR), false)),
+            (NodeId::new(0, 0, 6), CFGNodeData::new_single(6, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 7), CFGNodeData::new_single_call(7, NodeId::new(0, 0, GEE_ADDR), false)),
         );
 
         // gee()
         cfg.add_edge(
-            (NodeId::new(0, 0, 7), CFGNodeData::new_call(7, NodeId::new(0, 0, GEE_ADDR), false)),
-            (NodeId::new(0, 0, 8), CFGNodeData::new(8, CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 7), CFGNodeData::new_single_call(7, NodeId::new(0, 0, GEE_ADDR), false)),
+            (NodeId::new(0, 0, 8), CFGNodeData::new_single(8, InsnNodeType::Normal)),
         );
 
         // if (intput())
         cfg.add_edge(
-            (NodeId::new(0, 0, 8), CFGNodeData::new(8, CFGNodeType::Normal)),
-            (NodeId::new(0, 0, 9), CFGNodeData::new(9, CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 8), CFGNodeData::new_single(8, InsnNodeType::Normal)),
+            (NodeId::new(0, 0, 9), CFGNodeData::new_single(9, InsnNodeType::Normal)),
         );
         cfg.add_edge(
-            (NodeId::new(0, 0, 8), CFGNodeData::new(8, CFGNodeType::Normal)),
-            (NodeId::new(0, 0, 1), CFGNodeData::new(1, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 8), CFGNodeData::new_single(8, InsnNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_single(1, InsnNodeType::Return)),
         );
 
         // *a += 1
         cfg.add_edge(
-            (NodeId::new(0, 0, 9), CFGNodeData::new(9, CFGNodeType::Normal)),
-            (NodeId::new(0, 0, 1), CFGNodeData::new(1, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 9), CFGNodeData::new_single(9, InsnNodeType::Normal)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_single(1, InsnNodeType::Return)),
         );
         }
 
@@ -260,27 +260,27 @@ mod tests {
         {
         // main()
         cfg.add_edge(
-            (NodeId::new(0, 0, 11), CFGNodeData::new(11, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 12), CFGNodeData::new(12, CFGNodeType::Normal)),
+            (NodeId::new(0, 0, 11), CFGNodeData::new_single(11, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new_single(12, InsnNodeType::Normal)),
         );
         // if (input()) ... else ...
         cfg.add_edge(
-            (NodeId::new(0, 0, 12), CFGNodeData::new(12, CFGNodeType::Normal)),
-            (NodeId::new(0, 0, 13), CFGNodeData::new_call(13, NodeId::new(0, 0, GEE_ADDR), false)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new_single(12, InsnNodeType::Normal)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new_single_call(13, NodeId::new(0, 0, GEE_ADDR), false)),
         );
         cfg.add_edge(
-            (NodeId::new(0, 0, 12), CFGNodeData::new(12, CFGNodeType::Normal)),
-            (NodeId::new(0, 0, 14), CFGNodeData::new_call(14, NodeId::new(0, 0, FOO_ADDR), false)),
+            (NodeId::new(0, 0, 12), CFGNodeData::new_single(12, InsnNodeType::Normal)),
+            (NodeId::new(0, 0, 14), CFGNodeData::new_single_call(14, NodeId::new(0, 0, FOO_ADDR), false)),
         );
         // gee()
         cfg.add_edge(
-            (NodeId::new(0, 0, 13), CFGNodeData::new_call(13, NodeId::new(0, 0, GEE_ADDR), false)),
-            (NodeId::new(0, 0, 15), CFGNodeData::new(15, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 13), CFGNodeData::new_single_call(13, NodeId::new(0, 0, GEE_ADDR), false)),
+            (NodeId::new(0, 0, 15), CFGNodeData::new_single(15, InsnNodeType::Return)),
         );
         // foo()
         cfg.add_edge(
-            (NodeId::new(0, 0, 14), CFGNodeData::new_call(14, NodeId::new(0, 0, FOO_ADDR), false)),
-            (NodeId::new(0, 0, 15), CFGNodeData::new(15, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 14), CFGNodeData::new_single_call(14, NodeId::new(0, 0, FOO_ADDR), false)),
+            (NodeId::new(0, 0, 15), CFGNodeData::new_single(15, InsnNodeType::Return)),
         );
         }
 
@@ -314,61 +314,61 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 10),
-                CFGNodeData::new(10, CFGNodeType::Entry),
+                CFGNodeData::new_single(10, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 11),
-                CFGNodeData::new(11, CFGNodeType::Normal),
+                CFGNodeData::new_single(11, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 11),
-                CFGNodeData::new(11, CFGNodeType::Normal),
+                CFGNodeData::new_single(11, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Normal),
+                CFGNodeData::new_single(0, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Normal),
+                CFGNodeData::new_single(0, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 12),
-                CFGNodeData::new(12, CFGNodeType::Normal),
+                CFGNodeData::new_single(12, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 12),
-                CFGNodeData::new(12, CFGNodeType::Normal),
+                CFGNodeData::new_single(12, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 13),
-                CFGNodeData::new(13, CFGNodeType::Return),
+                CFGNodeData::new_single(13, InsnNodeType::Return),
             ),
         );
         cfg
@@ -379,91 +379,91 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Normal),
+                CFGNodeData::new_single(0, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Normal),
+                CFGNodeData::new_single(0, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Return),
+                CFGNodeData::new_single(2, InsnNodeType::Return),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 10),
-                CFGNodeData::new(10, CFGNodeType::Entry),
+                CFGNodeData::new_single(10, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 11),
-                CFGNodeData::new(11, CFGNodeType::Normal),
+                CFGNodeData::new_single(11, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 11),
-                CFGNodeData::new(11, CFGNodeType::Normal),
+                CFGNodeData::new_single(11, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 12),
-                CFGNodeData::new(12, CFGNodeType::Normal),
+                CFGNodeData::new_single(12, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 12),
-                CFGNodeData::new(12, CFGNodeType::Normal),
+                CFGNodeData::new_single(12, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 13),
-                CFGNodeData::new(13, CFGNodeType::Normal),
+                CFGNodeData::new_single(13, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 13),
-                CFGNodeData::new(13, CFGNodeType::Normal),
+                CFGNodeData::new_single(13, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 14),
-                CFGNodeData::new(14, CFGNodeType::Return),
+                CFGNodeData::new_single(14, InsnNodeType::Return),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 13),
-                CFGNodeData::new(13, CFGNodeType::Normal),
+                CFGNodeData::new_single(13, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 11),
-                CFGNodeData::new(11, CFGNodeType::Normal),
+                CFGNodeData::new_single(11, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 11),
-                CFGNodeData::new(11, CFGNodeType::Normal),
+                CFGNodeData::new_single(11, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg
@@ -477,7 +477,7 @@ mod tests {
         let mut cfg = CFG::new();
         cfg.add_node((
             NodeId::new(0, 0, 0),
-            CFGNodeData::new(0, CFGNodeType::Return),
+            CFGNodeData::new_single(0, InsnNodeType::Return),
         ));
         cfg
     }
@@ -487,11 +487,11 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Return),
+                CFGNodeData::new_single(0, InsnNodeType::Return),
             ),
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Return),
+                CFGNodeData::new_single(0, InsnNodeType::Return),
             ),
         );
         cfg
@@ -502,31 +502,31 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Entry),
+                CFGNodeData::new_single(0, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Return),
+                CFGNodeData::new_single(3, InsnNodeType::Return),
             ),
         );
         cfg
@@ -537,41 +537,41 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Entry),
+                CFGNodeData::new_single(0, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Return),
+                CFGNodeData::new_single(3, InsnNodeType::Return),
             ),
         );
         cfg
@@ -582,61 +582,61 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 10),
-                CFGNodeData::new(10, CFGNodeType::Entry),
+                CFGNodeData::new_single(10, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Normal),
+                CFGNodeData::new_single(0, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Normal),
+                CFGNodeData::new_single(0, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Normal),
+                CFGNodeData::new_single(3, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Normal),
+                CFGNodeData::new_single(3, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 13),
-                CFGNodeData::new(13, CFGNodeType::Return),
+                CFGNodeData::new_single(13, InsnNodeType::Return),
             ),
         );
         cfg
@@ -647,31 +647,31 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Entry),
+                CFGNodeData::new_single(0, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
-            ),
-        );
-        cfg.add_edge(
-            (
-                NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
-            ),
-            (
-                NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
+            ),
+            (
+                NodeId::new(0, 0, 1),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
+            ),
+        );
+        cfg.add_edge(
+            (
+                NodeId::new(0, 0, 1),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Return),
+                CFGNodeData::new_single(2, InsnNodeType::Return),
             ),
         );
         cfg
@@ -694,62 +694,62 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Entry),
+                CFGNodeData::new_single(0, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Return),
+                CFGNodeData::new_single(3, InsnNodeType::Return),
             ),
         );
 
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 4),
-                CFGNodeData::new(4, CFGNodeType::Normal),
-            ),
-        );
-        cfg.add_edge(
-            (
-                NodeId::new(0, 0, 4),
-                CFGNodeData::new(4, CFGNodeType::Normal),
-            ),
-            (
-                NodeId::new(0, 0, 4),
-                CFGNodeData::new(4, CFGNodeType::Normal),
+                CFGNodeData::new_single(4, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 4),
-                CFGNodeData::new(4, CFGNodeType::Normal),
+                CFGNodeData::new_single(4, InsnNodeType::Normal),
+            ),
+            (
+                NodeId::new(0, 0, 4),
+                CFGNodeData::new_single(4, InsnNodeType::Normal),
+            ),
+        );
+        cfg.add_edge(
+            (
+                NodeId::new(0, 0, 4),
+                CFGNodeData::new_single(4, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg
@@ -760,63 +760,63 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Entry),
+                CFGNodeData::new_single(0, InsnNodeType::Entry),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         // Back edge
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Normal),
+                CFGNodeData::new_single(3, InsnNodeType::Normal),
             ),
         );
         // Back edge
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Normal),
+                CFGNodeData::new_single(3, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 2),
-                CFGNodeData::new(2, CFGNodeType::Normal),
+                CFGNodeData::new_single(2, InsnNodeType::Normal),
             ),
         );
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 3),
-                CFGNodeData::new(3, CFGNodeType::Normal),
+                CFGNodeData::new_single(3, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 4),
-                CFGNodeData::new(4, CFGNodeType::Return),
+                CFGNodeData::new_single(4, InsnNodeType::Return),
             ),
         );
         cfg
@@ -828,12 +828,12 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         cfg.add_edge(
-            (NodeId::new(0, 0, 0), CFGNodeData::new( 0, CFGNodeType::Entry)),
-            (NodeId::new(0, 0, 1), CFGNodeData::new_call( 1, NodeId::new(0, 0, RANDOM_FCN_ADDR), true)),
+            (NodeId::new(0, 0, 0), CFGNodeData::new_single( 0, InsnNodeType::Entry)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_single_call( 1, NodeId::new(0, 0, RANDOM_FCN_ADDR), true)),
         );
         cfg.add_edge(
-            (NodeId::new(0, 0, 1), CFGNodeData::new_call( 1, NodeId::new(0, 0, RANDOM_FCN_ADDR), true)),
-            (NodeId::new(0, 0, 2), CFGNodeData::new( 2, CFGNodeType::Return)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_single_call( 1, NodeId::new(0, 0, RANDOM_FCN_ADDR), true)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new_single( 2, InsnNodeType::Return)),
         );
         }
 
@@ -1048,7 +1048,7 @@ mod tests {
         let mut cfg: CFG = get_cfg_single_node();
         cfg.add_node((
             NodeId::new(0, 0, 0),
-            CFGNodeData::new(0, CFGNodeType::Return),
+            CFGNodeData::new_single(0, InsnNodeType::Return),
         ));
     }
 
@@ -1072,11 +1072,11 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new(0, CFGNodeType::Normal),
+                CFGNodeData::new_single(0, InsnNodeType::Normal),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new(1, CFGNodeType::Normal),
+                CFGNodeData::new_single(1, InsnNodeType::Normal),
             ),
         );
         cfg.calc_weight();

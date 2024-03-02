@@ -12,7 +12,7 @@ use crate::flow_graphs::{
 
 /// The node type of a CFG.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CFGNodeType {
+pub enum InsnNodeType {
     /// First node of a procedure. It has only incomming
     /// edges from other procedures and always a weight of
     ///
@@ -45,45 +45,70 @@ pub enum CFGNodeType {
     Exit,
 }
 
+/// An instruction node which is always part of an
+/// instruction word node.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CFGNodeData {
+pub struct InsnNodeData {
     pub addr: Address,
     pub weight: Weight,
-    pub ntype: CFGNodeType,
+    pub itype: InsnNodeType,
     pub call_target: NodeId,
     pub is_indirect_call: bool,
 }
 
+/// A CFG node. This is equivalent to an instruction word.
+/// For most architectures this instruction word
+/// contains one instruction.
+/// For a few (e.g. Hexagon) it can contain more.
 #[derive(Clone, Debug, PartialEq)]
-pub struct CFGIWordNodeData {
+pub struct CFGNodeData {
     pub addr: Address,
-    pub insn: Vec<CFGNodeData>,
+    pub weight: Weight,
+    pub insns: Vec<InsnNodeData>,
 }
 
 impl CFGNodeData {
-    pub fn new(addr: Address, ntype: CFGNodeType) -> CFGNodeData {
-        CFGNodeData {
+    /// Initialize an CFG node with a single instruction.
+    pub fn new_single(addr: Address, ntype: InsnNodeType) -> CFGNodeData {
+        let mut node = CFGNodeData {
             addr,
             weight: UNDETERMINED_WEIGHT,
-            ntype,
+            insns: Vec::new(),
+        };
+        node.insns.push(InsnNodeData {
+            addr,
+            weight: UNDETERMINED_WEIGHT,
+            itype: ntype,
             call_target: INVALID_NODE_ID,
             is_indirect_call: false,
-        }
+        });
+        node
     }
 
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> CFGNodeData {
-        let clone = self.clone();
-        clone
-    }
-
-    pub fn new_call(addr: Address, call_target: NodeId, is_indirect_call: bool) -> CFGNodeData {
-        CFGNodeData {
+    /// Initialize an CFG node with a single call instruction.
+    pub fn new_single_call(
+        addr: Address,
+        call_target: NodeId,
+        is_indirect_call: bool,
+    ) -> CFGNodeData {
+        let mut node = CFGNodeData {
             addr,
             weight: UNDETERMINED_WEIGHT,
-            ntype: CFGNodeType::Call,
+            insns: Vec::new(),
+        };
+        node.insns.push(InsnNodeData {
+            addr,
+            weight: UNDETERMINED_WEIGHT,
+            itype: InsnNodeType::Call,
             call_target,
             is_indirect_call,
-        }
+        });
+        node
+    }
+
+    pub fn get_clone(&self, _icfg_clone_id: u32, _cfg_clone_id: u32) -> CFGNodeData {
+        let clone = self.clone();
+        clone
     }
 }
 
@@ -103,7 +128,7 @@ pub struct CFG {
 impl std::fmt::Display for CFG {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (nid, info) in self.nodes_meta.iter() {
-            if info.ntype == CFGNodeType::Entry {
+            if info.ntype == InsnNodeType::Entry {
                 return write!(f, "CFG{}", nid);
             }
         }
@@ -253,10 +278,10 @@ impl CFG {
         if !self.graph.contains_edge(from.0, to.0) {
             self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
         }
-        if from.1.ntype == CFGNodeType::Call {
+        if from.1.ntype == InsnNodeType::Call {
             self.set_call_weight(from.1.call_target, UNDETERMINED_WEIGHT);
         }
-        if to.1.ntype == CFGNodeType::Call {
+        if to.1.ntype == InsnNodeType::Call {
             self.set_call_weight(to.1.call_target, UNDETERMINED_WEIGHT);
         }
     }
@@ -269,7 +294,7 @@ impl CFG {
         }
         self.nodes_meta.insert(node.0, node.1);
         self.graph.add_node(node.0);
-        if node.1.ntype == CFGNodeType::Call {
+        if node.1.ntype == InsnNodeType::Call {
             self.set_call_weight(node.1.call_target, UNDETERMINED_WEIGHT);
         }
     }
@@ -319,11 +344,11 @@ impl FlowGraphOperations for CFG {
             let info: &mut CFGNodeData = get_nodes_meta_mut!(self, n);
             let sum_succ_weight = succ_weight.values().sum();
             info.weight = match info.ntype {
-                CFGNodeType::Return => 1,
-                CFGNodeType::Exit => 1,
-                CFGNodeType::Normal => sum_succ_weight,
-                CFGNodeType::Entry => sum_succ_weight,
-                CFGNodeType::Call => sum_succ_weight * get_call_weight!(self, info),
+                InsnNodeType::Return => 1,
+                InsnNodeType::Exit => 1,
+                InsnNodeType::Normal => sum_succ_weight,
+                InsnNodeType::Entry => sum_succ_weight,
+                InsnNodeType::Call => sum_succ_weight * get_call_weight!(self, info),
             };
             // Update weight of edges/edge sampling bias
             for (k, nw) in succ_weight.iter() {
