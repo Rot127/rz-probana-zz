@@ -35,9 +35,15 @@ pub const MAX_ADDRESS: Address = u64::MAX;
 ///
 /// [^2.4.3] https://doi.org/10.25394/PGS.23542014.v1
 #[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+/// A node identifier in a iCFG and CFG
 pub struct NodeId {
+    /// The i'th iCFG clone this node belongs to.
+    /// If 0 it is the original node, i means it is part of the i'th clone.
     pub icfg_clone_id: u32,
+    /// The i'th CFG clone this node belongs to.
+    /// If 0 it is the original node, i means it is part of the i'th clone.
     pub cfg_clone_id: u32,
+    /// The memory address of the procedure or instruction word this node represents.
     pub address: Address,
 }
 
