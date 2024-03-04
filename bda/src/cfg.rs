@@ -10,7 +10,7 @@ use crate::flow_graphs::{
     INVALID_WEIGHT, UNDETERMINED_WEIGHT,
 };
 
-/// The node type of a CFG.
+/// The node type of a instruction.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum InsnNodeType {
     /// First node of a procedure. It has only incomming
@@ -47,13 +47,65 @@ pub enum InsnNodeType {
 
 /// An instruction node which is always part of an
 /// instruction word node.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InsnNodeData {
+    /// The memory address the instruction is located.
     pub addr: Address,
+    /// The weight of the instruction.
     pub weight: Weight,
+    /// Instruction type. Determines weight calculation.
     pub itype: InsnNodeType,
+    /// Node this instruction calls.
     pub call_target: NodeId,
+    /// Node this instruction jumps to. This neighboring instruction.
+    pub jump_targets: Vec<NodeId>,
+    /// Flag if this instruction is an indirect call.
     pub is_indirect_call: bool,
+}
+
+impl InsnNodeData {
+    pub fn new_call(
+        addr: Address,
+        call_target: NodeId,
+        is_indirect_call: bool,
+        jump_targets: &[NodeId],
+    ) -> InsnNodeData {
+        InsnNodeData {
+            addr,
+            weight: UNDETERMINED_WEIGHT,
+            itype: InsnNodeType::Call,
+            call_target,
+            jump_targets: Vec::from(jump_targets),
+            is_indirect_call,
+        }
+    }
+
+    /// Calculate the weight of the instruction node from the successor node weights.
+    pub fn calc_weight(
+        &mut self,
+        iword_succ_weights: HashMap<NodeId, Weight>,
+        call_target_weights: &HashMap<NodeId, Weight>,
+    ) {
+        let mut sum_succ_weights = 0;
+        for (target_id, target_weight) in iword_succ_weights.iter() {
+            if *target_id == self.call_target || self.jump_targets.contains(target_id) {
+                sum_succ_weights += target_weight;
+            }
+        }
+        self.weight = match self.itype {
+            InsnNodeType::Return => 1,
+            InsnNodeType::Exit => 1,
+            InsnNodeType::Normal => sum_succ_weights,
+            InsnNodeType::Entry => sum_succ_weights,
+            InsnNodeType::Call => {
+                sum_succ_weights
+                    * match call_target_weights.get(&self.call_target) {
+                        Some(w) => *w,
+                        None => 1,
+                    }
+            }
+        };
+    }
 }
 
 /// A CFG node. This is equivalent to an instruction word.
@@ -80,9 +132,23 @@ impl CFGNodeData {
             weight: UNDETERMINED_WEIGHT,
             itype: ntype,
             call_target: INVALID_NODE_ID,
+            jump_targets: Vec::new(),
             is_indirect_call: false,
         });
         node
+    }
+
+    /// Calculates the total weight of the CFG node.
+    pub fn calc_weight(
+        &mut self,
+        successor_weights: HashMap<NodeId, Weight>,
+        call_weights: HashMap<NodeId, Weight>,
+    ) {
+        let mut total_node_weight = 0;
+        for insn in self.insns.iter_mut() {
+            insn.calc_weight(successor_weights, &call_weights)
+        }
+        self.weight = total_node_weight;
     }
 
     /// Initialize an CFG node with a single call instruction.
@@ -96,13 +162,12 @@ impl CFGNodeData {
             weight: UNDETERMINED_WEIGHT,
             insns: Vec::new(),
         };
-        node.insns.push(InsnNodeData {
+        node.insns.push(InsnNodeData::new_call(
             addr,
-            weight: UNDETERMINED_WEIGHT,
-            itype: InsnNodeType::Call,
             call_target,
             is_indirect_call,
-        });
+            &[],
+        ));
         node
     }
 
@@ -150,15 +215,6 @@ macro_rules! get_nodes_meta {
         match $cfg.nodes_meta.get(&$node_id) {
             Some(m) => m.clone(),
             None => panic!("The {} has no meta info for node {}.", $cfg, $node_id),
-        }
-    };
-}
-
-macro_rules! get_call_weight {
-    ( $self:ident, $info:ident ) => {
-        match $self.call_target_weights.get(&$info.call_target) {
-            Some(w) => *w,
-            None => 1,
         }
     };
 }
@@ -335,26 +391,19 @@ impl FlowGraphOperations for CFG {
     fn calc_weight(&mut self) -> Weight {
         self.sort();
         for n in self.rev_topograph.iter() {
-            let mut succ_weight: HashMap<NodeId, Weight> = HashMap::new();
+            let mut succ_weights: HashMap<NodeId, Weight> = HashMap::new();
             for neigh in self.graph.neighbors_directed(*n, Outgoing) {
                 let nw: Weight = get_nodes_meta!(self, neigh).weight;
-                succ_weight.insert(neigh, nw);
+                succ_weights.insert(neigh, nw);
             }
 
-            let info: &mut CFGNodeData = get_nodes_meta_mut!(self, n);
-            let sum_succ_weight = succ_weight.values().sum();
-            info.weight = match info.ntype {
-                InsnNodeType::Return => 1,
-                InsnNodeType::Exit => 1,
-                InsnNodeType::Normal => sum_succ_weight,
-                InsnNodeType::Entry => sum_succ_weight,
-                InsnNodeType::Call => sum_succ_weight * get_call_weight!(self, info),
-            };
+            let node_data: &mut CFGNodeData = get_nodes_meta_mut!(self, n);
+            node_data.calc_weight(succ_weights, self.call_target_weights);
             // Update weight of edges/edge sampling bias
-            for (k, nw) in succ_weight.iter() {
+            for (k, nw) in succ_weights.iter() {
                 let bias: SamplingBias = SamplingBias {
                     numerator: *nw,
-                    denominator: info.weight,
+                    denominator: node_data.weight,
                 };
                 self.graph.add_edge(*n, *k, bias);
             }
