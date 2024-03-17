@@ -153,8 +153,8 @@ fn get_insn_node_data(
         weight: UNDETERMINED_WEIGHT,
         itype: inode_type,
         call_target,
-        jump_target,
-        next,
+        orig_jump_target: jump_target,
+        orig_next: next,
         is_indirect_call,
     }
 }

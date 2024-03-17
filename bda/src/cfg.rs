@@ -56,12 +56,15 @@ pub struct InsnNodeData {
     pub weight: Weight,
     /// Instruction type. Determines weight calculation.
     pub itype: InsnNodeType,
-    /// Node this instruction calls.
+    /// Node this instruction calls. The NodeId points to another CFG.
+    /// It can point to a cloned NodeId.
     pub call_target: NodeId,
     /// Node this instruction jumps to.
-    pub jump_target: NodeId,
+    /// It always points to the original NodeId. It is not updated if a cloned edge is added.
+    pub orig_jump_target: NodeId,
     /// Follwing instruction address.
-    pub next: NodeId,
+    /// It always points to the original NodeId. It is not updated if a cloned edge is added.
+    pub orig_next: NodeId,
     /// Flag if this instruction is an indirect call.
     pub is_indirect_call: bool,
 }
@@ -79,8 +82,8 @@ impl InsnNodeData {
             weight: UNDETERMINED_WEIGHT,
             itype: InsnNodeType::Call,
             call_target,
-            jump_target,
-            next,
+            orig_jump_target: jump_target,
+            orig_next: next,
             is_indirect_call,
         }
     }
@@ -94,10 +97,10 @@ impl InsnNodeData {
         let mut sum_succ_weights = 0;
         for (target_id, target_weight) in iword_succ_weights.iter() {
             if *target_id == self.call_target
-                || self.jump_target == *target_id
-                || self.next == *target_id
+                || self.orig_jump_target.get_orig_node_id() == target_id.get_orig_node_id()
+                || self.orig_next.get_orig_node_id() == target_id.get_orig_node_id()
             {
-                sum_succ_weights += target_weight;
+                sum_succ_weights += *target_weight;
             }
         }
         self.weight = match self.itype {
@@ -146,8 +149,8 @@ impl CFGNodeData {
             weight: UNDETERMINED_WEIGHT,
             itype: ntype,
             call_target: INVALID_NODE_ID,
-            jump_target,
-            next,
+            orig_jump_target: jump_target,
+            orig_next: next,
             is_indirect_call: false,
         });
         node
