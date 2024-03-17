@@ -202,21 +202,18 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
 fn graph_node_insn_pvec_to_vec(pvec: *mut RzPVector) -> Vec<*mut RzGraphNodeInfoDataCFG> {
     let mut vec: Vec<*mut RzGraphNodeInfoDataCFG> = Vec::new();
     let len = unsafe { (*pvec).v.len };
-    vec.reserve(len as usize);
-    let mut i = 0;
-    let mut elem: *mut RzGraphNodeInfoDataCFG =
-        unsafe { *((*pvec).v.a.add(i) as *mut *mut RzGraphNodeInfoDataCFG) };
-    if elem.is_null() {
-        assert_eq!(len, vec.len().try_into().unwrap());
+    if len <= 0 {
         return vec;
     }
-    loop {
-        vec.push(elem);
-        if i < len {
-            break;
-        }
-        i += 1;
-        elem = unsafe { *((*pvec).v.a.add(i) as *mut *mut RzGraphNodeInfoDataCFG) };
+    vec.reserve(len as usize);
+    let data_arr: &mut [*mut RzGraphNodeInfoDataCFG] = unsafe {
+        std::slice::from_raw_parts_mut(
+            (*pvec).v.a as *mut *mut RzGraphNodeInfoDataCFG,
+            len as usize,
+        )
+    };
+    for i in 0..len {
+        vec.push(data_arr[i]);
     }
     assert_eq!(len, vec.len().try_into().unwrap());
     vec
