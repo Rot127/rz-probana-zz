@@ -3,7 +3,12 @@
 
 use rand::{thread_rng, Rng};
 
-use crate::flow_graphs::Weight;
+use crate::{
+    flow_graphs::{NodeId, Weight},
+    icfg::ICFG,
+};
+
+type Path = Vec<NodeId>;
 
 #[derive(Clone)]
 struct ApproxW {
@@ -42,7 +47,7 @@ macro_rules! get_w {
 /// Implementation after Algorithm 2 [2] modified for n weights.
 ///
 /// [^2] https://doi.org/10.25394/PGS.23542014.v1
-pub fn select_branch(weights: Vec<Weight>) -> usize {
+fn select_branch(weights: Vec<Weight>) -> usize {
     let mut rng = thread_rng();
     let mut approx_w: Vec<ApproxW> = Vec::new();
     approximate_weights(&weights, &mut approx_w);
@@ -73,4 +78,9 @@ pub fn select_branch(weights: Vec<Weight>) -> usize {
         opponent += 1;
     }
     choice
+}
+
+/// Sample a path from the given [icfg] and return it as vector.
+pub fn sample_path(_icfg: &ICFG) -> Path {
+    todo!()
 }

@@ -3,6 +3,7 @@
 
 use std::ptr::{null, null_mut};
 
+use crate::bda::run_bda;
 use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, CFG};
 use crate::flow_graphs::{
     Address, FlowGraph, FlowGraphOperations, NodeId, SamplingBias, MAX_ADDRESS, UNDETERMINED_WEIGHT,
@@ -294,6 +295,7 @@ pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) {
         );
         set_cfg_node_data(icfg.get_procedure_mut(n).get_cfg_mut(), rz_cfg);
     }
+    run_bda(a, &mut icfg);
     // Run analysis
 }
 
