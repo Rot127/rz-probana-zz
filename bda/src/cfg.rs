@@ -193,8 +193,10 @@ impl CFGNodeData {
         node
     }
 
-    pub fn get_clone(&self, _icfg_clone_id: u32, _cfg_clone_id: u32) -> CFGNodeData {
-        let clone = self.clone();
+    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> CFGNodeData {
+        let mut clone = self.clone();
+        clone.nid.icfg_clone_id = icfg_clone_id;
+        clone.nid.cfg_clone_id = cfg_clone_id;
         clone
     }
 
