@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use core::panic;
 use std::collections::HashMap;
 
 use petgraph::{algo::toposort, Direction::Outgoing};
@@ -129,7 +130,12 @@ pub struct CFGNodeData {
 
 impl CFGNodeData {
     /// Initialize an CFG node with a single instruction.
-    pub fn new_single(addr: Address, ntype: InsnNodeType) -> CFGNodeData {
+    pub fn new_test_single(
+        addr: Address,
+        ntype: InsnNodeType,
+        jump_target: NodeId,
+        next: NodeId,
+    ) -> CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
             weight: UNDETERMINED_WEIGHT,
@@ -140,8 +146,8 @@ impl CFGNodeData {
             weight: UNDETERMINED_WEIGHT,
             itype: ntype,
             call_target: INVALID_NODE_ID,
-            jump_target: INVALID_NODE_ID,
-            next: INVALID_NODE_ID,
+            jump_target,
+            next,
             is_indirect_call: false,
         });
         node
@@ -161,10 +167,11 @@ impl CFGNodeData {
     }
 
     /// Initialize an CFG node with a single call instruction.
-    pub fn new_single_call(
+    pub fn new_test_single_call(
         addr: Address,
         call_target: NodeId,
         is_indirect_call: bool,
+        next: NodeId,
     ) -> CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
@@ -176,7 +183,7 @@ impl CFGNodeData {
             call_target,
             is_indirect_call,
             INVALID_NODE_ID,
-            INVALID_NODE_ID,
+            next,
         ));
         node
     }
