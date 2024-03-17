@@ -171,6 +171,22 @@ fn get_rz_node_info_nodeid(node_info: &RzGraphNodeInfo) -> NodeId {
     NodeId::new_original(addr)
 }
 
+pub fn pvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
+    let mut vec: Vec<*mut T> = Vec::new();
+    let len = unsafe { (*pvec).v.len };
+    if len <= 0 {
+        return vec;
+    }
+    vec.reserve(len as usize);
+    let data_arr: &mut [*mut T] =
+        unsafe { std::slice::from_raw_parts_mut((*pvec).v.a as *mut *mut T, len as usize) };
+    for i in 0..len {
+        vec.push(data_arr[i]);
+    }
+    assert_eq!(len, vec.len().try_into().unwrap());
+    vec
+}
+
 fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
     let nid = get_rz_node_info_nodeid(node_info);
     let mut node_data: CFGNodeData = CFGNodeData {
@@ -186,9 +202,9 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
         }));
         return node_data;
     } else if rz_node_type == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD {
-        for idata in
-            graph_node_insn_pvec_to_vec(unsafe { node_info.__bindgen_anon_1.cfg_iword.insn })
-        {
+        for idata in pvec_to_vec::<RzGraphNodeInfoDataCFG>(unsafe {
+            node_info.__bindgen_anon_1.cfg_iword.insn
+        }) {
             let ntype = convert_rz_cfg_node_type(unsafe { *idata }.subtype);
             node_data
                 .insns
@@ -197,26 +213,6 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
         return node_data;
     }
     panic!("UNhandled node type");
-}
-
-fn graph_node_insn_pvec_to_vec(pvec: *mut RzPVector) -> Vec<*mut RzGraphNodeInfoDataCFG> {
-    let mut vec: Vec<*mut RzGraphNodeInfoDataCFG> = Vec::new();
-    let len = unsafe { (*pvec).v.len };
-    if len <= 0 {
-        return vec;
-    }
-    vec.reserve(len as usize);
-    let data_arr: &mut [*mut RzGraphNodeInfoDataCFG] = unsafe {
-        std::slice::from_raw_parts_mut(
-            (*pvec).v.a as *mut *mut RzGraphNodeInfoDataCFG,
-            len as usize,
-        )
-    };
-    for i in 0..len {
-        vec.push(data_arr[i]);
-    }
-    assert_eq!(len, vec.len().try_into().unwrap());
-    vec
 }
 
 fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
