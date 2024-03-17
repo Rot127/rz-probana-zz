@@ -26,8 +26,36 @@ use binding::{
     RzListIter, RzPVector, LOG_DEBUG, LOG_WARN,
 };
 
-fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> {
-    let mut vec: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> = Vec::new();
+pub fn pvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
+    let mut vec: Vec<*mut T> = Vec::new();
+    if pvec.is_null() {
+        println!("PVector pointer is null.");
+        return vec;
+    }
+
+    let len = unsafe { (*pvec).v.len };
+    if len <= 0 {
+        return vec;
+    }
+    vec.reserve(len as usize);
+    let data_arr: &mut [*mut T] =
+        unsafe { std::slice::from_raw_parts_mut((*pvec).v.a as *mut *mut T, len as usize) };
+    for i in 0..len {
+        vec.push(data_arr[i]);
+    }
+    assert_eq!(len, vec.len().try_into().unwrap());
+    vec
+}
+
+pub fn list_to_vec<T>(
+    list: *mut RzList,
+    elem_conv: fn(*mut ::std::os::raw::c_void) -> T,
+) -> Vec<T> {
+    let mut vec: Vec<T> = Vec::new();
+    if list.is_null() {
+        println!("List pointer is null.");
+        return vec;
+    }
     let len = unsafe { (*list).length };
     vec.reserve(len as usize);
     let mut iter: *mut RzListIter = unsafe { (*list).head };
@@ -36,9 +64,7 @@ fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzG
         return vec;
     }
     loop {
-        let elem: *mut RzGraphNode = unsafe { (*iter).elem as *mut RzGraphNode };
-        let info: *mut RzGraphNodeInfo = unsafe { (*elem).data as *mut RzGraphNodeInfo };
-        vec.push((elem, info));
+        vec.push(elem_conv(unsafe { (*iter).elem }));
         if unsafe { *iter }.next == null_mut() {
             break;
         }
@@ -46,6 +72,14 @@ fn graph_nodes_list_to_vec(list: *mut RzList) -> Vec<(*mut RzGraphNode, *mut RzG
     }
     assert_eq!(len, vec.len().try_into().unwrap());
     vec
+}
+
+fn list_elem_to_graph_node_tuple(
+    elem: *mut ::std::os::raw::c_void,
+) -> (*mut RzGraphNode, *mut RzGraphNodeInfo) {
+    (elem as *mut RzGraphNode, unsafe {
+        (*(elem as *mut RzGraphNode)).data as *mut RzGraphNodeInfo
+    })
 }
 
 macro_rules! get_node_info_address {
@@ -70,13 +104,23 @@ macro_rules! get_node_info_address {
 /// Converts a graph from Rizin to our internal FlowGraph representation.
 fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
-        graph_nodes_list_to_vec(unsafe { (*rz_graph).nodes });
+        list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
+            unsafe { (*rz_graph).nodes },
+            list_elem_to_graph_node_tuple,
+        );
     let mut graph: FlowGraph = FlowGraph::new();
     for (node, node_info) in nodes {
         let out_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
-            graph_nodes_list_to_vec(unsafe { (*node).out_nodes });
+            list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
+                unsafe { (*node).out_nodes },
+                list_elem_to_graph_node_tuple,
+            );
         let in_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
-            graph_nodes_list_to_vec(unsafe { (*node).in_nodes });
+            list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
+                unsafe { (*node).in_nodes },
+                list_elem_to_graph_node_tuple,
+            );
+
         let node_addr: Address = get_node_info_address!(node_info);
         let num_neigh = in_nodes.len() + out_nodes.len();
         for (_, out_node_info) in out_nodes {
@@ -171,22 +215,6 @@ fn get_rz_node_info_nodeid(node_info: &RzGraphNodeInfo) -> NodeId {
     NodeId::new_original(addr)
 }
 
-pub fn pvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
-    let mut vec: Vec<*mut T> = Vec::new();
-    let len = unsafe { (*pvec).v.len };
-    if len <= 0 {
-        return vec;
-    }
-    vec.reserve(len as usize);
-    let data_arr: &mut [*mut T] =
-        unsafe { std::slice::from_raw_parts_mut((*pvec).v.a as *mut *mut T, len as usize) };
-    for i in 0..len {
-        vec.push(data_arr[i]);
-    }
-    assert_eq!(len, vec.len().try_into().unwrap());
-    vec
-}
-
 fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
     let nid = get_rz_node_info_nodeid(node_info);
     let mut node_data: CFGNodeData = CFGNodeData {
@@ -217,7 +245,10 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
 
 fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
-        graph_nodes_list_to_vec(unsafe { (*rz_cfg).nodes });
+        list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
+            unsafe { (*rz_cfg).nodes },
+            list_elem_to_graph_node_tuple,
+        );
     for (_, node_info) in nodes {
         let s_node_info = if node_info.is_null() {
             panic!("node_info is NULL.")
