@@ -83,7 +83,7 @@ impl InsnNodeData {
     /// Calculate the weight of the instruction node from the successor node weights.
     pub fn calc_weight(
         &mut self,
-        iword_succ_weights: HashMap<NodeId, Weight>,
+        iword_succ_weights: &HashMap<NodeId, Weight>,
         call_target_weights: &HashMap<NodeId, Weight>,
     ) {
         let mut sum_succ_weights = 0;
@@ -141,12 +141,12 @@ impl CFGNodeData {
     /// Calculates the total weight of the CFG node.
     pub fn calc_weight(
         &mut self,
-        successor_weights: HashMap<NodeId, Weight>,
-        call_weights: HashMap<NodeId, Weight>,
+        successor_weights: &HashMap<NodeId, Weight>,
+        call_weights: &HashMap<NodeId, Weight>,
     ) {
         let mut total_node_weight = 0;
         for insn in self.insns.iter_mut() {
-            insn.calc_weight(successor_weights, &call_weights)
+            insn.calc_weight(successor_weights, call_weights)
         }
         self.weight = total_node_weight;
     }
@@ -325,6 +325,11 @@ impl CFG {
         if from.0 == to.0 {
             assert_eq!(from.1, to.1);
         }
+        for i in from.1.insns.iter() {
+            if i.itype == InsnNodeType::Call {
+                self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT);
+            }
+        }
         if !self.nodes_meta.contains_key(&from.0) {
             self.nodes_meta.insert(from.0, from.1);
         }
@@ -334,12 +339,6 @@ impl CFG {
         if !self.graph.contains_edge(from.0, to.0) {
             self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
         }
-        if from.1.ntype == InsnNodeType::Call {
-            self.set_call_weight(from.1.call_target, UNDETERMINED_WEIGHT);
-        }
-        if to.1.ntype == InsnNodeType::Call {
-            self.set_call_weight(to.1.call_target, UNDETERMINED_WEIGHT);
-        }
     }
 
     /// Adds an node to the graph.
@@ -348,11 +347,13 @@ impl CFG {
         if self.nodes_meta.contains_key(&node.0) && self.graph.contains_node(node.0) {
             return;
         }
+        for i in node.1.insns.iter() {
+            if i.itype == InsnNodeType::Call {
+                self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT);
+            }
+        }
         self.nodes_meta.insert(node.0, node.1);
         self.graph.add_node(node.0);
-        if node.1.ntype == InsnNodeType::Call {
-            self.set_call_weight(node.1.call_target, UNDETERMINED_WEIGHT);
-        }
     }
 
     pub fn add_node_data(&mut self, node_id: NodeId, data: CFGNodeData) {
@@ -398,7 +399,7 @@ impl FlowGraphOperations for CFG {
             }
 
             let node_data: &mut CFGNodeData = get_nodes_meta_mut!(self, n);
-            node_data.calc_weight(succ_weights, self.call_target_weights);
+            node_data.calc_weight(&succ_weights, &self.call_target_weights);
             // Update weight of edges/edge sampling bias
             for (k, nw) in succ_weights.iter() {
                 let bias: SamplingBias = SamplingBias {
