@@ -307,7 +307,7 @@ pub trait FlowGraphOperations {
                 // Only add edges if they self refernce the node
                 let node = match scc.get(0) {
                     Some(n) => n,
-                    None => panic!("Rust is broken. Vector size changed inbetween."),
+                    None => panic!("Race condition? Vector size changed inbetween."),
                 };
                 for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
                     if incomming == *node {

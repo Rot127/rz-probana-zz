@@ -4,6 +4,7 @@
 use core::panic;
 use std::collections::HashMap;
 
+use binding::{log_rizn_style, log_rz, LOG_DEBUG};
 use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::flow_graphs::{
@@ -162,6 +163,7 @@ impl CFGNodeData {
         successor_weights: &HashMap<NodeId, Weight>,
         call_weights: &HashMap<NodeId, Weight>,
     ) {
+        assert_ne!(self.insns.len(), 0);
         let mut total_node_weight = 0;
         for insn in self.insns.iter_mut() {
             total_node_weight += insn.calc_weight(successor_weights, call_weights);
@@ -458,6 +460,10 @@ impl FlowGraphOperations for CFG {
     }
 
     fn add_cloned_edge(&mut self, cloned_from: NodeId, cloned_to: NodeId) {
+        log_rz!(
+            LOG_DEBUG,
+            format!("Add cloned edge: {} -> {}", cloned_from, cloned_to)
+        );
         self.add_edge(
             (
                 cloned_from,
