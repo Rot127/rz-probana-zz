@@ -167,15 +167,15 @@ impl FlowGraphOperations for ICFG {
         for (p_id, proc) in self.procedures.iter_mut() {
             proc.get_cfg_mut().call_target_weights.clear();
             for (from, to) in to_update.iter() {
-                if from == p_id {
-                    proc.get_cfg_mut().set_call_weight(*to, UNDETERMINED_WEIGHT);
-                    for nmeta in proc.get_cfg_mut().nodes_meta.values_mut() {
-                        if nmeta.ntype == InsnNodeType::Call
-                            && nmeta.call_target.get_orig_node_id() == to.get_orig_node_id()
-                        {
-                            nmeta.call_target = *to;
-                        }
+                if from != p_id {
+                    continue;
+                }
+                proc.get_cfg_mut().set_call_weight(*to, UNDETERMINED_WEIGHT);
+                for nmeta in proc.get_cfg_mut().nodes_meta.values_mut() {
+                    if !nmeta.has_type(InsnNodeType::Call) {
+                        continue;
                     }
+                    nmeta.update_call_target(*to);
                 }
             }
         }

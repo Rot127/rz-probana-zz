@@ -57,8 +57,10 @@ pub struct InsnNodeData {
     pub itype: InsnNodeType,
     /// Node this instruction calls.
     pub call_target: NodeId,
-    /// Node this instruction jumps to. This neighboring instruction.
-    pub jump_targets: Vec<NodeId>,
+    /// Node this instruction jumps to.
+    pub jump_target: NodeId,
+    /// Follwing instruction address.
+    pub next: NodeId,
     /// Flag if this instruction is an indirect call.
     pub is_indirect_call: bool,
 }
@@ -68,14 +70,16 @@ impl InsnNodeData {
         addr: Address,
         call_target: NodeId,
         is_indirect_call: bool,
-        jump_targets: &[NodeId],
+        jump_target: NodeId,
+        next: NodeId,
     ) -> InsnNodeData {
         InsnNodeData {
             addr,
             weight: UNDETERMINED_WEIGHT,
             itype: InsnNodeType::Call,
             call_target,
-            jump_targets: Vec::from(jump_targets),
+            jump_target,
+            next,
             is_indirect_call,
         }
     }
@@ -85,10 +89,13 @@ impl InsnNodeData {
         &mut self,
         iword_succ_weights: &HashMap<NodeId, Weight>,
         call_target_weights: &HashMap<NodeId, Weight>,
-    ) {
+    ) -> Weight {
         let mut sum_succ_weights = 0;
         for (target_id, target_weight) in iword_succ_weights.iter() {
-            if *target_id == self.call_target || self.jump_targets.contains(target_id) {
+            if *target_id == self.call_target
+                || self.jump_target == *target_id
+                || self.next == *target_id
+            {
                 sum_succ_weights += target_weight;
             }
         }
@@ -105,6 +112,7 @@ impl InsnNodeData {
                     }
             }
         };
+        self.weight
     }
 }
 
@@ -114,7 +122,7 @@ impl InsnNodeData {
 /// For a few (e.g. Hexagon) it can contain more.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CFGNodeData {
-    pub addr: Address,
+    pub nid: NodeId,
     pub weight: Weight,
     pub insns: Vec<InsnNodeData>,
 }
@@ -123,7 +131,7 @@ impl CFGNodeData {
     /// Initialize an CFG node with a single instruction.
     pub fn new_single(addr: Address, ntype: InsnNodeType) -> CFGNodeData {
         let mut node = CFGNodeData {
-            addr,
+            nid: NodeId::from(addr),
             weight: UNDETERMINED_WEIGHT,
             insns: Vec::new(),
         };
@@ -132,7 +140,8 @@ impl CFGNodeData {
             weight: UNDETERMINED_WEIGHT,
             itype: ntype,
             call_target: INVALID_NODE_ID,
-            jump_targets: Vec::new(),
+            jump_target: INVALID_NODE_ID,
+            next: INVALID_NODE_ID,
             is_indirect_call: false,
         });
         node
@@ -146,7 +155,7 @@ impl CFGNodeData {
     ) {
         let mut total_node_weight = 0;
         for insn in self.insns.iter_mut() {
-            insn.calc_weight(successor_weights, call_weights)
+            total_node_weight += insn.calc_weight(successor_weights, call_weights);
         }
         self.weight = total_node_weight;
     }
@@ -158,7 +167,7 @@ impl CFGNodeData {
         is_indirect_call: bool,
     ) -> CFGNodeData {
         let mut node = CFGNodeData {
-            addr,
+            nid: NodeId::from(addr),
             weight: UNDETERMINED_WEIGHT,
             insns: Vec::new(),
         };
@@ -166,7 +175,8 @@ impl CFGNodeData {
             addr,
             call_target,
             is_indirect_call,
-            &[],
+            INVALID_NODE_ID,
+            INVALID_NODE_ID,
         ));
         node
     }
@@ -174,6 +184,28 @@ impl CFGNodeData {
     pub fn get_clone(&self, _icfg_clone_id: u32, _cfg_clone_id: u32) -> CFGNodeData {
         let clone = self.clone();
         clone
+    }
+
+    pub fn has_type(&self, itype: InsnNodeType) -> bool {
+        for i in self.insns.iter() {
+            if i.itype == itype {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// If an instruction has a call target to the address of the passed NoodeId,
+    /// it updates its call target node id with the given one.
+    pub fn update_call_target(&mut self, call_target: NodeId) {
+        if !self.has_type(InsnNodeType::Call) {
+            return;
+        }
+        for idata in self.insns.iter_mut() {
+            if idata.call_target.get_orig_node_id() == call_target.get_orig_node_id() {
+                idata.call_target = call_target;
+            }
+        }
     }
 }
 
@@ -193,7 +225,7 @@ pub struct CFG {
 impl std::fmt::Display for CFG {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (nid, info) in self.nodes_meta.iter() {
-            if info.ntype == InsnNodeType::Entry {
+            if info.has_type(InsnNodeType::Entry) {
                 return write!(f, "CFG{}", nid);
             }
         }
@@ -256,7 +288,7 @@ impl CFG {
         for (nid, meta) in cloned_cfg.nodes_meta.iter() {
             let mut new_nid = nid.clone();
             new_nid.icfg_clone_id = icfg_clone_id;
-            let new_meta = meta.get_clone(icfg_clone_id, meta.call_target.cfg_clone_id);
+            let new_meta = meta.get_clone(icfg_clone_id, meta.nid.cfg_clone_id);
             new_meta_map.insert(new_nid, new_meta);
         }
         cloned_cfg.nodes_meta.clear();
