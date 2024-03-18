@@ -11,8 +11,9 @@ use crate::flow_graphs::{
 use crate::icfg::{Procedure, ICFG};
 use binding::{
     log_rizn_style, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
-    rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg,
-    rz_core_graph_cfg_iwords, rz_core_graph_icfg, RzAnalysis, RzCmdStatus, RzCore, RzGraph,
+    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
+    rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
+    rz_core_graph_icfg, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzGraph,
     RzGraphNode, RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
@@ -27,7 +28,28 @@ use binding::{
     RzListIter, RzPVector, LOG_DEBUG, LOG_WARN,
 };
 
-pub fn pvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
+pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
+    let mut vec: Vec<*mut T> = Vec::new();
+    if pvec.is_null() {
+        println!("PVector pointer is null.");
+        return vec;
+    }
+
+    let len = unsafe { (*pvec).v.len };
+    if len <= 0 {
+        return vec;
+    }
+    vec.reserve(len as usize);
+    let data_arr: &mut [*mut T] =
+        unsafe { std::slice::from_raw_parts_mut((*pvec).v.a as *mut *mut T, len as usize) };
+    for i in 0..len {
+        vec.push(data_arr[i]);
+    }
+    assert_eq!(len, vec.len().try_into().unwrap());
+    vec
+}
+
+pub fn cpvec_to_vec<T>(pvec: *const RzPVector) -> Vec<*mut T> {
     let mut vec: Vec<*mut T> = Vec::new();
     if pvec.is_null() {
         println!("PVector pointer is null.");
@@ -100,6 +122,24 @@ macro_rules! get_node_info_address {
             }
         }
     };
+}
+
+pub fn get_bin_entries(rz_core: *mut RzCore) -> Vec<Address> {
+    let binfiles: Vec<*mut RzBinFile> = unsafe {
+        list_to_vec::<*mut RzBinFile>((*(*rz_core).bin).binfiles, |elem| elem as *mut RzBinFile)
+    };
+    let mut entries: Vec<Address> = Vec::new();
+    unsafe {
+        let entry_vectors = binfiles
+            .into_iter()
+            .map(|binfile| rz_bin_object_get_entries((*binfile).o));
+        entry_vectors.into_iter().for_each(|entry_vec| {
+            cpvec_to_vec::<*mut RzBinAddr>(entry_vec)
+                .into_iter()
+                .for_each(|addr| entries.push((*(*addr)).vaddr))
+        });
+    }
+    entries
 }
 
 /// Converts a graph from Rizin to our internal FlowGraph representation.
@@ -231,7 +271,7 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
         }));
         return node_data;
     } else if rz_node_type == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD {
-        for idata in pvec_to_vec::<RzGraphNodeInfoDataCFG>(unsafe {
+        for idata in mpvec_to_vec::<RzGraphNodeInfoDataCFG>(unsafe {
             node_info.__bindgen_anon_1.cfg_iword.insn
         }) {
             let ntype = convert_rz_cfg_node_type(unsafe { *idata }.subtype);
@@ -261,7 +301,7 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     }
 }
 
-pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) {
+pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
     // get iCFG
     let rz_icfg = unsafe { rz_core_graph_icfg((*a).core as *mut RzCore) };
     if rz_icfg.is_null() {
@@ -295,7 +335,7 @@ pub extern "C" fn run_bda_analysis(a: *mut RzAnalysis) {
         );
         set_cfg_node_data(icfg.get_procedure_mut(n).get_cfg_mut(), rz_cfg);
     }
-    run_bda(a, &mut icfg);
+    run_bda(core, a, &mut icfg);
     // Run analysis
 }
 
@@ -311,6 +351,6 @@ pub extern "C" fn rz_analysis_bda_handler(
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }
-    run_bda_analysis(unsafe { (*core).analysis });
+    run_bda_analysis(core, unsafe { (*core).analysis });
     return rz_cmd_status_t_RZ_CMD_STATUS_OK;
 }

@@ -234,6 +234,8 @@ pub struct CFG {
     pub call_target_weights: HashMap<NodeId, Weight>,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
+    /// The node id of the entry node
+    entry: NodeId,
 }
 
 impl std::fmt::Display for CFG {
@@ -272,6 +274,7 @@ impl CFG {
             nodes_meta: HashMap::new(),
             call_target_weights: HashMap::new(),
             rev_topograph: Vec::new(),
+            entry: INVALID_NODE_ID,
         }
     }
 
@@ -281,7 +284,12 @@ impl CFG {
             nodes_meta: HashMap::new(),
             call_target_weights: HashMap::new(),
             rev_topograph: Vec::new(),
+            entry: INVALID_NODE_ID,
         }
+    }
+
+    pub fn get_entry(&self) -> NodeId {
+        self.entry
     }
 
     /// Clones itself and updates the node IDs with the given iCFG clone id
@@ -404,6 +412,9 @@ impl CFG {
 
     pub fn add_node_data(&mut self, node_id: NodeId, data: CFGNodeData) {
         assert!(self.graph.contains_node(node_id));
+        if data.insns.iter().any(|i| i.itype == InsnNodeType::Entry) {
+            self.entry = node_id;
+        }
         self.nodes_meta.insert(node_id, data);
     }
 }

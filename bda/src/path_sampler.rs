@@ -1,11 +1,15 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use std::collections::HashMap;
+
+use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 
 use crate::{
-    flow_graphs::{NodeId, Weight},
-    icfg::ICFG,
+    cfg::CFG,
+    flow_graphs::{Address, NodeId, Weight, INVALID_NODE_ID},
+    icfg::{Procedure, ICFG},
 };
 
 type Path = Vec<NodeId>;
@@ -47,7 +51,10 @@ macro_rules! get_w {
 /// Implementation after Algorithm 2 [2] modified for n weights.
 ///
 /// [^2] https://doi.org/10.25394/PGS.23542014.v1
-fn select_branch(weights: Vec<Weight>) -> usize {
+fn select_branch(weights: &Vec<Weight>) -> usize {
+    if weights.len() == 1 {
+        return 0;
+    }
     let mut rng = thread_rng();
     let mut approx_w: Vec<ApproxW> = Vec::new();
     approximate_weights(&weights, &mut approx_w);
@@ -80,7 +87,47 @@ fn select_branch(weights: Vec<Weight>) -> usize {
     choice
 }
 
+fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path) {
+    let cfg = icfg.get_procedure(cfg_id).get_cfg();
+    path.push(cfg.get_entry());
+    let cur = cfg.get_entry();
+    let mut neigh_ids: Vec<NodeId> = Vec::new();
+    let mut neigh_weights: Vec<Weight> = Vec::new();
+    loop {
+        if cfg
+            .nodes_meta
+            .get(&cur)
+            .is_some_and(|meta| meta.insns.iter().any(|i| i.call_target != INVALID_NODE_ID))
+        {
+            // The instr. word has a call. First visit this procedure.
+            let call_targets = cfg
+                .nodes_meta
+                .get(&cur)
+                .unwrap()
+                .insns
+                .iter()
+                .filter_map(|i| {
+                    if i.call_target != INVALID_NODE_ID {
+                        Some(i.call_target)
+                    } else {
+                        None
+                    }
+                });
+            call_targets.for_each(|ct| sample_cfg_path(icfg, ct, path));
+        }
+
+        cfg.graph.neighbors_directed(cur, Outgoing).for_each(|n| {
+            neigh_ids.push(n);
+            neigh_weights.push(cfg.get_node_weight(n));
+        });
+        path.push(*neigh_ids.get(select_branch(&neigh_weights)).unwrap());
+    }
+}
+
 /// Sample a path from the given [icfg] and return it as vector.
-pub fn sample_path(_icfg: &ICFG) -> Path {
-    todo!()
+pub fn sample_path(icfg: &ICFG, entry_point: Address) -> Path {
+    let entry_proc = icfg.get_procedure(NodeId::new_original(entry_point));
+    let mut path = Path::new();
+    sample_cfg_path(icfg, entry_proc.get_cfg().get_entry(), &mut path);
+    path
 }
