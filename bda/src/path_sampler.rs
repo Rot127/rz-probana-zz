@@ -61,9 +61,9 @@ fn select_branch(weights: &Vec<Weight>) -> usize {
     let mut choice = 0;
     let mut opponent = 1;
     // Let the different weights compete against each other.
-    'outer: loop {
+    loop {
         if opponent < weights.len() {
-            break 'outer;
+            break;
         }
         let w_cho = get_w!(approx_w, choice);
         let w_opp = get_w!(approx_w, choice);
