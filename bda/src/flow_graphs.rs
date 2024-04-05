@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use petgraph::algo::tarjan_scc;
+use petgraph::algo::{is_cyclic_directed, tarjan_scc};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 
@@ -174,6 +174,11 @@ pub enum EdgeFlow {
 
 /// Traits of the CFG and iCFG.
 pub trait FlowGraphOperations {
+    /// Checks if the flow graph is acyclic.
+    fn is_acyclic(&self) -> bool {
+        !is_cyclic_directed(self.get_graph())
+    }
+
     /// Add a cloned edge to the graph.
     /// The CFG and iCFG have to add the meta inforation to the cloned edge
     /// and add it afterwards to the real graph object.
