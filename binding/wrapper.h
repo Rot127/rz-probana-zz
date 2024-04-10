@@ -6,4 +6,5 @@
 #include <rz_lib.h>
 #include <rz_core.h>
 #include <rz_bin.h>
+#include <rz_util.h>
 
