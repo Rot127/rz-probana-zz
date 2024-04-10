@@ -204,7 +204,7 @@ impl FlowGraphOperations for ICFG {
     /// Calculate the weight of the whole iCFG and all CFGs part of it.
     fn calc_weight(&mut self) -> Weight {
         self.sort();
-        for pid in self.rev_topograph.iter() {
+        for (i, pid) in self.rev_topograph.iter().enumerate() {
             // Get weight of all successor procedures (procedures at outgoing edges)
             let succ_weights = self.get_successor_weights(pid);
             let procedure: &mut Procedure = get_procedure_mut!(self, *pid);
@@ -232,7 +232,13 @@ impl FlowGraphOperations for ICFG {
                     .get_cfg_mut()
                     .update_procedure_weight(*pid, pweight);
             }
+            print!(
+                "\rCalculated {}/{} CFG weights.",
+                i,
+                self.rev_topograph.len()
+            );
         }
+        println!();
         if self.num_procedures() == 0 {
             return UNDETERMINED_WEIGHT;
         }
