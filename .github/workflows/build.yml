@@ -27,7 +27,8 @@ jobs:
     - name: Checkout Rizin
       uses: actions/checkout@v4
       with:
-        repository: rizinorg/rizin
+        repository: Rot127/rizin
+        ref: rz-probana
         path: rizin
     - name: Install Rizin
       run:
