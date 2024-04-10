@@ -21,6 +21,7 @@ fn main() {
     };
     println!("cargo:rustc-link-search=/usr/local/lib");
     println!("cargo:rustc-link-search={}/usr/local/lib", rz_install_root);
+    println!("cargo:rustc-link-lib=rz_util");
     println!("cargo:rerun-if-changed=wrapper.h");
 
     println!("RZ_INSTALL_ROOT_PATH={}", rz_install_root);

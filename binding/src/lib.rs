@@ -22,8 +22,15 @@ pub const LOG_WARN: u32 = rz_log_level_RZ_LOGLVL_WARN;
 pub const LOG_ERROR: u32 = rz_log_level_RZ_LOGLVL_ERROR;
 pub const LOG_FATAL: u32 = rz_log_level_RZ_LOGLVL_FATAL;
 
+fn get_rz_loglevel() -> i32 {
+    unsafe { rz_log_get_level() }
+}
+
 /// Write a log message in Rizin style.
 pub fn log_rizn_style(level: rz_log_level, msg: String, line: u32) {
+    if level < get_rz_loglevel() as u32 {
+        return;
+    }
     print!(
         "{}",
         match level {
