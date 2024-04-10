@@ -134,9 +134,9 @@ pub fn get_bin_entries(rz_core: *mut RzCore) -> Vec<Address> {
             .into_iter()
             .map(|binfile| rz_bin_object_get_entries((*binfile).o));
         entry_vectors.into_iter().for_each(|entry_vec| {
-            cpvec_to_vec::<*mut RzBinAddr>(entry_vec)
+            cpvec_to_vec::<RzBinAddr>(entry_vec)
                 .into_iter()
-                .for_each(|addr| entries.push((*(*addr)).vaddr))
+                .for_each(|addr| entries.push((*addr).vaddr))
         });
     }
     entries
