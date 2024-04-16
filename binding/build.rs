@@ -50,6 +50,7 @@ fn main() {
             "-I{}/usr/local/include/librz/rz_il/definitions",
             rz_install_root
         ))
+        .clang_arg(format!("-L{}/usr/local/lib", rz_install_root))
         .clang_arg(format!("-I{}/librz/util/sdb/src/", rz_repo));
     let bindings = block_list!(bindings_setup)
         .generate()
