@@ -23,7 +23,7 @@ use crate::{
     abstr_int::{interpret, InterpreterProducts, MemVal},
     icfg::ICFG,
     path_sampler::sample_path,
-    rz_binding::get_bin_entries,
+    bda_binding::get_bin_entries,
 };
 
 struct BDAState {

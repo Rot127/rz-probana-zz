@@ -7,6 +7,9 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+use core::panic;
+use std::{env, path::PathBuf, ptr::null_mut, str::FromStr};
+
 #[macro_export]
 macro_rules! log_rz {
     ($level:ident, $msg:expr) => {
@@ -68,3 +71,18 @@ pub struct rz_lib_struct_t {
 }
 
 pub type RzLibStruct = rz_lib_struct_t;
+
+pub fn get_rz_test_bin_path() -> PathBuf {
+    let rz_repo: String = match env::var("RZ_REPO_PATH") {
+        Ok(v) => v,
+        Err(_e) => {
+            println!("RZ_REPO_PATH must be set to Rizins repo path.");
+            std::process::exit(1)
+        }
+    };
+    let path = PathBuf::from_str(rz_repo.as_str());
+    match path {
+        Ok(p) => p.join("test/bins/"),
+        Err(_p) => panic!("Could not build path to test bins"),
+    }
+}

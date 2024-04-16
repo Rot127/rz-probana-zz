@@ -7,7 +7,7 @@
 
 use std::ptr::null;
 
-use bda::rz_binding::rz_analysis_bda_handler;
+use bda::bda_binding::rz_analysis_bda_handler;
 use binding::{
     rz_cmd_desc_arg_t__bindgen_ty_1, rz_cmd_desc_arg_t__bindgen_ty_1__bindgen_ty_1,
     rz_cmd_desc_argv_new, rz_cmd_desc_group_new, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK,

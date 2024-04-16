@@ -1,4 +1,4 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pub mod rz_binding;
+pub mod probana_binding;
