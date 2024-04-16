@@ -86,3 +86,20 @@ pub fn get_rz_test_bin_path() -> PathBuf {
         Err(_p) => panic!("Could not build path to test bins"),
     }
 }
+
+pub fn init_rizin_instance(binary: &str) -> (*mut RzCore, *mut RzAnalysis) {
+    let core: *mut RzCore;
+    unsafe {
+        core = rz_core_new();
+        if core.is_null() {
+            panic!("Could not init RzCore.");
+        }
+        let cf: *const RzCoreFile =
+            rz_core_file_open(core, binary.as_ptr().cast(), RZ_PERM_RWX as i32, 0);
+        if cf.is_null() {
+            panic!("Could not open file {}", binary);
+        }
+        rz_core_perform_auto_analysis(core, RzCoreAnalysisType_RZ_CORE_ANALYSIS_DEEP);
+    };
+    (core, unsafe { (*core).analysis })
+}

@@ -51,7 +51,8 @@ fn main() {
             rz_install_root
         ))
         .clang_arg(format!("-L{}/usr/local/lib", rz_install_root))
-        .clang_arg(format!("-I{}/librz/util/sdb/src/", rz_repo));
+        .clang_arg(format!("-I{}/librz/util/sdb/src/", rz_repo))
+        .generate_comments(false);
     let bindings = block_list!(bindings_setup)
         .generate()
         // Unwrap the Result and panic on failure.
