@@ -4,6 +4,8 @@
 #[cfg(test)]
 mod tests {
 
+    use std::collections::HashSet;
+
     use petgraph::dot::Dot;
 
     use crate::{
@@ -850,9 +852,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Generated weight of CFG has weight 0. Does a return or invalid instruction exists?"
-    )]
     fn test_cfg_no_return_node() {
         let mut cfg = CFG::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -869,6 +868,7 @@ mod tests {
         );
         }
         cfg.calc_weight();
+        assert_eq!(cfg.get_weight(), 1);
     }
 
     #[test]
@@ -1202,5 +1202,25 @@ mod tests {
         let mut icfg = get_icfg_with_selfref_and_recurse_cfg();
         icfg.resolve_loops(4);
         assert_eq!(icfg.num_procedures(), 4);
+    }
+
+    #[test]
+    fn test_fg_check_self_ref_hold() {
+        let mut edges = HashSet::<(NodeId, NodeId)>::new();
+        let node_0 = NodeId::from(0);
+        let node_1 = NodeId::from(1);
+        let node_2 = NodeId::from(2);
+        edges.insert((node_0, node_0));
+
+        // Correct condition. Self-ref and endless loop
+        assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_0), true);
+
+        edges.insert((node_0, node_1));
+        // Not self-ref endless loop.
+        assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_0), false);
+        // Not self ref.
+        assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_1), false);
+        // Node doesn't exit.
+        assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_2), false);
     }
 }

@@ -204,6 +204,8 @@ pub trait FlowGraphOperations {
     /// For edges within the SCC, [from] and [to] are duplicated and the original edge is removed.
     /// For all others, one node ([fixed_node]) is not cloned. Instead edges between the [fixed_node]
     /// from/to the cloned node are added.
+    ///
+    /// It returns the last clone of the edge.
     fn add_clones_to_graph(
         &mut self,
         from: &NodeId,
@@ -211,18 +213,19 @@ pub trait FlowGraphOperations {
         fix_node: &NodeId,
         flow: EdgeFlow,
         dup_bound: u32,
-    ) {
+    ) -> (NodeId, NodeId) {
         assert!(
             from == fix_node
                 || to == fix_node
                 || (*fix_node == INVALID_NODE_ID && flow != EdgeFlow::Outsider)
         );
 
+        let mut new_edge: (NodeId, NodeId) = (INVALID_NODE_ID, INVALID_NODE_ID);
         for i in 0..=dup_bound {
             if flow == EdgeFlow::BackEdge && i == dup_bound {
                 break;
             }
-            let new_edge: (NodeId, NodeId) = match flow {
+            new_edge = match flow {
                 EdgeFlow::Outsider => {
                     if *from == *fix_node {
                         (*from, Self::get_next_node_id_clone(i, *to))
@@ -241,6 +244,7 @@ pub trait FlowGraphOperations {
             };
             self.add_cloned_edge(new_edge.0, new_edge.1);
         }
+        new_edge
     }
 
     /// Determines if the edge (from, to) is a back edge in the graph.
@@ -257,8 +261,35 @@ pub trait FlowGraphOperations {
         self.get_graph_mut().remove_edge(*from, *to);
     }
 
+    /// Checks if the edge [from] -> [to] is a self-referenceing edge where [from] == [to]
+    /// and no outgoing edge from [to] exists.
+    /// This indicates that the instruction is a hold/self-referencing jump instruction.
+    /// The last clone of this node should be marked as Exit, because the program
+    /// won't return from it.
+    fn check_self_ref_hold(
+        scc_edges: &HashSet<(NodeId, NodeId)>,
+        from: &NodeId,
+        to: &NodeId,
+    ) -> bool {
+        if from != to {
+            return false;
+        }
+
+        if !(scc_edges.contains(&(*from, *to)) && scc_edges.contains(&(*to, *from))) {
+            return false;
+        }
+
+        // Check if there are other outgoing edges originating from [to]
+        !scc_edges
+            .iter()
+            .any(|edge| edge.0 == *to && edge.1 != *from)
+    }
+
     /// Clones the nodes of an SCC within the graph of [self].
-    /// Edges are added or removed so the SCC is afterwards cycle free.
+    /// Edges are added or removed so the SCC was resolved to a cycle free sub-graph.
+    ///
+    /// [scc_edges] must contain all edges into, out of and within the SCC.
+    /// [scc] must contain all nodes within the SCC.
     fn clone_nodes(&mut self, scc: &Vec<NodeId>, scc_edges: &HashSet<(NodeId, NodeId)>) {
         for (from, to) in scc_edges {
             if !scc.contains(&from) {
@@ -275,7 +306,7 @@ pub trait FlowGraphOperations {
                 self.add_clones_to_graph(&from, &to, &to, EdgeFlow::Outsider, MIN_DUPLICATE_BOUND);
             } else if self.is_back_edge(&from, &to) {
                 // Back edge. remove the original and connect it to the clone
-                self.add_clones_to_graph(
+                let last_clone = self.add_clones_to_graph(
                     &from,
                     &to,
                     &INVALID_NODE_ID,
@@ -283,6 +314,9 @@ pub trait FlowGraphOperations {
                     MIN_DUPLICATE_BOUND,
                 );
                 self.remove_edge(from, to);
+                if Self::check_self_ref_hold(scc_edges, from, to) {
+                    self.mark_exit_node(to);
+                }
             } else {
                 self.add_clones_to_graph(
                     &from,
@@ -363,4 +397,7 @@ pub trait FlowGraphOperations {
     fn get_graph_mut(&mut self) -> &mut FlowGraph;
 
     fn get_graph(&self) -> &FlowGraph;
+
+    /// Marks the node with [nid] as an Exit node (if applicable).
+    fn mark_exit_node(&mut self, _nid: &NodeId) {}
 }

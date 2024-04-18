@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use core::panic;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use binding::{log_rizn_style, log_rz, LOG_DEBUG};
 use petgraph::{algo::toposort, Direction::Outgoing};
@@ -250,6 +250,8 @@ pub struct CFG {
     pub nodes_meta: HashMap<NodeId, CFGNodeData>,
     /// Weights of procedures this CFG calls.
     pub call_target_weights: HashMap<NodeId, Weight>,
+    /// Set of exit nodes, discovered while building the CFG.
+    discovered_exits: HashSet<NodeId>,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
     /// The node id of the entry node
@@ -292,6 +294,7 @@ impl CFG {
             nodes_meta: HashMap::new(),
             call_target_weights: HashMap::new(),
             rev_topograph: Vec::new(),
+            discovered_exits: HashSet::new(),
             entry: INVALID_NODE_ID,
         }
     }
@@ -302,6 +305,7 @@ impl CFG {
             nodes_meta: HashMap::new(),
             call_target_weights: HashMap::new(),
             rev_topograph: Vec::new(),
+            discovered_exits: HashSet::new(),
             entry: INVALID_NODE_ID,
         }
     }
@@ -448,7 +452,19 @@ impl FlowGraphOperations for CFG {
         &mut self.graph
     }
 
-    fn clean_up_acyclic(&mut self) {}
+    fn clean_up_acyclic(&mut self) {
+        // Update the node types for Exit nodes.
+        for n in self.discovered_exits.iter() {
+            let exit: &mut InsnNodeData = self
+                .nodes_meta
+                .get_mut(&n)
+                .unwrap()
+                .insns
+                .last_mut()
+                .unwrap();
+            exit.itype.weight_type = InsnNodeWeightType::Exit;
+        }
+    }
 
     fn get_graph(&self) -> &FlowGraph {
         &self.graph
@@ -491,7 +507,10 @@ impl FlowGraphOperations for CFG {
             }
         }
         if self.get_weight() == 0 {
-            panic!("Generated weight of CFG has weight 0. Does a return or invalid instruction exists?")
+            panic!(
+                "Generated weight of {} has weight 0. Does a return or invalid instruction exists?",
+                self
+            )
         }
         self.get_weight()
     }
@@ -513,5 +532,9 @@ impl FlowGraphOperations for CFG {
                     .get_clone(cloned_to.icfg_clone_id, cloned_to.cfg_clone_id),
             ),
         );
+    }
+
+    fn mark_exit_node(&mut self, nid: &NodeId) {
+        self.discovered_exits.insert(*nid);
     }
 }
