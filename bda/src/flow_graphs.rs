@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use petgraph::algo::{is_cyclic_directed, tarjan_scc};
+use petgraph::algo::{is_cyclic_directed, kosaraju_scc};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 
@@ -305,7 +305,7 @@ pub trait FlowGraphOperations {
     /// 5.    Clone SCC and its edges
     fn make_acyclic(&mut self) {
         // Strongly connected components
-        let sccs = tarjan_scc(self.get_graph());
+        let sccs = kosaraju_scc(self.get_graph());
         // The SCC and Edges from, to and within the SCC
         let mut scc_groups: Vec<(Vec<NodeId>, HashSet<(NodeId, NodeId)>)> = Vec::new();
 
