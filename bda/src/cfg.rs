@@ -12,15 +12,9 @@ use crate::flow_graphs::{
     INVALID_WEIGHT, UNDETERMINED_WEIGHT,
 };
 
-/// The node type of a instruction.
+/// The type of a node which determines the weight calculation of it.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum InsnNodeType {
-    /// First node of a procedure. It has only incomming
-    /// edges from other procedures and always a weight of
-    ///
-    ///   W\[iaddr\] = W\[successor\]
-    ///
-    Entry,
+pub enum InsnNodeWeightType {
     /// A node without any special meaning in the graph.
     /// It's weight is:
     ///
@@ -45,6 +39,22 @@ pub enum InsnNodeType {
     ///   W\[iaddr\] = 1
     ///
     Exit,
+}
+
+/// The node type of a instruction.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InsnNodeType {
+    pub is_entry: bool,
+    pub weight_type: InsnNodeWeightType,
+}
+
+impl InsnNodeType {
+    pub fn new(weight_type: InsnNodeWeightType, is_entry: bool) -> InsnNodeType {
+        InsnNodeType {
+            is_entry,
+            weight_type,
+        }
+    }
 }
 
 /// An instruction node which is always part of an
@@ -81,7 +91,7 @@ impl InsnNodeData {
         InsnNodeData {
             addr,
             weight: UNDETERMINED_WEIGHT,
-            itype: InsnNodeType::Call,
+            itype: InsnNodeType::new(InsnNodeWeightType::Call, false),
             call_target,
             orig_jump_target: jump_target,
             orig_next: next,
@@ -104,12 +114,11 @@ impl InsnNodeData {
                 sum_succ_weights += *target_weight;
             }
         }
-        self.weight = match self.itype {
-            InsnNodeType::Return => 1,
-            InsnNodeType::Exit => 1,
-            InsnNodeType::Normal => sum_succ_weights,
-            InsnNodeType::Entry => sum_succ_weights,
-            InsnNodeType::Call => {
+        self.weight = match self.itype.weight_type {
+            InsnNodeWeightType::Return => 1,
+            InsnNodeWeightType::Exit => 1,
+            InsnNodeWeightType::Normal => sum_succ_weights,
+            InsnNodeWeightType::Call => {
                 sum_succ_weights
                     * match call_target_weights.get(&self.call_target) {
                         Some(w) => *w,
@@ -200,9 +209,18 @@ impl CFGNodeData {
         clone
     }
 
-    pub fn has_type(&self, itype: InsnNodeType) -> bool {
+    pub fn has_type(&self, wtype: InsnNodeWeightType) -> bool {
         for i in self.insns.iter() {
-            if i.itype == itype {
+            if i.itype.weight_type == wtype {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn has_entry(&self) -> bool {
+        for i in self.insns.iter() {
+            if i.itype.is_entry {
                 return true;
             }
         }
@@ -212,7 +230,7 @@ impl CFGNodeData {
     /// If an instruction has a call target to the address of the passed NoodeId,
     /// it updates its call target node id with the given one.
     pub fn update_call_target(&mut self, call_target: NodeId) {
-        if !self.has_type(InsnNodeType::Call) {
+        if !self.has_type(InsnNodeWeightType::Call) {
             return;
         }
         for idata in self.insns.iter_mut() {
@@ -241,7 +259,7 @@ pub struct CFG {
 impl std::fmt::Display for CFG {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (nid, info) in self.nodes_meta.iter() {
-            if info.has_type(InsnNodeType::Entry) {
+            if info.has_entry() {
                 return write!(f, "CFG{}", nid);
             }
         }
@@ -383,7 +401,7 @@ impl CFG {
             assert_eq!(from.1, to.1);
         }
         for i in from.1.insns.iter() {
-            if i.itype == InsnNodeType::Call {
+            if i.itype.weight_type == InsnNodeWeightType::Call {
                 self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT);
             }
         }
@@ -405,7 +423,7 @@ impl CFG {
             return;
         }
         for i in node.1.insns.iter() {
-            if i.itype == InsnNodeType::Call {
+            if i.itype.weight_type == InsnNodeWeightType::Call {
                 self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT);
             }
         }
@@ -415,7 +433,7 @@ impl CFG {
 
     pub fn add_node_data(&mut self, node_id: NodeId, data: CFGNodeData) {
         assert!(self.graph.contains_node(node_id));
-        if data.insns.iter().any(|i| i.itype == InsnNodeType::Entry) {
+        if data.insns.iter().any(|i| i.itype.is_entry) {
             self.entry = node_id;
         }
         self.nodes_meta.insert(node_id, data);

@@ -5,7 +5,7 @@ use std::panic;
 use std::ptr::{null, null_mut};
 
 use crate::bda::run_bda;
-use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, CFG};
+use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, CFG};
 use crate::flow_graphs::{
     Address, FlowGraph, FlowGraphOperations, NodeId, SamplingBias, MAX_ADDRESS, UNDETERMINED_WEIGHT,
 };
@@ -18,9 +18,6 @@ use binding::{
     RzGraphNode, RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_CALL,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_EXIT,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_RETURN,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, RzGraphNodeInfo,
@@ -209,20 +206,23 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
 }
 
 fn convert_rz_cfg_node_type(rz_node_type: RzGraphNodeCFGSubType) -> InsnNodeType {
-    let type_without_cond = rz_node_type & !RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND;
-    match type_without_cond {
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE => InsnNodeType::Normal,
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY => InsnNodeType::Entry,
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL => InsnNodeType::Call,
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_CALL => InsnNodeType::Call,
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN => InsnNodeType::Return,
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_RETURN => InsnNodeType::Return,
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT => InsnNodeType::Exit,
-        RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY_EXIT => InsnNodeType::Return,
-        _ => {
-            panic!("RzGraphNodeSubType {} not handled.", rz_node_type)
-        }
+    let is_entry: bool =
+        (rz_node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY) != 0;
+    let mut node_type = rz_node_type & !RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY;
+    node_type = node_type & !RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND;
+    if node_type == RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE {
+        return InsnNodeType::new(InsnNodeWeightType::Normal, is_entry);
     }
+    if (node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL) != 0 {
+        return InsnNodeType::new(InsnNodeWeightType::Call, is_entry);
+    }
+    if (node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN) != 0 {
+        return InsnNodeType::new(InsnNodeWeightType::Return, is_entry);
+    }
+    if (node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT) != 0 {
+        return InsnNodeType::new(InsnNodeWeightType::Exit, is_entry);
+    }
+    panic!("RzGraphNodeSubType {} not handled.", rz_node_type);
 }
 
 fn get_insn_node_data(
@@ -233,7 +233,8 @@ fn get_insn_node_data(
     let call_target = NodeId::new_original(data.call_address);
     let jump_target = NodeId::new_original(data.jump_address);
     let next = NodeId::new_original(data.next);
-    let is_indirect_call = inode_type == InsnNodeType::Call && call_target.address == MAX_ADDRESS;
+    let is_indirect_call =
+        inode_type.weight_type == InsnNodeWeightType::Call && call_target.address == MAX_ADDRESS;
     InsnNodeData {
         addr: nid.address,
         weight: UNDETERMINED_WEIGHT,

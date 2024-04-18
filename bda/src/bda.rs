@@ -21,9 +21,9 @@ use rand::{thread_rng, Rng};
 
 use crate::{
     abstr_int::{interpret, InterpreterProducts, MemVal},
+    bda_binding::get_bin_entries,
     icfg::ICFG,
     path_sampler::sample_path,
-    bda_binding::get_bin_entries,
 };
 
 struct BDAState {
