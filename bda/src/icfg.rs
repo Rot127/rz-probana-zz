@@ -172,6 +172,7 @@ impl ICFG {
         thread::scope(|s| {
             let mut threads: HashMap<usize, ScopedJoinHandle<_>> = HashMap::new();
             loop {
+                progress.update_print(resolved);
                 if resolved == num_procedures {
                     while !threads.is_empty() {
                         for tid in 0..num_threads {
@@ -181,7 +182,6 @@ impl ICFG {
                             }
                         }
                     }
-                    progress.update_print(resolved);
                     break;
                 }
 
@@ -216,9 +216,9 @@ impl ICFG {
                         threads.remove(&tid);
                     }
                 }
-                progress.update_print(resolved);
             }
         });
+        println!("Make ICFG acyclic");
         self.make_acyclic();
     }
 }
