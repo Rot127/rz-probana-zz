@@ -1,15 +1,13 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::collections::HashMap;
-
+use binding::{log_rizn_style, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 
 use crate::{
-    cfg::CFG,
-    flow_graphs::{Address, NodeId, Weight, INVALID_NODE_ID},
-    icfg::{Procedure, ICFG},
+    flow_graphs::{Address, NodeId, Weight},
+    icfg::ICFG,
 };
 
 type Path = Vec<NodeId>;
@@ -87,19 +85,19 @@ fn select_branch(weights: &Vec<Weight>) -> usize {
     choice
 }
 
-fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path) {
+fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path, i: usize) {
     let cfg = icfg.get_procedure(cfg_id).get_cfg();
-    path.push(cfg.get_entry());
-    let cur = cfg.get_entry();
-    let mut neigh_ids: Vec<NodeId> = Vec::new();
-    let mut neigh_weights: Vec<Weight> = Vec::new();
+    let mut cur = cfg.get_entry();
     loop {
+        path.push(cur);
+        log_rz!(LOG_DEBUG, format!("{} -> {}", " ".repeat(i), cur));
         if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
             meta.insns
                 .iter()
                 .any(|i| !i.call_target.is_invalid_call_target())
         }) {
-            // The instr. word has a call. First visit this procedure.
+            // The instr. word has a call.
+            // First visit this procedure and add it to the path
             let call_targets = cfg
                 .nodes_meta
                 .get(&cur)
@@ -113,14 +111,25 @@ fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path) {
                         None
                     }
                 });
-            call_targets.for_each(|ct| sample_cfg_path(icfg, ct, path));
+            call_targets.for_each(|ct| sample_cfg_path(icfg, ct, path, i + 1));
         }
 
+        // Visit all neighbors and decide which one to add to the path
+        let mut neigh_ids: Vec<NodeId> = Vec::new();
+        let mut neigh_weights: Vec<Weight> = Vec::new();
         cfg.graph.neighbors_directed(cur, Outgoing).for_each(|n| {
             neigh_ids.push(n);
             neigh_weights.push(cfg.get_node_weight(n));
         });
-        path.push(*neigh_ids.get(select_branch(&neigh_weights)).unwrap());
+        if neigh_ids.is_empty() {
+            // Leaf node. We are done
+            break;
+        }
+        let picked_neighbor = *neigh_ids.get(select_branch(&neigh_weights)).unwrap();
+        if picked_neighbor == cur {
+            panic!("Unresolved loop in CFG detected at node {}.", cur);
+        }
+        cur = picked_neighbor;
     }
 }
 
@@ -128,6 +137,6 @@ fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path) {
 pub fn sample_path(icfg: &ICFG, entry_point: Address) -> Path {
     let entry_proc = icfg.get_procedure(NodeId::new_original(entry_point));
     let mut path = Path::new();
-    sample_cfg_path(icfg, entry_proc.get_cfg().get_entry(), &mut path);
+    sample_cfg_path(icfg, entry_proc.get_cfg().get_entry(), &mut path, 0);
     path
 }

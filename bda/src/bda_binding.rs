@@ -353,10 +353,11 @@ pub extern "C" fn rz_analysis_bda_handler(
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }
-    let result = panic::catch_unwind(|| run_bda_analysis(core, unsafe { (*core).analysis }));
-    if result.is_ok() {
-        return rz_cmd_status_t_RZ_CMD_STATUS_OK;
-    }
-    log_rz!(LOG_ERROR, format!("BDA analysis failed with an error"));
-    rz_cmd_status_t_RZ_CMD_STATUS_ERROR
+    let result = run_bda_analysis(core, unsafe { (*core).analysis });
+    return rz_cmd_status_t_RZ_CMD_STATUS_OK;
+    // if result.is_ok() {
+    //     return rz_cmd_status_t_RZ_CMD_STATUS_OK;
+    // }
+    // log_rz!(LOG_ERROR, format!("BDA analysis failed with an error"));
+    // rz_cmd_status_t_RZ_CMD_STATUS_ERROR
 }
