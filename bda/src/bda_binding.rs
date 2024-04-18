@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use std::panic;
 use std::ptr::{null, null_mut};
 
 use crate::bda::run_bda;
@@ -25,7 +26,7 @@ use binding::{
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, RzGraphNodeInfo,
     RzGraphNodeInfoDataCFG, RzGraphNodeType, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
     RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList,
-    RzListIter, RzPVector, LOG_DEBUG, LOG_WARN,
+    RzListIter, RzPVector, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
@@ -351,6 +352,10 @@ pub extern "C" fn rz_analysis_bda_handler(
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }
-    run_bda_analysis(core, unsafe { (*core).analysis });
-    return rz_cmd_status_t_RZ_CMD_STATUS_OK;
+    let result = panic::catch_unwind(|| run_bda_analysis(core, unsafe { (*core).analysis }));
+    if result.is_ok() {
+        return rz_cmd_status_t_RZ_CMD_STATUS_OK;
+    }
+    log_rz!(LOG_ERROR, format!("BDA analysis failed with an error"));
+    rz_cmd_status_t_RZ_CMD_STATUS_ERROR
 }
