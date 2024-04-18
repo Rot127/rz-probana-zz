@@ -161,7 +161,10 @@ impl ICFG {
 
     /// Resolve all loops in the iCFG and all its CFGs.
     pub fn resolve_loops(&mut self, num_threads: usize) {
-        let mut progress = ProgressBar::new(String::from("Resolving loops"), self.num_procedures());
+        let mut progress = ProgressBar::new(
+            format!("Resolving loops ({} threads)", num_threads),
+            self.num_procedures(),
+        );
         let mut resolved: usize = 0;
         let mut todo: Vec<NodeId> = self.procedures.keys().cloned().collect();
         let num_procedures = self.num_procedures();

@@ -25,6 +25,7 @@ use binding::{
     RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList,
     RzListIter, RzPVector, LOG_DEBUG, LOG_WARN,
 };
+use helper::progress::ProgressBar;
 
 pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
     let mut vec: Vec<*mut T> = Vec::new();
@@ -316,6 +317,8 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
     for n in icfg.get_graph().nodes().into_iter() {
         nodes.push(n);
     }
+    let mut progress_bar = ProgressBar::new(String::from("Transfer CFGs"), nodes.len());
+    let mut done = 0;
     for n in nodes {
         let get_iword_cfg = unsafe { (*(*a).cur).decode_iword.is_some() };
         let rz_cfg = if get_iword_cfg {
@@ -324,7 +327,7 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
             unsafe { rz_core_graph_cfg(core, n.address) }
         };
         if rz_cfg.is_null() {
-            return;
+            panic!("A value for an CFG was NULL");
         }
         icfg.add_procedure(
             n,
@@ -336,6 +339,8 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
             }),
         );
         set_cfg_node_data(icfg.get_procedure_mut(&n).get_cfg_mut(), rz_cfg);
+        done += 1;
+        progress_bar.update_print(done);
     }
     run_bda(core, a, &mut icfg);
     // Run analysis

@@ -39,7 +39,7 @@ impl ProgressBar {
 
     fn print(&self) {
         let prefix = format!("{}: ", self.task_name);
-        let postfix = String::from("");
+        let postfix = format!(" - {}/{} ", self.current, self.total);
         let progress_width = self.max_bar_width - prefix.len() - postfix.len() - 2;
         let done = self.current as f32 / self.total as f32;
         let todo = 1 as f32 - done;
@@ -51,6 +51,10 @@ impl ProgressBar {
         );
         print!("\r{}[{}]{}", prefix, bar_content, postfix);
         std::io::stdout().flush().unwrap();
+        if self.current == self.total {
+            // We assume no one calls this function afterwards.
+            println!();
+        }
     }
 
     /// Updates the progress bar and prints it.
