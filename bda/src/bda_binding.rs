@@ -303,7 +303,7 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
 
 pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
     // get iCFG
-    let rz_icfg = unsafe { rz_core_graph_icfg((*a).core as *mut RzCore) };
+    let rz_icfg = unsafe { rz_core_graph_icfg(core) };
     if rz_icfg.is_null() {
         return;
     }
@@ -317,9 +317,9 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
     for n in nodes {
         let get_iword_cfg = unsafe { (*(*a).cur).decode_iword.is_some() };
         let rz_cfg = if get_iword_cfg {
-            unsafe { rz_core_graph_cfg_iwords((*a).core as *mut RzCore, n.address) }
+            unsafe { rz_core_graph_cfg_iwords(core, n.address) }
         } else {
-            unsafe { rz_core_graph_cfg((*a).core as *mut RzCore, n.address) }
+            unsafe { rz_core_graph_cfg(core, n.address) }
         };
         if rz_cfg.is_null() {
             return;

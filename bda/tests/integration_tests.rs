@@ -12,7 +12,7 @@ fn test_aaaaPb_x86_cfg_test() {
         .join("elf")
         .join("analysis")
         .join("x86_cfg_test");
-    let (core, _analysis) = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
+    let core = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
@@ -23,7 +23,7 @@ fn test_aaaaPb_hexagon_test_jmp() {
         .join("hexagon")
         .join("rzil")
         .join("test_jmp");
-    let (core, _analysis) = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
+    let core = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
@@ -32,7 +32,7 @@ fn test_aaaaPb_hexagon_hello_loop() {
     let test_bin = get_rz_test_bin_path()
         .join("elf")
         .join("analysis")
-        .join("hexagon_hello_loop");
-    let (core, _analysis) = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
+        .join("hexagon-hello-loop");
+    let core = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }

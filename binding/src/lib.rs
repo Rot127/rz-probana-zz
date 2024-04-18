@@ -8,7 +8,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use core::panic;
-use std::{env, path::PathBuf, ptr::null_mut, str::FromStr};
+use std::{env, path::PathBuf, str::FromStr};
 
 #[macro_export]
 macro_rules! log_rz {
@@ -87,7 +87,7 @@ pub fn get_rz_test_bin_path() -> PathBuf {
     }
 }
 
-pub fn init_rizin_instance(binary: &str) -> (*mut RzCore, *mut RzAnalysis) {
+pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
     let core: *mut RzCore;
     unsafe {
         core = rz_core_new();
@@ -95,11 +95,12 @@ pub fn init_rizin_instance(binary: &str) -> (*mut RzCore, *mut RzAnalysis) {
             panic!("Could not init RzCore.");
         }
         let cf: *const RzCoreFile =
-            rz_core_file_open(core, binary.as_ptr().cast(), RZ_PERM_RWX as i32, 0);
+            rz_core_file_open(core, binary.as_ptr().cast(), RZ_PERM_R as i32, 0);
         if cf.is_null() {
             panic!("Could not open file {}", binary);
         }
+        rz_core_bin_load(core, std::ptr::null(), 0);
         rz_core_perform_auto_analysis(core, RzCoreAnalysisType_RZ_CORE_ANALYSIS_DEEP);
     };
-    (core, unsafe { (*core).analysis })
+    core
 }
