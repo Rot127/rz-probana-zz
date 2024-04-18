@@ -95,6 +95,15 @@ impl ICFG {
         }
     }
 
+    pub fn has_malloc(&self) -> bool {
+        for p in self.procedures.values() {
+            if p.is_malloc {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn get_procedure(&self, proc_nid: NodeId) -> &Procedure {
         get_procedure!(self, proc_nid)
     }

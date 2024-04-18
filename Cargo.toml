@@ -8,7 +8,8 @@ members = [
   "binding",
   "bda",
   "osprey",
-  "stochfuzz"
+  "stochfuzz",
+  "helper"
 ]
 
 resolver = "2"

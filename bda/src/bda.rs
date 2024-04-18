@@ -16,12 +16,14 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use binding::{RzAnalysis, RzCore};
+use binding::{log_rizn_style, log_rz, RzAnalysis, RzCore, LOG_WARN};
+use helper::user::ask_yes_no;
 use rand::{thread_rng, Rng};
 
 use crate::{
     abstr_int::{interpret, InterpreterProducts, MemVal},
     bda_binding::get_bin_entries,
+    flow_graphs::FlowGraphOperations,
     icfg::ICFG,
     path_sampler::sample_path,
 };
@@ -61,8 +63,20 @@ fn report_mem_vals_to_rz(rz_analysis: *mut RzAnalysis, mem_vals: &Vec<MemVal>) {
 /// Memory references get directly added to Rizin via Rizin's API.
 pub fn run_bda(rz_core: *mut RzCore, rz_analysis: *mut RzAnalysis, icfg: &mut ICFG) {
     // Check for presence of malloc
-    // Resolve loops and calc weight
+    if !icfg.has_malloc() {
+        log_rz!(
+            LOG_WARN,
+            "\nThe binary has no memory allocating function symbol.\n\
+            This means BDA will NOT be able to deduct values on the heap.\n\
+            It is highly advisable to identify and name malloc() functions first in the binary.\n"
+                .to_string()
+        );
+        if ask_yes_no("Abort?") {
+            return;
+        }
+    }
 
+    // Run abstract interpretation
     let state = BDAState::new(4);
     let mut rng = thread_rng();
     let mut products: Vec<InterpreterProducts> = Vec::new();

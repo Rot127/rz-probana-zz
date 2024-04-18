@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
+# SPDX-License-Identifier: LGPL-3.0-only
+
+[package]
+name = "helper"
+version = "0.1.0"
+edition = "2021"
