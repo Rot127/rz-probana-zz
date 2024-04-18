@@ -289,6 +289,9 @@ impl CFG {
     }
 
     pub fn get_entry(&self) -> NodeId {
+        if self.entry == INVALID_NODE_ID {
+            panic!("CFG has no valid entry point set.");
+        }
         self.entry
     }
 
