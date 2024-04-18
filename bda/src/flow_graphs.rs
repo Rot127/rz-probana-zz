@@ -83,6 +83,10 @@ impl NodeId {
             address: self.address,
         }
     }
+
+    pub fn is_invalid_call_target(&self) -> bool {
+        self.address == MAX_ADDRESS
+    }
 }
 
 impl std::fmt::Display for NodeId {

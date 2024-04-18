@@ -94,11 +94,11 @@ fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path) {
     let mut neigh_ids: Vec<NodeId> = Vec::new();
     let mut neigh_weights: Vec<Weight> = Vec::new();
     loop {
-        if cfg
-            .nodes_meta
-            .get(&cur)
-            .is_some_and(|meta| meta.insns.iter().any(|i| i.call_target != INVALID_NODE_ID))
-        {
+        if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
+            meta.insns
+                .iter()
+                .any(|i| !i.call_target.is_invalid_call_target())
+        }) {
             // The instr. word has a call. First visit this procedure.
             let call_targets = cfg
                 .nodes_meta
@@ -107,7 +107,7 @@ fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path) {
                 .insns
                 .iter()
                 .filter_map(|i| {
-                    if i.call_target != INVALID_NODE_ID {
+                    if !i.call_target.is_invalid_call_target() {
                         Some(i.call_target)
                     } else {
                         None
