@@ -364,11 +364,3 @@ pub trait FlowGraphOperations {
 
     fn get_graph(&self) -> &FlowGraph;
 }
-
-// - Translate graph
-//   - Check for malloc in graph
-// - Check for malloc in arguments
-// - Warn if no malloc given with sleep
-// - Check and mark loops/recursions.
-//   - Resolve loops?
-//

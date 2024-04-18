@@ -284,6 +284,21 @@ mod tests {
         icfg
     }
 
+    fn get_icfg_with_selfref_and_recurse_cfg() -> ICFG {
+        let mut icfg = ICFG::new();
+        let cfg_recurse_selfref = get_cfg_self_ref_call();
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        icfg.add_edge(
+            (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false)),
+            (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false)),
+        );
+        }
+
+        icfg
+    }
+
     fn get_cfg_no_loop_sub_routine() -> CFG {
         let mut cfg = CFG::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -385,6 +400,29 @@ mod tests {
         cfg.add_edge(
             (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, NodeId::new(0, 0, 0))),
             (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, NodeId::new(0, 0, 0))),
+        );
+        }
+        cfg
+    }
+
+    ///        Call     self
+    ///                 ref
+    /// 0 ----> 1 -----> 2 -----> 3
+    fn get_cfg_self_ref_call() -> CFG {
+        let mut cfg = CFG::new();
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        cfg.add_edge(
+            (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call(1, NodeId::from(0), false, NodeId::new(0, 0, 2))),
+        );
+        cfg.add_edge(
+            (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call(1, NodeId::from(0), false, NodeId::new(0, 0, 2))),
+            (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
+        );
+        cfg.add_edge(
+            (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
+            (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
         );
         }
         cfg
@@ -1132,7 +1170,12 @@ mod tests {
         println!(
             "{:?}",
             Dot::with_config(
-                &icfg.get_procedure(NodeId::new(0, 0, 0xa0)).get_cfg().graph,
+                &icfg
+                    .get_procedure(&NodeId::new(0, 0, 0xa0))
+                    .read()
+                    .unwrap()
+                    .get_cfg()
+                    .graph,
                 &[]
             )
         );
@@ -1152,5 +1195,12 @@ mod tests {
         assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xa0)), 16);
         assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xb0)), 16);
         assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xd0)), 16);
+    }
+
+    #[test]
+    fn test_icfg_resolve_cycles() {
+        let mut icfg = get_icfg_with_selfref_and_recurse_cfg();
+        icfg.resolve_loops(4);
+        assert_eq!(icfg.num_procedures(), 4);
     }
 }

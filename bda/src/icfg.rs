@@ -1,8 +1,13 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::RwLock,
+    thread::{self, ScopedJoinHandle},
+};
 
+use helper::progress::ProgressBar;
 use petgraph::{
     algo::toposort,
     Direction::{Incoming, Outgoing},
@@ -55,24 +60,15 @@ pub struct ICFG {
     /// The actual graph. Nodes are indexed by the entry node id of the procedures.
     graph: FlowGraph,
     /// Map of procedures in the CFG. Indexed by entry point node id.
-    procedures: HashMap<NodeId, Procedure>,
+    procedures: HashMap<NodeId, RwLock<Procedure>>,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
 }
 
 macro_rules! get_procedure_mut {
-    ( $icfg:ident, $pid:expr ) => {
-        match $icfg.procedures.get_mut(&$pid) {
-            Some(p) => p,
-            None => panic!("The iCFG has no procedure for {}.", $pid),
-        }
-    };
-}
-
-macro_rules! get_procedure {
-    ( $icfg:ident, $pid:expr ) => {
-        match $icfg.procedures.get(&$pid) {
-            Some(p) => p,
+    ($self:ident, $pid:expr) => {
+        match $self.procedures.get_mut($pid) {
+            Some(p) => p.get_mut().unwrap(),
             None => panic!("The iCFG has no procedure for {}.", $pid),
         }
     };
@@ -96,28 +92,35 @@ impl ICFG {
     }
 
     pub fn has_malloc(&self) -> bool {
-        for p in self.procedures.values() {
-            if p.is_malloc {
+        for p in self.procedures.keys() {
+            if self.get_procedure(p).read().unwrap().is_malloc {
                 return true;
             }
         }
         false
     }
 
-    pub fn get_procedure(&self, proc_nid: NodeId) -> &Procedure {
-        get_procedure!(self, proc_nid)
+    pub fn get_procedure_mut(&mut self, pid: &NodeId) -> &mut Procedure {
+        get_procedure_mut!(self, pid)
     }
 
-    pub fn get_procedure_mut(&mut self, proc_nid: NodeId) -> &mut Procedure {
-        get_procedure_mut!(self, proc_nid)
+    pub fn get_procedure(&self, pid: &NodeId) -> &RwLock<Procedure> {
+        match self.procedures.get(pid) {
+            Some(p) => p,
+            None => panic!("The iCFG has no procedure for {}.", pid),
+        }
     }
 
     pub fn get_procedure_weight(&self, proc_nid: NodeId) -> Weight {
-        get_procedure!(self, proc_nid).get_cfg().get_weight()
+        self.get_procedure(&proc_nid)
+            .read()
+            .unwrap()
+            .get_cfg()
+            .get_weight()
     }
 
     pub fn add_procedure(&mut self, node_id: NodeId, proc: Procedure) {
-        self.procedures.insert(node_id, proc);
+        self.procedures.insert(node_id, RwLock::new(proc));
     }
 
     fn get_successor_weights(&self, procedure: &NodeId) -> HashMap<NodeId, Weight> {
@@ -137,13 +140,13 @@ impl ICFG {
             if from.1.cfg.is_none() {
                 panic!("If a new node is added to the iCFG, the procedure can not be None.");
             }
-            self.procedures.insert(from.0, from.1);
+            self.add_procedure(from.0, from.1);
         }
         if !self.procedures.contains_key(&to.0) {
             if to.1.cfg.is_none() {
                 panic!("If a new node is added to the iCFG, the procedure can not be None.");
             }
-            self.procedures.insert(to.0, to.1);
+            self.add_procedure(to.0, to.1);
         }
 
         // Add actual edge
@@ -154,6 +157,66 @@ impl ICFG {
 
     pub fn num_procedures(&self) -> usize {
         self.procedures.len()
+    }
+
+    /// Resolve all loops in the iCFG and all its CFGs.
+    pub fn resolve_loops(&mut self, num_threads: usize) {
+        let mut progress = ProgressBar::new(String::from("Resolving loops"), self.num_procedures());
+        let mut resolved: usize = 0;
+        let mut todo: Vec<NodeId> = self.procedures.keys().cloned().collect();
+        let num_procedures = self.num_procedures();
+
+        thread::scope(|s| {
+            let mut threads: HashMap<usize, ScopedJoinHandle<_>> = HashMap::new();
+            loop {
+                if resolved == num_procedures {
+                    while !threads.is_empty() {
+                        for tid in 0..num_threads {
+                            if threads.get(&tid).is_some_and(|t| t.is_finished()) {
+                                resolved += 1;
+                                threads.remove(&tid);
+                            }
+                        }
+                    }
+                    progress.update_print(resolved);
+                    break;
+                }
+
+                for tid in 0..num_threads {
+                    if todo.is_empty() {
+                        break;
+                    }
+                    if threads.get(&tid).is_some() {
+                        // This one is busy
+                        continue;
+                    }
+                    let next: NodeId = todo.pop().unwrap().to_owned();
+                    let next_proc: &RwLock<Procedure> = self.procedures.get(&next).unwrap();
+
+                    threads.insert(
+                        tid,
+                        s.spawn(move || {
+                            let mut writeable_proc = match next_proc.write() {
+                                Ok(r) => r,
+                                _PoisonError => {
+                                    panic!("Got poisoned write lock for procedure {}.", next)
+                                }
+                            };
+                            writeable_proc.get_cfg_mut().make_acyclic();
+                        }),
+                    );
+                }
+
+                for tid in 0..num_threads {
+                    if threads.get(&tid).is_some_and(|t| t.is_finished()) {
+                        resolved += 1;
+                        threads.remove(&tid);
+                    }
+                }
+                progress.update_print(resolved);
+            }
+        });
+        self.make_acyclic();
     }
 }
 
@@ -173,7 +236,8 @@ impl FlowGraphOperations for ICFG {
         for (from_id, to_id, _) in self.get_graph().all_edges() {
             to_update.insert((from_id, to_id));
         }
-        for (p_id, proc) in self.procedures.iter_mut() {
+        for (p_id, proc_lock) in self.procedures.iter_mut() {
+            let proc = proc_lock.get_mut().unwrap();
             proc.get_cfg_mut().call_target_weights.clear();
             for (from, to) in to_update.iter() {
                 if from != p_id {
@@ -216,7 +280,7 @@ impl FlowGraphOperations for ICFG {
         for (i, pid) in self.rev_topograph.iter().enumerate() {
             // Get weight of all successor procedures (procedures at outgoing edges)
             let succ_weights = self.get_successor_weights(pid);
-            let procedure: &mut Procedure = get_procedure_mut!(self, *pid);
+            let procedure: &mut Procedure = get_procedure_mut!(self, pid);
             // Update the weights of the called procedures.
             for (target_proc_nid, target_proc_weight) in succ_weights.iter() {
                 procedure
@@ -237,7 +301,7 @@ impl FlowGraphOperations for ICFG {
             // Now we know the weight of the procedure at pid.
             // Every CFG which calls this procedure, needs to be update with its weight.
             for i in self.graph.neighbors_directed(*pid, Incoming) {
-                get_procedure_mut!(self, i)
+                get_procedure_mut!(self, &i)
                     .get_cfg_mut()
                     .update_procedure_weight(*pid, pweight);
             }
@@ -251,13 +315,12 @@ impl FlowGraphOperations for ICFG {
         if self.num_procedures() == 0 {
             return UNDETERMINED_WEIGHT;
         }
-        get_procedure!(
-            self,
-            match self.rev_topograph.last() {
-                Some(a) => *a,
-                None => panic!("Can not return a weight if no CFG was added."),
-            }
-        )
+        self.get_procedure(match self.rev_topograph.last() {
+            Some(a) => a,
+            None => panic!("Can not return a weight if no CFG was added."),
+        })
+        .read()
+        .unwrap()
         .get_cfg()
         .get_weight()
     }
@@ -267,15 +330,21 @@ impl FlowGraphOperations for ICFG {
             self.graph.add_edge(from, to, SamplingBias::new_unset());
         }
         if !self.procedures.contains_key(&from) {
-            let orig_proc = get_procedure!(self, from.get_orig_node_id());
-            self.procedures
-                .insert(from, orig_proc.get_clone(from.icfg_clone_id));
+            let orig_proc = self
+                .get_procedure(&from.get_orig_node_id())
+                .read()
+                .unwrap()
+                .get_clone(from.icfg_clone_id);
+            self.add_procedure(from, orig_proc);
         }
 
         if !self.procedures.contains_key(&to) {
-            let orig_proc = get_procedure!(self, to.get_orig_node_id());
-            self.procedures
-                .insert(to, orig_proc.get_clone(to.icfg_clone_id));
+            let orig_proc = self
+                .get_procedure(&to.get_orig_node_id())
+                .read()
+                .unwrap()
+                .get_clone(to.icfg_clone_id);
+            self.add_procedure(to, orig_proc);
         }
     }
 }

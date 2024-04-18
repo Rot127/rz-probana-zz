@@ -400,6 +400,9 @@ impl CFG {
         if from.0 == to.0 {
             assert_eq!(from.1, to.1);
         }
+        if from.1.has_entry() {
+            self.entry = from.0;
+        }
         for i in from.1.insns.iter() {
             if i.itype.weight_type == InsnNodeWeightType::Call {
                 self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT);

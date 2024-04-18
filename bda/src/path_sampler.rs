@@ -6,6 +6,7 @@ use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 
 use crate::{
+    cfg::CFG,
     flow_graphs::{Address, NodeId, Weight},
     icfg::ICFG,
 };
@@ -85,8 +86,7 @@ fn select_branch(weights: &Vec<Weight>) -> usize {
     choice
 }
 
-fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path, i: usize) {
-    let cfg = icfg.get_procedure(cfg_id).get_cfg();
+fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize) {
     let mut cur = cfg.get_entry();
     loop {
         path.push(cur);
@@ -111,7 +111,14 @@ fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path, i: usize) {
                         None
                     }
                 });
-            call_targets.for_each(|ct| sample_cfg_path(icfg, ct, path, i + 1));
+            call_targets.for_each(|ct| {
+                sample_cfg_path(
+                    icfg,
+                    icfg.get_procedure(&ct).read().unwrap().get_cfg(),
+                    path,
+                    i + 1,
+                )
+            });
         }
 
         // Visit all neighbors and decide which one to add to the path
@@ -135,8 +142,11 @@ fn sample_cfg_path(icfg: &ICFG, cfg_id: NodeId, path: &mut Path, i: usize) {
 
 /// Sample a path from the given [icfg] and return it as vector.
 pub fn sample_path(icfg: &ICFG, entry_point: Address) -> Path {
-    let entry_proc = icfg.get_procedure(NodeId::new_original(entry_point));
+    let entry_proc = icfg
+        .get_procedure(&NodeId::new_original(entry_point))
+        .read()
+        .unwrap();
     let mut path = Path::new();
-    sample_cfg_path(icfg, entry_proc.get_cfg().get_entry(), &mut path, 0);
+    sample_cfg_path(icfg, entry_proc.get_cfg(), &mut path, 0);
     path
 }

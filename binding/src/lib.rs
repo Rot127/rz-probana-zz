@@ -25,7 +25,7 @@ pub const LOG_WARN: u32 = rz_log_level_RZ_LOGLVL_WARN;
 pub const LOG_ERROR: u32 = rz_log_level_RZ_LOGLVL_ERROR;
 pub const LOG_FATAL: u32 = rz_log_level_RZ_LOGLVL_FATAL;
 
-fn get_rz_loglevel() -> u32 {
+pub fn get_rz_loglevel() -> u32 {
     unsafe { rz_log_get_level() as u32 }
 }
 

@@ -23,7 +23,7 @@ use binding::{
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, RzGraphNodeInfo,
     RzGraphNodeInfoDataCFG, RzGraphNodeType, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
     RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList,
-    RzListIter, RzPVector, LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    RzListIter, RzPVector, LOG_DEBUG, LOG_WARN,
 };
 
 pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
@@ -335,7 +335,7 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
                 ))
             }),
         );
-        set_cfg_node_data(icfg.get_procedure_mut(n).get_cfg_mut(), rz_cfg);
+        set_cfg_node_data(icfg.get_procedure_mut(&n).get_cfg_mut(), rz_cfg);
     }
     run_bda(core, a, &mut icfg);
     // Run analysis

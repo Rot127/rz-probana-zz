@@ -75,9 +75,11 @@ pub fn run_bda(rz_core: *mut RzCore, rz_analysis: *mut RzAnalysis, icfg: &mut IC
             return;
         }
     }
+    let state = BDAState::new(4);
+    icfg.resolve_loops(state.num_threads);
+    icfg.calc_weight();
 
     // Run abstract interpretation
-    let state = BDAState::new(4);
     let mut rng = thread_rng();
     let mut products: Vec<InterpreterProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<InterpreterProducts>> = HashMap::new();
