@@ -114,6 +114,15 @@ impl InsnNodeData {
                 sum_succ_weights += *target_weight;
             }
         }
+        if sum_succ_weights == 0 && self.itype.weight_type == InsnNodeWeightType::Normal {
+            // This indicates the CFG has an endless loop of normal instructions
+            // without any Return or Exit nodes.
+            // Because they can still be a part of a valid path, we
+            // need to assign at least one node a weight of 1.
+            // Otherwise the whole weight of the CFG would be 0.
+            // Which doesn't match the reality.
+            sum_succ_weights = 1
+        }
         self.weight = match self.itype.weight_type {
             InsnNodeWeightType::Return => 1,
             InsnNodeWeightType::Exit => 1,

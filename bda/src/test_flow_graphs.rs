@@ -623,6 +623,29 @@ mod tests {
         cfg
     }
 
+    /// 0 ---> 1 <-----> 2
+    fn get_endless_loop_cfg() -> CFG {
+        let mut cfg = CFG::new();
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        cfg.add_edge(
+            (NodeId::new(0, 0, 0), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        );
+        cfg.add_edge(
+            (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+            (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        );
+        cfg.add_edge(
+            (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+            (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        );
+        }
+
+        cfg
+    }
+
     fn assert_node_weight(node_data: Option<&CFGNodeData>, weight: Weight) {
         let w: Weight = match node_data {
             Some(node) => node.weight,
@@ -1098,24 +1121,25 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 22);
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.nodes_meta.len(), 14);
-        assert_eq!(cfg.get_weight(), 15);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 15);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 8);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 8);
+        assert_eq!(cfg.get_weight(), 30);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 30);
+
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 16);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 8);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 2);
+
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 16);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 8);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 4);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 2);
+
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 4)), 15);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 4)), 7);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 4)), 3);
+        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 4)), 1);
+
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 4)), 7);
-
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
-
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
-
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 4)), 3);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 4)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 4)), 0);
     }
 
     #[test]
@@ -1222,5 +1246,14 @@ mod tests {
         assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_1), false);
         // Node doesn't exit.
         assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_2), false);
+    }
+
+    #[test]
+    fn test_endless_loop() {
+        let mut cfg = get_endless_loop_cfg();
+        cfg.make_acyclic();
+        cfg.calc_weight();
+        println!("{:?}", Dot::with_config(&cfg.graph, &[]));
+        assert_eq!(cfg.get_weight(), 4);
     }
 }
