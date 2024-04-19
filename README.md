@@ -28,8 +28,7 @@ meson compile -C build
 sudo meson install -C build
 cd ..
 
-cargo build
-cargo test --lib
+cargo build --target-dir target/lib_out
 ```
 
 ## Install
@@ -37,7 +36,7 @@ cargo test --lib
 ```sh
 rizin -H | grep RZ_USER_PLUGINS
 mkdir -p <RZ_USER_PLUGINS>
-ln -s target/debug/libprobana_zz.so <RZ_USER_PLUGINS>/libprobana_zz.so
+ln -s target/lib_out/debug/libprobana_zz.so <RZ_USER_PLUGINS>/libprobana_zz.so
 ```
 
 ## Dev
