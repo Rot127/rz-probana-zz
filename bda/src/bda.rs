@@ -75,7 +75,7 @@ pub fn run_bda(rz_core: *mut RzCore, rz_analysis: *mut RzAnalysis, icfg: &mut IC
             return;
         }
     }
-    let state = BDAState::new(4);
+    let state = BDAState::new(32);
     icfg.resolve_loops(state.num_threads);
     icfg.calc_weight();
 
