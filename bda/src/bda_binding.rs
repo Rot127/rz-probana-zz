@@ -11,7 +11,7 @@ use crate::flow_graphs::{
 };
 use crate::icfg::{Procedure, ICFG};
 use binding::{
-    log_rizn_style, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
+    log_rizn, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
     rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
     rz_core_graph_icfg, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzGraph,
@@ -172,6 +172,7 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
             );
             log_rz!(
                 LOG_DEBUG,
+                None,
                 format!("Added edge {:#x} -> {:#x}", node_addr, out_addr)
             );
         }
@@ -184,12 +185,17 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
             );
             log_rz!(
                 LOG_DEBUG,
+                None,
                 format!("Added edge {:#x} -> {:#x}", in_addr, node_addr)
             );
         }
         if num_neigh == 0 {
             graph.add_node(NodeId::from(node_addr));
-            log_rz!(LOG_DEBUG, format!("Added single node: {:#x}", node_addr));
+            log_rz!(
+                LOG_DEBUG,
+                None,
+                format!("Added single node: {:#x}", node_addr)
+            );
         }
     }
     assert_eq!(graph.node_count(), unsafe { (*rz_graph).n_nodes } as usize);
@@ -197,6 +203,7 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
 
     log_rz!(
         LOG_DEBUG,
+        None,
         format!(
             "Parsed a graph with {} nodes and {} edges.",
             graph.node_count(),
@@ -308,6 +315,7 @@ fn bin_entry_present(bin_entries: &Vec<Address>) -> bool {
     if bin_entries.len() == 0 {
         log_rz!(
             LOG_WARN,
+            Some("BDA".to_string()),
             "Binary file has no entry point set. Set it in Rizin and run the analysis again."
                 .to_string()
         );
@@ -369,6 +377,7 @@ pub extern "C" fn rz_analysis_bda_handler(
     if unsafe { (*core).analysis.cast_const() == null() } {
         log_rz!(
             LOG_WARN,
+            None,
             "core.analysis is null. Without it it cannot run the analysis.".to_string()
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;

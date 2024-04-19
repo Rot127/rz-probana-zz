@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use binding::{log_rizn_style, log_rz, LOG_DEBUG};
+use binding::{log_rizn, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 
@@ -90,7 +90,7 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize) {
     let mut cur = cfg.get_entry();
     loop {
         path.push(cur);
-        log_rz!(LOG_DEBUG, format!("{} -> {}", " ".repeat(i), cur));
+        log_rz!(LOG_DEBUG, None, format!("{} -> {}", " ".repeat(i), cur));
         if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
             meta.insns
                 .iter()

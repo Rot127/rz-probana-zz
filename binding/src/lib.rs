@@ -12,12 +12,11 @@ use std::{env, path::PathBuf, str::FromStr};
 
 #[macro_export]
 macro_rules! log_rz {
-    ($level:ident, $msg:expr) => {
-        log_rizn_style($level, $msg, line!())
+    ($level:ident, $msg:expr, $tag:expr) => {
+        log_rizn($level, $msg, $tag, line!(), file!().to_string())
     };
 }
 
-pub const LOG_SILLY: u32 = rz_log_level_RZ_LOGLVL_SILLY;
 pub const LOG_DEBUG: u32 = rz_log_level_RZ_LOGLVL_DEBUG;
 pub const LOG_VERBOSE: u32 = rz_log_level_RZ_LOGLVL_VERBOSE;
 pub const LOG_INFO: u32 = rz_log_level_RZ_LOGLVL_INFO;
@@ -30,26 +29,31 @@ pub fn get_rz_loglevel() -> u32 {
 }
 
 /// Write a log message in Rizin style.
-pub fn log_rizn_style(level: rz_log_level, msg: String, line: u32) {
-    if level < get_rz_loglevel() {
-        return;
+pub fn log_rizn(
+    level: rz_log_level,
+    tag: Option<String>,
+    mut msg: String,
+    line: u32,
+    mut filename: String,
+) {
+    msg.push('\n');
+    msg.push('\0');
+    let mut tag_msg: String = match tag {
+        Some(t) => t,
+        None => "".to_string(),
+    };
+    tag_msg.push('\0');
+    filename.push('\0');
+    unsafe {
+        rz_log_bind(
+            "\0".as_ptr().cast(),
+            filename.as_str().as_ptr().cast(),
+            line,
+            level,
+            tag_msg.as_str().as_ptr().cast(),
+            msg.as_str().as_ptr().cast(),
+        );
     }
-    print!(
-        "{}",
-        match level {
-            LOG_SILLY => "SILLY: ",
-            LOG_DEBUG => "DEBUG: ",
-            LOG_VERBOSE => "VERBOSE: ",
-            LOG_INFO => "INFO: ",
-            LOG_WARN => "WARN: ",
-            LOG_ERROR => "ERROR: ",
-            LOG_FATAL => "FATAL: ",
-            _ => "UNKNOWN: ",
-        }
-    );
-    print!("{}:{} ", file!(), line);
-    print!("{}", msg);
-    println!(""); // to get a new line at the end
 }
 
 // We redefine this struct and don't use the auto-generated one.

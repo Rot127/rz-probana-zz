@@ -4,7 +4,7 @@
 use core::panic;
 use std::collections::{HashMap, HashSet};
 
-use binding::{log_rizn_style, log_rz, LOG_DEBUG};
+use binding::{log_rizn, log_rz, LOG_DEBUG};
 use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::flow_graphs::{
@@ -527,6 +527,7 @@ impl FlowGraphOperations for CFG {
     fn add_cloned_edge(&mut self, cloned_from: NodeId, cloned_to: NodeId) {
         log_rz!(
             LOG_DEBUG,
+            None,
             format!("Add cloned edge: {} -> {}", cloned_from, cloned_to)
         );
         self.add_edge(

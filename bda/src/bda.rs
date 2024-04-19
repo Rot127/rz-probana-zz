@@ -16,7 +16,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use binding::{log_rizn_style, log_rz, RzAnalysis, RzCore, LOG_WARN};
+use binding::{log_rizn, log_rz, RzAnalysis, RzCore, LOG_WARN};
 use helper::user::ask_yes_no;
 use rand::{thread_rng, Rng};
 
@@ -62,6 +62,7 @@ fn malloc_present(icfg: &ICFG) -> bool {
     if !icfg.has_malloc() {
         log_rz!(
             LOG_WARN,
+            Some("BDA".to_string()),
             "\nThe binary has no memory allocating function symbol.\n\
             This means BDA will NOT be able to deduct values on the heap.\n\
             It is highly advisable to identify and name malloc() functions first in the binary.\n"
