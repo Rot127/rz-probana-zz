@@ -23,7 +23,7 @@ use rand::{thread_rng, Rng};
 use crate::{
     abstr_int::{interpret, InterpreterProducts, MemVal},
     bda_binding::get_bin_entries,
-    flow_graphs::FlowGraphOperations,
+    flow_graphs::{Address, FlowGraphOperations},
     icfg::ICFG,
     path_sampler::sample_path,
 };
@@ -58,11 +58,7 @@ fn report_mem_vals_to_rz(rz_analysis: *mut RzAnalysis, mem_vals: &Vec<MemVal>) {
     todo!()
 }
 
-/// Runs the BDA analysis by sampleing paths within the iCFG and performing
-/// abstract execution on them.
-/// Memory references get directly added to Rizin via Rizin's API.
-pub fn run_bda(rz_core: *mut RzCore, rz_analysis: *mut RzAnalysis, icfg: &mut ICFG) {
-    // Check for presence of malloc
+fn malloc_present(icfg: &ICFG) -> bool {
     if !icfg.has_malloc() {
         log_rz!(
             LOG_WARN,
@@ -72,8 +68,19 @@ pub fn run_bda(rz_core: *mut RzCore, rz_analysis: *mut RzAnalysis, icfg: &mut IC
                 .to_string()
         );
         if ask_yes_no("Abort?") {
-            return;
+            return false;
         }
+    }
+    true
+}
+
+/// Runs the BDA analysis by sampleing paths within the iCFG and performing
+/// abstract execution on them.
+/// Memory references get directly added to Rizin via Rizin's API.
+pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG) {
+    let bin_entries = get_bin_entries(rz_core);
+    if !malloc_present(icfg) {
+        return;
     }
     let state = BDAState::new(32);
     icfg.resolve_loops(state.num_threads);
@@ -83,7 +90,6 @@ pub fn run_bda(rz_core: *mut RzCore, rz_analysis: *mut RzAnalysis, icfg: &mut IC
     let mut rng = thread_rng();
     let mut products: Vec<InterpreterProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<InterpreterProducts>> = HashMap::new();
-    let bin_entries = get_bin_entries(rz_core);
     while run_condition_fulfilled(&state) {
         // Dispatch interpretation into threads
         for tid in 0..state.num_threads {
