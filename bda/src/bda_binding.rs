@@ -14,8 +14,9 @@ use binding::{
     log_rizn, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
     rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
-    rz_core_graph_icfg, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzGraph,
-    RzGraphNode, RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    rz_core_graph_icfg, rz_core_notify_begin_bind, rz_core_notify_error_bind, RzAnalysis,
+    RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
@@ -23,7 +24,7 @@ use binding::{
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, RzGraphNodeInfo,
     RzGraphNodeInfoDataCFG, RzGraphNodeType, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
     RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList,
-    RzListIter, RzPVector, LOG_DEBUG, LOG_WARN,
+    RzListIter, RzPVector, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 use helper::progress::ProgressBar;
 
@@ -325,12 +326,24 @@ fn bin_entry_present(bin_entries: &Vec<Address>) -> bool {
 }
 
 pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
+    unsafe { rz_core_notify_begin_bind(core, "BDA analysis\n\0".as_ptr().cast()) };
     if !bin_entry_present(&get_bin_entries(core)) {
+        unsafe {
+            rz_core_notify_error_bind(core, "BDA analysis failed with an error\0".as_ptr().cast());
+        }
         return;
     }
     // get iCFG
     let rz_icfg = unsafe { rz_core_graph_icfg(core) };
     if rz_icfg.is_null() {
+        log_rz!(
+            LOG_ERROR,
+            Some("BDA".to_string()),
+            "No iCFG present.".to_string()
+        );
+        unsafe {
+            rz_core_notify_error_bind(core, "BDA analysis failed with an error\0".as_ptr().cast());
+        }
         return;
     }
     let mut icfg = ICFG::new_graph(get_graph(rz_icfg));
@@ -382,11 +395,12 @@ pub extern "C" fn rz_analysis_bda_handler(
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }
-    let result = run_bda_analysis(core, unsafe { (*core).analysis });
-    return rz_cmd_status_t_RZ_CMD_STATUS_OK;
-    // if result.is_ok() {
-    //     return rz_cmd_status_t_RZ_CMD_STATUS_OK;
-    // }
-    // log_rz!(LOG_ERROR, format!("BDA analysis failed with an error"));
-    // rz_cmd_status_t_RZ_CMD_STATUS_ERROR
+    let result = std::panic::catch_unwind(|| run_bda_analysis(core, unsafe { (*core).analysis }));
+    if result.is_ok() {
+        return rz_cmd_status_t_RZ_CMD_STATUS_OK;
+    }
+    unsafe {
+        rz_core_notify_error_bind(core, "BDA analysis failed with an error\0".as_ptr().cast())
+    };
+    rz_cmd_status_t_RZ_CMD_STATUS_ERROR
 }

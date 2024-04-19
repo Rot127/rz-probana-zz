@@ -218,7 +218,6 @@ impl ICFG {
                 }
             }
         });
-        println!("Make ICFG acyclic");
         self.make_acyclic();
     }
 }
