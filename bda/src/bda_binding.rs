@@ -6,10 +6,9 @@ use std::ptr::{null, null_mut};
 
 use crate::bda::run_bda;
 use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, CFG};
-use crate::flow_graphs::{
-    Address, FlowGraph, FlowGraphOperations, NodeId, SamplingBias, MAX_ADDRESS, UNDETERMINED_WEIGHT,
-};
+use crate::flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, MAX_ADDRESS};
 use crate::icfg::{Procedure, ICFG};
+use crate::weight::{Weight, UNDETERMINED_WEIGHT};
 use binding::{
     log_rizn, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
@@ -45,7 +44,7 @@ pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
     for i in 0..len {
         vec.push(data_arr[i]);
     }
-    assert_eq!(len, vec.len().try_into().unwrap());
+    assert_eq!(len, vec.len());
     vec
 }
 
@@ -66,7 +65,7 @@ pub fn cpvec_to_vec<T>(pvec: *const RzPVector) -> Vec<*mut T> {
     for i in 0..len {
         vec.push(data_arr[i]);
     }
-    assert_eq!(len, vec.len().try_into().unwrap());
+    assert_eq!(len, vec.len());
     vec
 }
 
@@ -83,7 +82,7 @@ pub fn list_to_vec<T>(
     vec.reserve(len as usize);
     let mut iter: *mut RzListIter = unsafe { (*list).head };
     if iter.is_null() {
-        assert_eq!(len, vec.len().try_into().unwrap());
+        assert_eq!(len, vec.len() as u32);
         return vec;
     }
     loop {
@@ -93,7 +92,7 @@ pub fn list_to_vec<T>(
         }
         iter = unsafe { (*iter).next };
     }
-    assert_eq!(len, vec.len().try_into().unwrap());
+    assert_eq!(len, vec.len() as u32);
     vec
 }
 
@@ -166,11 +165,7 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
         let num_neigh = in_nodes.len() + out_nodes.len();
         for (_, out_node_info) in out_nodes {
             let out_addr: Address = get_node_info_address!(out_node_info);
-            graph.add_edge(
-                NodeId::from(node_addr),
-                NodeId::from(out_addr),
-                SamplingBias::new_unset(),
-            );
+            graph.add_edge(NodeId::from(node_addr), NodeId::from(out_addr), 0);
             log_rz!(
                 LOG_DEBUG,
                 None,
@@ -179,11 +174,7 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
         }
         for (_, in_node_info) in in_nodes {
             let in_addr: Address = get_node_info_address!(in_node_info);
-            graph.add_edge(
-                NodeId::from(in_addr),
-                NodeId::from(node_addr),
-                SamplingBias::new_unset(),
-            );
+            graph.add_edge(NodeId::from(in_addr), NodeId::from(node_addr), 0);
             log_rz!(
                 LOG_DEBUG,
                 None,
@@ -246,7 +237,7 @@ fn get_insn_node_data(
         inode_type.weight_type == InsnNodeWeightType::Call && call_target.address == MAX_ADDRESS;
     InsnNodeData {
         addr: nid.address,
-        weight: UNDETERMINED_WEIGHT,
+        weight: UNDETERMINED_WEIGHT!(),
         itype: inode_type,
         call_target,
         orig_jump_target: jump_target,
@@ -271,7 +262,7 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
     let nid = get_rz_node_info_nodeid(node_info);
     let mut node_data: CFGNodeData = CFGNodeData {
         nid,
-        weight: UNDETERMINED_WEIGHT,
+        weight: UNDETERMINED_WEIGHT!(),
         insns: Vec::new(),
     };
     let rz_node_type: RzGraphNodeType = node_info.type_;

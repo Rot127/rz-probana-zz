@@ -15,9 +15,8 @@ use petgraph::{
 
 use crate::{
     cfg::{InsnNodeWeightType, CFG},
-    flow_graphs::{
-        FlowGraph, FlowGraphOperations, NodeId, SamplingBias, Weight, UNDETERMINED_WEIGHT,
-    },
+    flow_graphs::{FlowGraph, FlowGraphOperations, NodeId},
+    weight::{Weight, UNDETERMINED_WEIGHT},
 };
 
 /// A node in an iCFG describing a procedure.
@@ -151,7 +150,7 @@ impl ICFG {
 
         // Add actual edge
         if !self.graph.contains_edge(from.0, to.0) {
-            self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
+            self.graph.add_edge(from.0, to.0, 0);
         }
     }
 
@@ -245,7 +244,8 @@ impl FlowGraphOperations for ICFG {
                 if from != p_id {
                     continue;
                 }
-                proc.get_cfg_mut().set_call_weight(*to, UNDETERMINED_WEIGHT);
+                proc.get_cfg_mut()
+                    .set_call_weight(*to, UNDETERMINED_WEIGHT!());
                 for nmeta in proc.get_cfg_mut().nodes_meta.values_mut() {
                     if !nmeta.has_type(InsnNodeWeightType::Call) {
                         continue;
@@ -295,11 +295,7 @@ impl FlowGraphOperations for ICFG {
 
             // Update weight of outgoing edges
             for (neighbor_nid, neighbor_weight) in succ_weights.iter() {
-                let bias: SamplingBias = SamplingBias {
-                    numerator: *neighbor_weight,
-                    denominator: procedure.get_cfg().get_weight(),
-                };
-                self.graph.add_edge(*pid, *neighbor_nid, bias);
+                self.graph.add_edge(*pid, *neighbor_nid, 0);
             }
 
             // Now we know the weight of the procedure at pid.
@@ -311,7 +307,7 @@ impl FlowGraphOperations for ICFG {
             }
         }
         if self.num_procedures() == 0 {
-            return UNDETERMINED_WEIGHT;
+            return UNDETERMINED_WEIGHT!();
         }
         self.get_procedure(match self.rev_topograph.last() {
             Some(a) => a,
@@ -325,7 +321,7 @@ impl FlowGraphOperations for ICFG {
 
     fn add_cloned_edge(&mut self, from: NodeId, to: NodeId) {
         if !self.graph.contains_edge(from, to) {
-            self.graph.add_edge(from, to, SamplingBias::new_unset());
+            self.graph.add_edge(from, to, 0);
         }
         if !self.procedures.contains_key(&from) {
             let orig_proc = self

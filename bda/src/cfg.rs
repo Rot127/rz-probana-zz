@@ -7,9 +7,9 @@ use std::collections::{HashMap, HashSet};
 use binding::{log_rizn, log_rz, LOG_DEBUG};
 use petgraph::{algo::toposort, Direction::Outgoing};
 
-use crate::flow_graphs::{
-    Address, FlowGraph, FlowGraphOperations, NodeId, SamplingBias, Weight, INVALID_NODE_ID,
-    INVALID_WEIGHT, UNDETERMINED_WEIGHT,
+use crate::{
+    flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, INVALID_NODE_ID},
+    weight::{w, Weight, UNDETERMINED_WEIGHT},
 };
 
 /// The type of a node which determines the weight calculation of it.
@@ -90,7 +90,7 @@ impl InsnNodeData {
     ) -> InsnNodeData {
         InsnNodeData {
             addr,
-            weight: UNDETERMINED_WEIGHT,
+            weight: UNDETERMINED_WEIGHT!(),
             itype: InsnNodeType::new(InsnNodeWeightType::Call, false),
             call_target,
             orig_jump_target: jump_target,
@@ -105,13 +105,13 @@ impl InsnNodeData {
         iword_succ_weights: &HashMap<NodeId, Weight>,
         call_target_weights: &HashMap<NodeId, Weight>,
     ) -> Weight {
-        let mut sum_succ_weights = 0;
+        let mut sum_succ_weights: Weight = w!(0);
         for (target_id, target_weight) in iword_succ_weights.iter() {
             if *target_id == self.call_target
                 || self.orig_jump_target.get_orig_node_id() == target_id.get_orig_node_id()
                 || self.orig_next.get_orig_node_id() == target_id.get_orig_node_id()
             {
-                sum_succ_weights += *target_weight;
+                sum_succ_weights.add_assign(target_weight);
             }
         }
         if sum_succ_weights == 0 && self.itype.weight_type == InsnNodeWeightType::Normal {
@@ -121,21 +121,21 @@ impl InsnNodeData {
             // need to assign at least one node a weight of 1.
             // Otherwise the whole weight of the CFG would be 0.
             // Which doesn't match the reality.
-            sum_succ_weights = 1
+            sum_succ_weights = w!(1)
         }
         self.weight = match self.itype.weight_type {
-            InsnNodeWeightType::Return => 1,
-            InsnNodeWeightType::Exit => 1,
+            InsnNodeWeightType::Return => w!(1),
+            InsnNodeWeightType::Exit => w!(1),
             InsnNodeWeightType::Normal => sum_succ_weights,
             InsnNodeWeightType::Call => {
                 sum_succ_weights
                     * match call_target_weights.get(&self.call_target) {
-                        Some(w) => *w,
-                        None => 1,
+                        Some(w) => w.clone(),
+                        None => w!(1),
                     }
             }
         };
-        self.weight
+        self.weight.clone()
     }
 }
 
@@ -160,12 +160,12 @@ impl CFGNodeData {
     ) -> CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
-            weight: UNDETERMINED_WEIGHT,
+            weight: UNDETERMINED_WEIGHT!(),
             insns: Vec::new(),
         };
         node.insns.push(InsnNodeData {
             addr,
-            weight: UNDETERMINED_WEIGHT,
+            weight: UNDETERMINED_WEIGHT!(),
             itype: ntype,
             call_target: INVALID_NODE_ID,
             orig_jump_target: jump_target,
@@ -182,9 +182,9 @@ impl CFGNodeData {
         call_weights: &HashMap<NodeId, Weight>,
     ) {
         assert_ne!(self.insns.len(), 0);
-        let mut total_node_weight = 0;
+        let mut total_node_weight = w!(0);
         for insn in self.insns.iter_mut() {
-            total_node_weight += insn.calc_weight(successor_weights, call_weights);
+            total_node_weight.add_assign(&insn.calc_weight(successor_weights, call_weights));
         }
         self.weight = total_node_weight;
     }
@@ -198,7 +198,7 @@ impl CFGNodeData {
     ) -> CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
-            weight: UNDETERMINED_WEIGHT,
+            weight: UNDETERMINED_WEIGHT!(),
             insns: Vec::new(),
         };
         node.insns.push(InsnNodeData::new_call(
@@ -334,7 +334,7 @@ impl CFG {
         for (nid, weight) in cloned_cfg.call_target_weights.iter() {
             let mut new_nid = nid.clone();
             new_nid.icfg_clone_id = icfg_clone_id;
-            new_call_targets.insert(new_nid, *weight);
+            new_call_targets.insert(new_nid, weight.clone());
         }
         cloned_cfg.call_target_weights.clear();
         cloned_cfg.call_target_weights.extend(new_call_targets);
@@ -377,7 +377,7 @@ impl CFG {
 
     pub fn add_call_target_weights(&mut self, call_target_weights: &[&(NodeId, Weight)]) {
         for cw in call_target_weights {
-            self.set_call_weight(cw.0, cw.1);
+            self.set_call_weight(cw.0, cw.1.clone());
         }
     }
 
@@ -388,7 +388,7 @@ impl CFG {
     /// Get the total weight of the CFG.
     pub fn get_node_weight(&self, node: NodeId) -> Weight {
         if self.graph.node_count() == 0 {
-            return INVALID_WEIGHT;
+            return UNDETERMINED_WEIGHT!();
         }
         get_nodes_meta!(self, node).weight
     }
@@ -396,7 +396,7 @@ impl CFG {
     /// Get the total weight of the CFG.
     pub fn get_weight(&self) -> Weight {
         if self.graph.node_count() == 0 {
-            return INVALID_WEIGHT;
+            return UNDETERMINED_WEIGHT!();
         }
         let entry_nid = match self.rev_topograph.last() {
             Some(first) => *first,
@@ -418,7 +418,7 @@ impl CFG {
         }
         for i in from.1.insns.iter() {
             if i.itype.weight_type == InsnNodeWeightType::Call {
-                self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT);
+                self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT!());
             }
         }
         if !self.nodes_meta.contains_key(&from.0) {
@@ -428,7 +428,7 @@ impl CFG {
             self.nodes_meta.insert(to.0, to.1);
         }
         if !self.graph.contains_edge(from.0, to.0) {
-            self.graph.add_edge(from.0, to.0, SamplingBias::new_unset());
+            self.graph.add_edge(from.0, to.0, 0);
         }
     }
 
@@ -440,7 +440,7 @@ impl CFG {
         }
         for i in node.1.insns.iter() {
             if i.itype.weight_type == InsnNodeWeightType::Call {
-                self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT);
+                self.set_call_weight(i.call_target, UNDETERMINED_WEIGHT!());
             }
         }
         self.nodes_meta.insert(node.0, node.1);
@@ -508,11 +508,7 @@ impl FlowGraphOperations for CFG {
             node_data.calc_weight(&succ_weights, &self.call_target_weights);
             // Update weight of edges/edge sampling bias
             for (k, nw) in succ_weights.iter() {
-                let bias: SamplingBias = SamplingBias {
-                    numerator: *nw,
-                    denominator: node_data.weight,
-                };
-                self.graph.add_edge(*n, *k, bias);
+                self.graph.add_edge(*n, *k, 0);
             }
         }
         if self.get_weight() == 0 {

@@ -8,21 +8,9 @@ use petgraph::Direction::{Incoming, Outgoing};
 use core::panic;
 use std::collections::HashSet;
 
-pub type FlowGraph = DiGraphMap<NodeId, SamplingBias>;
+use crate::weight::Weight;
 
-pub type Weight = u64;
-
-/// The invalid weight value.
-/// The invalid weight isn't zero because we can have
-/// nodes in the iCFG which are not connected.
-/// Those have a weight of zero. But might get edges later
-/// during abstract interpretation.
-pub const INVALID_WEIGHT: Weight = u64::MAX;
-
-/// Value for undetermined weights.
-/// This is used for unresolved indirect calls and procedures
-/// which have no weight assigned yet.
-pub const UNDETERMINED_WEIGHT: Weight = 1;
+pub type FlowGraph = DiGraphMap<NodeId, usize>;
 
 pub type Address = u64;
 
@@ -111,59 +99,6 @@ impl std::cmp::PartialEq<u128> for NodeId {
 /// to make it loop free.
 pub const MIN_DUPLICATE_BOUND: u32 = 3;
 
-/// Sampling bias of each path. Used as edge weight.
-///
-/// # Example
-/// If from node A 6000 paths can be reached and the outgoing
-/// edge (A, B) leads to 40 of those, the sampling bias is 40/6000
-/// for edge (A, B)
-#[derive(Debug, Clone)]
-pub struct SamplingBias {
-    pub numerator: Weight,
-    pub denominator: Weight,
-}
-
-impl std::fmt::Display for SamplingBias {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.numerator == INVALID_WEIGHT && self.denominator == INVALID_WEIGHT {
-            return write!(f, "invalid/invalid");
-        } else if self.numerator == INVALID_WEIGHT {
-            return write!(f, "invalid/{:#x}", self.denominator);
-        } else if self.denominator == INVALID_WEIGHT {
-            return write!(f, "{:#x}/invalid", self.numerator);
-        }
-        write!(f, "{:#x}/{:#x}", self.numerator, self.denominator)
-    }
-}
-
-impl std::cmp::PartialEq for SamplingBias {
-    fn eq(&self, other: &Self) -> bool {
-        self.numerator == other.numerator && self.denominator == other.denominator
-    }
-}
-
-impl std::cmp::PartialEq<(Weight, Weight)> for SamplingBias {
-    fn eq(&self, other: &(Weight, Weight)) -> bool {
-        self.numerator == other.0 && self.denominator == other.1
-    }
-}
-
-impl SamplingBias {
-    pub fn new(numerator: u64, denominator: u64) -> Self {
-        SamplingBias {
-            numerator,
-            denominator,
-        }
-    }
-
-    pub fn new_unset() -> Self {
-        SamplingBias {
-            numerator: INVALID_WEIGHT,
-            denominator: INVALID_WEIGHT,
-        }
-    }
-}
-
 /// Categories of edges for cycle removement by cloning
 /// strongly connected components.
 #[derive(PartialEq, Eq)]
@@ -187,13 +122,6 @@ pub trait FlowGraphOperations {
     /// The CFG and iCFG have to add the meta inforation to the cloned edge
     /// and add it afterwards to the real graph object.
     fn add_cloned_edge(&mut self, from: NodeId, to: NodeId);
-
-    fn get_edge_weight(&self, from: NodeId, to: NodeId) -> &SamplingBias {
-        match self.get_graph().edge_weight(from, to) {
-            Some(w) => w,
-            None => panic!("Edge {} => {} does not exist.", from, to),
-        }
-    }
 
     /// Returns the next (incremented) clone of [id] by returning a copy of [id].
     fn get_next_node_id_clone(increment: u32, nid: NodeId) -> NodeId;

@@ -7,10 +7,11 @@
 
 mod abstr_int;
 mod bda;
+pub mod bda_binding;
 pub mod cfg;
 pub mod flow_graphs;
 pub mod icfg;
 mod path_sampler;
 mod post_analysis;
-pub mod bda_binding;
 mod test_flow_graphs;
+pub mod weight;

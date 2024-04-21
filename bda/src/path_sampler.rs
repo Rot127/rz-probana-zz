@@ -7,8 +7,9 @@ use rand::{thread_rng, Rng};
 
 use crate::{
     cfg::CFG,
-    flow_graphs::{Address, NodeId, Weight},
+    flow_graphs::{Address, NodeId},
     icfg::ICFG,
+    weight::Weight,
 };
 
 type Path = Vec<NodeId>;
@@ -28,10 +29,9 @@ impl ApproxW {
 /// Return hsig, expi = sig × 2exp = w
 fn approximate_weights(weights: &Vec<Weight>, out: &mut Vec<ApproxW>) {
     for w in weights.iter() {
-        let w_32 = *w as u32;
         let mut aw = ApproxW::new();
-        aw.exp = u32::max(w_32.ilog2(), 63) - 63;
-        aw.sig = w_32 / u32::pow(2, aw.exp);
+        aw.exp = u32::max(w.log2(), 63) - 63;
+        aw.sig = w.div32(Weight::new(u32::pow(2, aw.exp) as usize));
         out.push(aw);
     }
 }
@@ -56,7 +56,7 @@ fn select_branch(weights: &Vec<Weight>) -> usize {
     }
     let mut rng = thread_rng();
     let mut approx_w: Vec<ApproxW> = Vec::new();
-    approximate_weights(&weights, &mut approx_w);
+    approximate_weights(weights, &mut approx_w);
     let mut choice = 0;
     let mut opponent = 1;
     // Let the different weights compete against each other.

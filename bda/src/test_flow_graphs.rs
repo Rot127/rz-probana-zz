@@ -10,11 +10,9 @@ mod tests {
 
     use crate::{
         cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, CFG},
-        flow_graphs::{
-            Address, FlowGraphOperations, NodeId, SamplingBias, Weight, INVALID_NODE_ID,
-            INVALID_WEIGHT,
-        },
+        flow_graphs::{Address, FlowGraphOperations, NodeId, INVALID_NODE_ID},
         icfg::{Procedure, ICFG},
+        weight::{w, Weight, UNDETERMINED_WEIGHT},
     };
 
     const A_ADDR: Address = 0xa0;
@@ -646,7 +644,7 @@ mod tests {
         cfg
     }
 
-    fn assert_node_weight(node_data: Option<&CFGNodeData>, weight: Weight) {
+    fn assert_node_weight(node_data: Option<&CFGNodeData>, weight: usize) {
         let w: Weight = match node_data {
             Some(node) => node.weight,
             None => panic!("Node is None"),
@@ -671,7 +669,7 @@ mod tests {
         let mut cfg = get_unset_indirect_call_cfg();
         cfg.calc_weight();
         assert_node_weight(cfg.nodes_meta.get(&NodeId::new(0, 0, 0)), 1);
-        cfg.add_call_target_weights(&[&(NodeId::new(0, 0, RANDOM_FCN_ADDR), 10)]);
+        cfg.add_call_target_weights(&[&(NodeId::new(0, 0, RANDOM_FCN_ADDR), w!(10))]);
         cfg.calc_weight();
         assert_node_weight(cfg.nodes_meta.get(&NodeId::new(0, 0, 0)), 10);
     }
@@ -846,7 +844,7 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 0);
         assert_eq!(cfg.nodes_meta.len(), 0);
         cfg.calc_weight();
-        assert_eq!(cfg.get_weight(), INVALID_WEIGHT);
+        assert_eq!(cfg.get_weight(), UNDETERMINED_WEIGHT!());
     }
 
     #[test]
@@ -911,13 +909,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Edge (0:0:0x64) => (0:0:0xc8) does not exist.")]
-    fn test_cfg_get_invalid_edge() {
-        let cfg: CFG = get_cfg_single_self_ref();
-        cfg.get_edge_weight(NodeId::new(0, 0, 100), NodeId::new(0, 0, 200));
-    }
-
-    #[test]
     fn test_cfg_single_self_ref() {
         let mut cfg: CFG = get_cfg_single_self_ref();
         assert_eq!(cfg.graph.edge_count(), 1);
@@ -949,9 +940,6 @@ mod tests {
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 1);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 1);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(1, 1));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(1, 1));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 0, 3)), &(1, 1));
         }
     }
 
@@ -983,32 +971,6 @@ mod tests {
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
-
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-        {
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(4, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 1, 1)), &(3, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 2, 1)), &(2, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 3, 1)), &(1, 10));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(4, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 1, 2)), &(3, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 2, 2)), &(2, 2));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 1), NodeId::new(0, 3, 2)), &(1, 1));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 1, 1)), &(3, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 2, 1)), &(2, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 3, 1)), &(1, 2));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 0, 3)), &(1, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 0, 3)), &(1, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 0, 3)), &(1, 2));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 2), NodeId::new(0, 0, 3)), &(1, 1));
-
-        // Single node SCCs
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 3), NodeId::new(0, 0, 13)), &(1, 1));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 10), NodeId::new(0, 0, 0)), &(10, 10));
-        }
     }
 
     #[test]
@@ -1037,28 +999,6 @@ mod tests {
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
-
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-        {
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(4, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 1, 1)), &(3, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 2, 1)), &(2, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 3, 1)), &(1, 10));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(4, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 1, 2)), &(3, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 2, 2)), &(2, 2));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 1), NodeId::new(0, 3, 2)), &(1, 1));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 1, 1)), &(3, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 2, 1)), &(2, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 3, 1)), &(1, 2));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 2), NodeId::new(0, 0, 3)), &(1, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 2), NodeId::new(0, 0, 3)), &(1, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 2), NodeId::new(0, 0, 3)), &(1, 2));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 2), NodeId::new(0, 0, 3)), &(1, 1));
-        }
     }
 
     #[test]
@@ -1083,23 +1023,6 @@ mod tests {
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
-
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-        {
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 0, 1)), &(4, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 1, 1)), &(3, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 2, 1)), &(2, 10));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 0), NodeId::new(0, 3, 1)), &(1, 10));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 1, 1)), &(3, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 2, 1)), &(2, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 3, 1)), &(1, 2));
-
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 0, 1), NodeId::new(0, 0, 2)), &(1, 4));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 1, 1), NodeId::new(0, 0, 2)), &(1, 3));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 2, 1), NodeId::new(0, 0, 2)), &(1, 2));
-        assert_eq!(cfg.get_edge_weight(NodeId::new(0, 3, 1), NodeId::new(0, 0, 2)), &(1, 1));
-        }
     }
 
     #[test]
@@ -1140,26 +1063,6 @@ mod tests {
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 4)), 1);
 
         assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
-    }
-
-    #[test]
-    fn test_sampling_bias_printing() {
-        assert_eq!(
-            SamplingBias::new(INVALID_WEIGHT, INVALID_WEIGHT).to_string(),
-            "invalid/invalid"
-        );
-        assert_eq!(
-            SamplingBias::new(1, INVALID_WEIGHT).to_string(),
-            "0x1/invalid"
-        );
-        assert_eq!(
-            SamplingBias::new(INVALID_WEIGHT, 0xfffffffffffffffe).to_string(),
-            "invalid/0xfffffffffffffffe"
-        );
-        assert_eq!(
-            SamplingBias::new(0xfffffffffffffffe, 0xfffffffffffffffe).to_string(),
-            "0xfffffffffffffffe/0xfffffffffffffffe"
-        );
     }
 
     #[test]
