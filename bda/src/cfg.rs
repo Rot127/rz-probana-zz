@@ -151,6 +151,12 @@ pub struct CFGNodeData {
     pub insns: Vec<InsnNodeData>,
 }
 
+impl std::fmt::Display for CFGNodeData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "iw({})", self.nid)
+    }
+}
+
 impl CFGNodeData {
     /// Initialize an CFG node with a single instruction.
     pub fn new_test_single(
@@ -183,7 +189,12 @@ impl CFGNodeData {
         successor_weights: &NodeWeightRefMap,
         call_weights: &NodeWeightRefMap,
     ) -> Vec<Weight> {
-        assert_ne!(self.insns.len(), 0);
+        assert_ne!(
+            self.insns.len(),
+            0,
+            "The instruction word at {} has no insntructions.",
+            self
+        );
         let mut insn_weights = Vec::<Weight>::new();
         for insn in self.insns.iter() {
             insn_weights.push(insn.calc_weight(successor_weights, call_weights));
