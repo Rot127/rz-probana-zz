@@ -9,7 +9,7 @@ use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::{
     flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, INVALID_NODE_ID},
-    weight::{w, Weight, UNDETERMINED_WEIGHT},
+    weight::{w, NodeWeightMap, NodeWeightRefMap, Weight, UNDETERMINED_WEIGHT},
 };
 
 /// The type of a node which determines the weight calculation of it.
@@ -101,9 +101,9 @@ impl InsnNodeData {
 
     /// Calculate the weight of the instruction node from the successor node weights.
     pub fn calc_weight(
-        &mut self,
-        iword_succ_weights: &HashMap<NodeId, Weight>,
-        call_target_weights: &HashMap<NodeId, Weight>,
+        &self,
+        iword_succ_weights: &NodeWeightRefMap,
+        call_target_weights: &NodeWeightRefMap,
     ) -> Weight {
         let mut sum_succ_weights: Weight = w!(0);
         for (target_id, target_weight) in iword_succ_weights.iter() {
@@ -114,6 +114,7 @@ impl InsnNodeData {
                 sum_succ_weights.add_assign(target_weight);
             }
         }
+        let const_one = &w!(1);
         if sum_succ_weights == 0 && self.itype.weight_type == InsnNodeWeightType::Normal {
             // This indicates the CFG has an endless loop of normal instructions
             // without any Return or Exit nodes.
@@ -121,21 +122,21 @@ impl InsnNodeData {
             // need to assign at least one node a weight of 1.
             // Otherwise the whole weight of the CFG would be 0.
             // Which doesn't match the reality.
-            sum_succ_weights = w!(1)
+            sum_succ_weights.add_assign(const_one)
         }
-        self.weight = match self.itype.weight_type {
+        let weight = match self.itype.weight_type {
             InsnNodeWeightType::Return => w!(1),
             InsnNodeWeightType::Exit => w!(1),
             InsnNodeWeightType::Normal => sum_succ_weights,
             InsnNodeWeightType::Call => {
-                sum_succ_weights
-                    * match call_target_weights.get(&self.call_target) {
-                        Some(w) => w.clone(),
-                        None => w!(1),
-                    }
+                let cw = match call_target_weights.get(&self.call_target) {
+                    Some(w) => w,
+                    None => const_one,
+                };
+                sum_succ_weights.mul(cw)
             }
         };
-        self.weight.clone()
+        weight
     }
 }
 
@@ -175,18 +176,19 @@ impl CFGNodeData {
         node
     }
 
-    /// Calculates the total weight of the CFG node.
+    /// Calulcates the weights of all instructions part of this instruction word
+    /// and returns it as vector
     pub fn calc_weight(
-        &mut self,
-        successor_weights: &HashMap<NodeId, Weight>,
-        call_weights: &HashMap<NodeId, Weight>,
-    ) {
+        &self,
+        successor_weights: &NodeWeightRefMap,
+        call_weights: &NodeWeightRefMap,
+    ) -> Vec<Weight> {
         assert_ne!(self.insns.len(), 0);
-        let mut total_node_weight = w!(0);
-        for insn in self.insns.iter_mut() {
-            total_node_weight.add_assign(&insn.calc_weight(successor_weights, call_weights));
+        let mut insn_weights = Vec::<Weight>::new();
+        for insn in self.insns.iter() {
+            insn_weights.push(insn.calc_weight(successor_weights, call_weights));
         }
-        self.weight = total_node_weight;
+        insn_weights
     }
 
     /// Initialize an CFG node with a single call instruction.
@@ -258,13 +260,16 @@ pub struct CFG {
     /// Meta data for every node.
     pub nodes_meta: HashMap<NodeId, CFGNodeData>,
     /// Weights of procedures this CFG calls.
-    pub call_target_weights: HashMap<NodeId, Weight>,
+    pub call_target_weights: NodeWeightMap,
     /// Set of exit nodes, discovered while building the CFG.
     discovered_exits: HashSet<NodeId>,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
     /// The node id of the entry node
     entry: NodeId,
+    /// An instance of an undetermind weight.
+    /// To be used if invalid values must be returned from functions.
+    undetermind_weight: Weight,
 }
 
 impl std::fmt::Display for CFG {
@@ -278,24 +283,6 @@ impl std::fmt::Display for CFG {
     }
 }
 
-macro_rules! get_nodes_meta_mut {
-    ( $cfg:ident, $nid:expr ) => {
-        match $cfg.nodes_meta.get_mut(&$nid) {
-            Some(m) => m,
-            None => panic!("The {} has no meta info for node {}.", $cfg, $nid),
-        }
-    };
-}
-
-macro_rules! get_nodes_meta {
-    ( $cfg:ident, $node_id:expr ) => {
-        match $cfg.nodes_meta.get(&$node_id) {
-            Some(m) => m.clone(),
-            None => panic!("The {} has no meta info for node {}.", $cfg, $node_id),
-        }
-    };
-}
-
 impl CFG {
     pub fn new() -> CFG {
         CFG {
@@ -305,6 +292,7 @@ impl CFG {
             rev_topograph: Vec::new(),
             discovered_exits: HashSet::new(),
             entry: INVALID_NODE_ID,
+            undetermind_weight: UNDETERMINED_WEIGHT!(),
         }
     }
 
@@ -316,6 +304,21 @@ impl CFG {
             rev_topograph: Vec::new(),
             discovered_exits: HashSet::new(),
             entry: INVALID_NODE_ID,
+            undetermind_weight: UNDETERMINED_WEIGHT!(),
+        }
+    }
+
+    pub fn get_nodes_meta_mut(&mut self, nid: &NodeId) -> &mut CFGNodeData {
+        match self.nodes_meta.get_mut(nid) {
+            Some(m) => m,
+            None => panic!("The CFG has no meta info for node {}.", nid),
+        }
+    }
+
+    pub fn get_nodes_meta(&self, nid: &NodeId) -> &CFGNodeData {
+        match self.nodes_meta.get(nid) {
+            Some(m) => m,
+            None => panic!("The CFG has no meta info for node {}.", nid),
         }
     }
 
@@ -329,15 +332,16 @@ impl CFG {
     /// Clones itself and updates the node IDs with the given iCFG clone id
     pub fn get_clone(&self, icfg_clone_id: u32) -> CFG {
         let mut cloned_cfg: CFG = self.clone();
-        // First update the call nodes
-        let mut new_call_targets: HashMap<NodeId, Weight> = HashMap::new();
-        for (nid, weight) in cloned_cfg.call_target_weights.iter() {
+        // First update the call node IDs.
+        let mut new_call_targets: NodeWeightMap = HashMap::new();
+        for (nid, weight) in cloned_cfg.call_target_weights.drain() {
             let mut new_nid = nid.clone();
             new_nid.icfg_clone_id = icfg_clone_id;
-            new_call_targets.insert(new_nid, weight.clone());
+            new_call_targets.insert(new_nid, weight);
         }
-        cloned_cfg.call_target_weights.clear();
-        cloned_cfg.call_target_weights.extend(new_call_targets);
+        cloned_cfg
+            .call_target_weights
+            .extend(new_call_targets.into_iter());
 
         // Update the node IDs for the meta information
         let mut new_meta_map: HashMap<NodeId, CFGNodeData> = HashMap::new();
@@ -365,17 +369,18 @@ impl CFG {
 
     /// Updates the weight of a procedure.
     /// If the given procedure is not called from the CFG, it panics.
-    pub fn update_procedure_weight(&mut self, pid: NodeId, pweight: Weight) {
+    pub fn update_procedure_weight(&mut self, pid: NodeId, pweight: &Weight) {
         if !self.call_target_weights.contains_key(&pid) {
             panic!(
                 "Attempt to add weight of procedure {} to {}. But this CFG doesn't call the procedure",
                 pid, self
             )
         }
-        self.set_call_weight(pid, pweight);
+        self.set_call_weight(pid, pweight.clone());
     }
 
-    pub fn add_call_target_weights(&mut self, call_target_weights: &[&(NodeId, Weight)]) {
+    /// For testing only!
+    pub fn add_call_target_weights(&mut self, call_target_weights: &[&(NodeId, &Weight)]) {
         for cw in call_target_weights {
             self.set_call_weight(cw.0, cw.1.clone());
         }
@@ -386,17 +391,17 @@ impl CFG {
     }
 
     /// Get the total weight of the CFG.
-    pub fn get_node_weight(&self, node: NodeId) -> Weight {
+    pub fn get_node_weight(&self, node: NodeId) -> &Weight {
         if self.graph.node_count() == 0 {
-            return UNDETERMINED_WEIGHT!();
+            return &self.undetermind_weight;
         }
-        get_nodes_meta!(self, node).weight
+        &self.get_nodes_meta(&node).weight
     }
 
     /// Get the total weight of the CFG.
-    pub fn get_weight(&self) -> Weight {
+    pub fn get_weight(&self) -> &Weight {
         if self.graph.node_count() == 0 {
-            return UNDETERMINED_WEIGHT!();
+            return &self.undetermind_weight;
         }
         let entry_nid = match self.rev_topograph.last() {
             Some(first) => *first,
@@ -404,7 +409,7 @@ impl CFG {
                 "If get_weight() is called on a CFG, the weights must have been calculated before."
             ),
         };
-        get_nodes_meta!(self, entry_nid).weight
+        &self.get_nodes_meta(&entry_nid).weight
     }
 
     /// Adds an edge to the graph.
@@ -454,6 +459,15 @@ impl CFG {
         }
         self.nodes_meta.insert(node_id, data);
     }
+
+    /// Returns the call target weight references in a map.
+    pub fn get_call_weight_refs(&self) -> NodeWeightRefMap {
+        let mut map: NodeWeightRefMap = HashMap::new();
+        for (nid, nw) in self.call_target_weights.iter() {
+            map.insert(*nid, nw);
+        }
+        map
+    }
 }
 
 impl FlowGraphOperations for CFG {
@@ -497,27 +511,44 @@ impl FlowGraphOperations for CFG {
 
     fn calc_weight(&mut self) -> Weight {
         self.sort();
-        for n in self.rev_topograph.iter() {
-            let mut succ_weights: HashMap<NodeId, Weight> = HashMap::new();
-            for neigh in self.graph.neighbors_directed(*n, Outgoing) {
-                let nw: Weight = get_nodes_meta!(self, neigh).weight;
+        let topo = &self.rev_topograph;
+        let graph = &mut self.graph;
+        let meta = &mut self.nodes_meta;
+        let cweights = &{
+            let mut map: NodeWeightRefMap = HashMap::new();
+            for (nid, nw) in self.call_target_weights.iter() {
+                map.insert(*nid, nw);
+            }
+            map
+        };
+        for nid in topo.iter() {
+            let mut succ_weights: NodeWeightRefMap = HashMap::new();
+            for neigh in graph.neighbors_directed(*nid, Outgoing) {
+                let nw: &Weight = &meta.get(&neigh).unwrap().weight;
                 succ_weights.insert(neigh, nw);
             }
 
-            let node_data: &mut CFGNodeData = get_nodes_meta_mut!(self, n);
-            node_data.calc_weight(&succ_weights, &self.call_target_weights);
-            // Update weight of edges/edge sampling bias
-            for (k, nw) in succ_weights.iter() {
-                self.graph.add_edge(*n, *k, 0);
+            let node = {
+                match meta.get(nid) {
+                    Some(m) => m,
+                    None => panic!("The CFG has no meta info for node {}.", nid),
+                }
+            };
+            let insn_weights: Vec<Weight> = node.calc_weight(&succ_weights, &cweights);
+            let mut total_weight: Weight = w!(0);
+            for iweight in insn_weights.into_iter() {
+                total_weight.add_assign(&iweight);
+                meta.get_mut(nid).unwrap().weight = iweight;
             }
+            meta.get_mut(nid).unwrap().weight = total_weight.to_owned();
         }
-        if self.get_weight() == 0 {
+        if *self.get_weight() == 0 {
             panic!(
                 "Generated weight of {} has weight 0. Does a return or invalid instruction exists?",
                 self
             )
         }
-        self.get_weight()
+        self.get_weight().clone()
     }
 
     fn add_cloned_edge(&mut self, cloned_from: NodeId, cloned_to: NodeId) {
@@ -529,12 +560,12 @@ impl FlowGraphOperations for CFG {
         self.add_edge(
             (
                 cloned_from,
-                get_nodes_meta!(self, cloned_from.get_orig_node_id())
+                self.get_nodes_meta(&cloned_from.get_orig_node_id())
                     .get_clone(cloned_from.icfg_clone_id, cloned_from.cfg_clone_id),
             ),
             (
                 cloned_to,
-                get_nodes_meta!(self, cloned_to.get_orig_node_id())
+                self.get_nodes_meta(&cloned_to.get_orig_node_id())
                     .get_clone(cloned_to.icfg_clone_id, cloned_to.cfg_clone_id),
             ),
         );

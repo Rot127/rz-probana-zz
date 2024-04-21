@@ -12,7 +12,7 @@ mod tests {
         cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, CFG},
         flow_graphs::{Address, FlowGraphOperations, NodeId, INVALID_NODE_ID},
         icfg::{Procedure, ICFG},
-        weight::{w, Weight, UNDETERMINED_WEIGHT},
+        weight::{w, Weight},
     };
 
     const A_ADDR: Address = 0xa0;
@@ -23,6 +23,15 @@ mod tests {
     const FOO_ADDR: Address = 6;
     const MAIN_ADDR: Address = 11;
     const RANDOM_FCN_ADDR: Address = 0x5a5a5a5a5a5a5a5a;
+
+    macro_rules! assert_p_weight {
+        ($icfg:expr, $proc: expr, $val:expr) => {
+            assert_eq!(
+                *$icfg.get_procedure_weight($proc).get_cfg().get_weight(),
+                $val
+            );
+        };
+    }
 
     /// A -> B -> C -> A
     ///           \  
@@ -645,11 +654,11 @@ mod tests {
     }
 
     fn assert_node_weight(node_data: Option<&CFGNodeData>, weight: usize) {
-        let w: Weight = match node_data {
-            Some(node) => node.weight,
+        let w: &Weight = match node_data {
+            Some(node) => &node.weight,
             None => panic!("Node is None"),
         };
-        assert_eq!(w, weight);
+        assert_eq!(*w, weight);
     }
 
     #[test]
@@ -661,7 +670,7 @@ mod tests {
         assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 2)), 1);
         assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 3)), 1);
         assert_node_weight(gee_cfg.nodes_meta.get(&NodeId::new(0, 0, 4)), 1);
-        assert_eq!(gee_cfg.get_weight(), 2);
+        assert_eq!(*gee_cfg.get_weight(), 2);
     }
 
     #[test]
@@ -669,7 +678,7 @@ mod tests {
         let mut cfg = get_unset_indirect_call_cfg();
         cfg.calc_weight();
         assert_node_weight(cfg.nodes_meta.get(&NodeId::new(0, 0, 0)), 1);
-        cfg.add_call_target_weights(&[&(NodeId::new(0, 0, RANDOM_FCN_ADDR), w!(10))]);
+        cfg.add_call_target_weights(&[&(NodeId::new(0, 0, RANDOM_FCN_ADDR), &w!(10))]);
         cfg.calc_weight();
         assert_node_weight(cfg.nodes_meta.get(&NodeId::new(0, 0, 0)), 10);
     }
@@ -678,9 +687,27 @@ mod tests {
     fn test_icfg_weight_calc() {
         let mut icfg: ICFG = get_paper_example_icfg();
         icfg.calc_weight();
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, MAIN_ADDR)), 6);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, FOO_ADDR)), 4);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, GEE_ADDR)), 2);
+        assert_eq!(
+            *icfg
+                .get_procedure_weight(NodeId::new(0, 0, MAIN_ADDR))
+                .get_cfg()
+                .get_weight(),
+            6
+        );
+        assert_eq!(
+            *icfg
+                .get_procedure_weight(NodeId::new(0, 0, FOO_ADDR))
+                .get_cfg()
+                .get_weight(),
+            4
+        );
+        assert_eq!(
+            *icfg
+                .get_procedure_weight(NodeId::new(0, 0, GEE_ADDR))
+                .get_cfg()
+                .get_weight(),
+            2
+        );
     }
 
     #[test]
@@ -837,6 +864,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "Generated weight of CFG(empty) has weight 0. Does a return or invalid instruction exists?"]
     fn test_cfg_loop_empty() {
         let mut cfg = get_cfg_empty();
         cfg.make_acyclic();
@@ -844,7 +872,6 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 0);
         assert_eq!(cfg.nodes_meta.len(), 0);
         cfg.calc_weight();
-        assert_eq!(cfg.get_weight(), UNDETERMINED_WEIGHT!());
     }
 
     #[test]
@@ -869,7 +896,7 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 1);
         assert_eq!(cfg.nodes_meta.len(), 1);
         cfg.calc_weight();
-        assert_eq!(cfg.get_weight(), 1);
+        assert_eq!(*cfg.get_weight(), 1);
     }
 
     #[test]
@@ -889,7 +916,7 @@ mod tests {
         );
         }
         cfg.calc_weight();
-        assert_eq!(cfg.get_weight(), 1);
+        assert_eq!(*cfg.get_weight(), 1);
     }
 
     #[test]
@@ -919,7 +946,7 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
         cfg.calc_weight();
-        assert_eq!(cfg.get_weight(), 1);
+        assert_eq!(*cfg.get_weight(), 1);
     }
 
     #[test]
@@ -933,13 +960,13 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
         cfg.calc_weight();
-        assert_eq!(cfg.get_weight(), 1);
+        assert_eq!(*cfg.get_weight(), 1);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 0)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 1)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 2)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
         }
     }
 
@@ -957,20 +984,20 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 17);
         assert_eq!(cfg.graph.node_count(), 12);
         assert_eq!(cfg.nodes_meta.len(), 12);
-        assert_eq!(cfg.get_weight(), 10);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 10)), 10);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 13)), 1);
+        assert_eq!(*cfg.get_weight(), 10);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 10)), 10);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 2)), 4);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 13)), 1);
 
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 3);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 2)), 3);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
     }
 
     #[test]
@@ -987,18 +1014,18 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 15);
         assert_eq!(cfg.graph.node_count(), 10);
         assert_eq!(cfg.nodes_meta.len(), 10);
-        assert_eq!(cfg.get_weight(), 10);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
+        assert_eq!(*cfg.get_weight(), 10);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 2)), 4);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
 
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 3);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 2)), 3);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 2)), 2);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 2)), 1);
     }
 
     #[test]
@@ -1015,14 +1042,14 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 11);
         assert_eq!(cfg.graph.node_count(), 6);
         assert_eq!(cfg.nodes_meta.len(), 6);
-        assert_eq!(cfg.get_weight(), 10);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 1);
+        assert_eq!(*cfg.get_weight(), 10);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 0)), 10);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 1)), 4);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 2)), 1);
 
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 1)), 3);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 1)), 2);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 1)), 1);
     }
 
     #[test]
@@ -1044,25 +1071,25 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 22);
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.nodes_meta.len(), 14);
-        assert_eq!(cfg.get_weight(), 30);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 0)), 30);
+        assert_eq!(*cfg.get_weight(), 30);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 0)), 30);
 
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 1)), 16);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 1)), 8);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 1)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 1)), 2);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 1)), 16);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 1)), 8);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 1)), 4);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 1)), 2);
 
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 2)), 16);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 2)), 8);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 2)), 4);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 2)), 2);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 2)), 16);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 2)), 8);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 2)), 4);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 2)), 2);
 
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 4)), 15);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 1, 4)), 7);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 2, 4)), 3);
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 3, 4)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 4)), 15);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 1, 4)), 7);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 2, 4)), 3);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 3, 4)), 1);
 
-        assert_eq!(cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
+        assert_eq!(*cfg.get_node_weight(NodeId::new(0, 0, 3)), 1);
     }
 
     #[test]
@@ -1072,21 +1099,21 @@ mod tests {
         icfg.calc_weight();
         // In this edge case, we can resolve a loop, but each path has the weight of 1.
         // Sincen no CFG has a branch.
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xa0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xb0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xc0)), 1);
+        assert_p_weight!(icfg, NodeId::new(0, 0, 0xa0), 1);
+        assert_p_weight!(icfg, NodeId::new(0, 0, 0xb0), 1);
+        assert_p_weight!(icfg, NodeId::new(0, 0, 0xc0), 1);
 
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xa0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xb0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xc0)), 1);
+        assert_p_weight!(icfg, NodeId::new(1, 0, 0xa0), 1);
+        assert_p_weight!(icfg, NodeId::new(1, 0, 0xb0), 1);
+        assert_p_weight!(icfg, NodeId::new(1, 0, 0xc0), 1);
 
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xa0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xb0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xc0)), 1);
+        assert_p_weight!(icfg, NodeId::new(2, 0, 0xa0), 1);
+        assert_p_weight!(icfg, NodeId::new(2, 0, 0xb0), 1);
+        assert_p_weight!(icfg, NodeId::new(2, 0, 0xc0), 1);
 
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xa0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xb0)), 1);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xc0)), 1);
+        assert_p_weight!(icfg, NodeId::new(3, 0, 0xa0), 1);
+        assert_p_weight!(icfg, NodeId::new(3, 0, 0xb0), 1);
+        assert_p_weight!(icfg, NodeId::new(3, 0, 0xc0), 1);
     }
 
     #[test]
@@ -1107,21 +1134,21 @@ mod tests {
             )
         );
 
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xa0)), 2);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xb0)), 2);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(3, 0, 0xd0)), 2);
+        assert_p_weight!(icfg, NodeId::new(3, 0, 0xa0), 2);
+        assert_p_weight!(icfg, NodeId::new(3, 0, 0xb0), 2);
+        assert_p_weight!(icfg, NodeId::new(3, 0, 0xd0), 2);
 
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xa0)), 4);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xb0)), 4);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(2, 0, 0xd0)), 4);
+        assert_p_weight!(icfg, NodeId::new(2, 0, 0xa0), 4);
+        assert_p_weight!(icfg, NodeId::new(2, 0, 0xb0), 4);
+        assert_p_weight!(icfg, NodeId::new(2, 0, 0xd0), 4);
 
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xa0)), 8);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xb0)), 8);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(1, 0, 0xd0)), 8);
+        assert_p_weight!(icfg, NodeId::new(1, 0, 0xa0), 8);
+        assert_p_weight!(icfg, NodeId::new(1, 0, 0xb0), 8);
+        assert_p_weight!(icfg, NodeId::new(1, 0, 0xd0), 8);
 
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xa0)), 16);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xb0)), 16);
-        assert_eq!(icfg.get_procedure_weight(NodeId::new(0, 0, 0xd0)), 16);
+        assert_p_weight!(icfg, NodeId::new(0, 0, 0xa0), 16);
+        assert_p_weight!(icfg, NodeId::new(0, 0, 0xb0), 16);
+        assert_p_weight!(icfg, NodeId::new(0, 0, 0xd0), 16);
     }
 
     #[test]
@@ -1157,6 +1184,6 @@ mod tests {
         cfg.make_acyclic();
         cfg.calc_weight();
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
-        assert_eq!(cfg.get_weight(), 4);
+        assert_eq!(*cfg.get_weight(), 4);
     }
 }

@@ -9,15 +9,15 @@ use crate::{
     cfg::CFG,
     flow_graphs::{Address, NodeId},
     icfg::ICFG,
-    weight::Weight,
+    weight::WeightRefVec,
 };
 
 type Path = Vec<NodeId>;
 
 #[derive(Clone)]
 struct ApproxW {
-    pub exp: u32,
-    pub sig: u32,
+    pub exp: usize,
+    pub sig: usize,
 }
 
 impl ApproxW {
@@ -27,11 +27,11 @@ impl ApproxW {
 }
 
 /// Return hsig, expi = sig × 2exp = w
-fn approximate_weights(weights: &Vec<Weight>, out: &mut Vec<ApproxW>) {
+fn approximate_weights(weights: &WeightRefVec, out: &mut Vec<ApproxW>) {
     for w in weights.iter() {
         let mut aw = ApproxW::new();
-        aw.exp = u32::max(w.log2(), 63) - 63;
-        aw.sig = w.div32(Weight::new(u32::pow(2, aw.exp) as usize));
+        aw.exp = usize::max(w.log2(), 63) - 63;
+        aw.sig = w.div32usize(usize::pow(2, aw.exp as u32));
         out.push(aw);
     }
 }
@@ -50,7 +50,7 @@ macro_rules! get_w {
 /// Implementation after Algorithm 2 [2] modified for n weights.
 ///
 /// [^2] https://doi.org/10.25394/PGS.23542014.v1
-fn select_branch(weights: &Vec<Weight>) -> usize {
+fn select_branch(weights: &WeightRefVec) -> usize {
     if weights.len() == 1 {
         return 0;
     }
@@ -69,7 +69,7 @@ fn select_branch(weights: &Vec<Weight>) -> usize {
         let n = w_cho.exp - w_opp.exp;
         if n >= 64 {
             let b = choice;
-            let r: u32 = rng.gen_range(0..w_cho.sig);
+            let r: usize = rng.gen_range(0..w_cho.sig);
             choice = if r < w_opp.sig { choice } else { opponent };
             for _ in 0..n {
                 if rng.gen_bool(0.5) {
@@ -78,7 +78,7 @@ fn select_branch(weights: &Vec<Weight>) -> usize {
                 }
             }
         } else {
-            let r: u32 = rng.gen_range(0..w_cho.sig * u32::pow(2, n) + w_opp.sig);
+            let r: usize = rng.gen_range(0..w_cho.sig * usize::pow(2, n as u32) + w_opp.sig);
             choice = if r < w_opp.sig { choice } else { opponent };
         }
         opponent += 1;
@@ -123,7 +123,7 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize) {
 
         // Visit all neighbors and decide which one to add to the path
         let mut neigh_ids: Vec<NodeId> = Vec::new();
-        let mut neigh_weights: Vec<Weight> = Vec::new();
+        let mut neigh_weights: WeightRefVec = Vec::new();
         cfg.graph.neighbors_directed(cur, Outgoing).for_each(|n| {
             neigh_ids.push(n);
             neigh_weights.push(cfg.get_node_weight(n));

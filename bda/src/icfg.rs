@@ -3,20 +3,17 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    sync::RwLock,
+    sync::{RwLock, RwLockReadGuard},
     thread::{self, ScopedJoinHandle},
 };
 
 use helper::progress::ProgressBar;
-use petgraph::{
-    algo::toposort,
-    Direction::{Incoming, Outgoing},
-};
+use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::{
     cfg::{InsnNodeWeightType, CFG},
     flow_graphs::{FlowGraph, FlowGraphOperations, NodeId},
-    weight::{Weight, UNDETERMINED_WEIGHT},
+    weight::{NodeWeightMap, Weight, UNDETERMINED_WEIGHT},
 };
 
 /// A node in an iCFG describing a procedure.
@@ -25,11 +22,18 @@ pub struct Procedure {
     cfg: Option<CFG>,
     /// Flag if this procedure is malloc.
     is_malloc: bool,
+    /// An instance of an undetermind weight.
+    /// To be used if invalid values must be returned from functions.
+    undetermind_weight: Weight,
 }
 
 impl Procedure {
     pub fn new(cfg: Option<CFG>, is_malloc: bool) -> Procedure {
-        Procedure { cfg, is_malloc }
+        Procedure {
+            cfg,
+            is_malloc,
+            undetermind_weight: UNDETERMINED_WEIGHT!(),
+        }
     }
 
     pub fn get_cfg(&self) -> &CFG {
@@ -50,16 +54,19 @@ impl Procedure {
         Procedure {
             cfg: Some(self.get_cfg().get_clone(icfg_clone_id)),
             is_malloc: self.is_malloc,
+            undetermind_weight: UNDETERMINED_WEIGHT!(),
         }
     }
 }
+
+type ProcedureMap = HashMap<NodeId, RwLock<Procedure>>;
 
 /// An inter-procedual control flow graph.
 pub struct ICFG {
     /// The actual graph. Nodes are indexed by the entry node id of the procedures.
     graph: FlowGraph,
     /// Map of procedures in the CFG. Indexed by entry point node id.
-    procedures: HashMap<NodeId, RwLock<Procedure>>,
+    procedures: ProcedureMap,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
 }
@@ -104,31 +111,19 @@ impl ICFG {
     }
 
     pub fn get_procedure(&self, pid: &NodeId) -> &RwLock<Procedure> {
-        match self.procedures.get(pid) {
+        let p = match self.procedures.get(pid) {
             Some(p) => p,
             None => panic!("The iCFG has no procedure for {}.", pid),
-        }
+        };
+        p
     }
 
-    pub fn get_procedure_weight(&self, proc_nid: NodeId) -> Weight {
-        self.get_procedure(&proc_nid)
-            .read()
-            .unwrap()
-            .get_cfg()
-            .get_weight()
+    pub fn get_procedure_weight(&self, proc_nid: NodeId) -> RwLockReadGuard<Procedure> {
+        self.get_procedure(&proc_nid).read().unwrap()
     }
 
     pub fn add_procedure(&mut self, node_id: NodeId, proc: Procedure) {
         self.procedures.insert(node_id, RwLock::new(proc));
-    }
-
-    fn get_successor_weights(&self, procedure: &NodeId) -> HashMap<NodeId, Weight> {
-        let mut succ_weight: HashMap<NodeId, Weight> = HashMap::new();
-        for neigh in self.graph.neighbors_directed(*procedure, Outgoing) {
-            let nw: Weight = self.get_procedure_weight(neigh);
-            succ_weight.insert(neigh, nw);
-        }
-        succ_weight
     }
 
     /// Adds an edge to the graph.
@@ -276,47 +271,44 @@ impl FlowGraphOperations for ICFG {
         clone
     }
 
-    /// Calculate the weight of the whole iCFG and all CFGs part of it.
     fn calc_weight(&mut self) -> Weight {
-        self.sort();
-        let mut progress = ProgressBar::new("Calc weight".to_string(), self.rev_topograph.len());
-        for (i, pid) in self.rev_topograph.iter().enumerate() {
-            progress.update_print(i);
-            // Get weight of all successor procedures (procedures at outgoing edges)
-            let succ_weights = self.get_successor_weights(pid);
-            let procedure: &mut Procedure = get_procedure_mut!(self, pid);
-            // Update the weights of the called procedures.
-            for (target_proc_nid, target_proc_weight) in succ_weights.iter() {
-                procedure
-                    .get_cfg_mut()
-                    .set_call_weight(*target_proc_nid, *target_proc_weight);
-            }
-            let pweight = procedure.get_cfg_mut().calc_weight();
-
-            // Update weight of outgoing edges
-            for (neighbor_nid, neighbor_weight) in succ_weights.iter() {
-                self.graph.add_edge(*pid, *neighbor_nid, 0);
-            }
-
-            // Now we know the weight of the procedure at pid.
-            // Every CFG which calls this procedure, needs to be update with its weight.
-            for i in self.graph.neighbors_directed(*pid, Incoming) {
-                get_procedure_mut!(self, &i)
-                    .get_cfg_mut()
-                    .update_procedure_weight(*pid, pweight);
-            }
-        }
         if self.num_procedures() == 0 {
             return UNDETERMINED_WEIGHT!();
         }
-        self.get_procedure(match self.rev_topograph.last() {
-            Some(a) => a,
-            None => panic!("Can not return a weight if no CFG was added."),
-        })
-        .read()
-        .unwrap()
-        .get_cfg()
-        .get_weight()
+
+        self.sort();
+        let topo = &self.rev_topograph;
+        assert!(!topo.is_empty());
+
+        let graph = &self.graph;
+        let procs = &mut self.procedures;
+        let mut progress = ProgressBar::new("Calc weight".to_string(), self.rev_topograph.len());
+        for (i, pid) in topo.iter().enumerate() {
+            progress.update_print(i);
+            // Proc: Get weight of successors
+            let succ = fun_name(graph, pid, procs);
+            let mut proc = {
+                match procs.get_mut(pid) {
+                    Some(p) => p.write().unwrap(),
+                    None => panic!("The iCFG has no procedure for {}.", pid),
+                }
+            };
+            // Proc: Update call targets with the weight of successors
+            for (target_proc_nid, target_proc_weight) in succ.iter() {
+                proc.get_cfg_mut()
+                    .set_call_weight(*target_proc_nid, target_proc_weight.to_owned());
+            }
+            // Proc: Calc CFG weight
+            proc.get_cfg_mut().calc_weight();
+        }
+        procs
+            .get(topo.last().unwrap())
+            .unwrap()
+            .read()
+            .unwrap()
+            .get_cfg()
+            .get_weight()
+            .clone()
     }
 
     fn add_cloned_edge(&mut self, from: NodeId, to: NodeId) {
@@ -341,4 +333,22 @@ impl FlowGraphOperations for ICFG {
             self.add_procedure(to, orig_proc);
         }
     }
+}
+
+fn fun_name(graph: &FlowGraph, pid: &NodeId, procs: &mut ProcedureMap) -> HashMap<NodeId, Weight> {
+    let mut succ_weight: NodeWeightMap = HashMap::new();
+    for neigh in graph.neighbors_directed(*pid, Outgoing) {
+        succ_weight.insert(
+            neigh,
+            procs
+                .get(&neigh)
+                .unwrap()
+                .read()
+                .unwrap()
+                .get_cfg()
+                .get_weight()
+                .to_owned(),
+        );
+    }
+    succ_weight
 }
