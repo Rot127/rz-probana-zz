@@ -108,3 +108,18 @@ pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
     };
     core
 }
+
+pub fn rz_notify_begin(rz_core: *mut RzCore, mut msg: String) {
+    msg.push('\0');
+    unsafe { rz_core_notify_begin_bind(rz_core, msg.as_ptr().cast()) };
+}
+
+pub fn rz_notify_done(rz_core: *mut RzCore, mut msg: String) {
+    msg.push('\0');
+    unsafe { rz_core_notify_done_bind(rz_core, msg.as_ptr().cast()) };
+}
+
+pub fn rz_notify_error(rz_core: *mut RzCore, mut msg: String) {
+    msg.push('\0');
+    unsafe { rz_core_notify_error_bind(rz_core, msg.as_ptr().cast()) };
+}

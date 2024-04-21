@@ -16,10 +16,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use binding::{
-    log_rizn, log_rz, rz_core_notify_begin_bind, rz_core_notify_done_bind, RzAnalysis, RzCore,
-    LOG_WARN,
-};
+use binding::{log_rizn, log_rz, rz_notify_done, RzAnalysis, RzCore, LOG_WARN};
 use helper::user::ask_yes_no;
 use rand::{thread_rng, Rng};
 
@@ -122,5 +119,5 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG) {
         }
         products.clear();
     }
-    unsafe { rz_core_notify_done_bind(rz_core, "Finished BDA analysis\0".as_ptr().cast()) };
+    rz_notify_done(rz_core, "Finished BDA analysis".to_string());
 }

@@ -7,7 +7,8 @@ use std::{
     thread::{self, ScopedJoinHandle},
 };
 
-use helper::progress::ProgressBar;
+use binding::{rz_notify_begin, rz_notify_done};
+use helper::progress::{ProgressBar, Task, TaskStatus};
 use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::{
@@ -212,7 +213,10 @@ impl ICFG {
                 }
             }
         });
+        let mut task = Task::new("Make iCFG acyclic".to_owned());
+        task.print();
         self.make_acyclic();
+        task.set_print(TaskStatus::Done);
     }
 }
 
@@ -284,7 +288,7 @@ impl FlowGraphOperations for ICFG {
         let procs = &mut self.procedures;
         let mut progress = ProgressBar::new("Calc weight".to_string(), self.rev_topograph.len());
         for (i, pid) in topo.iter().enumerate() {
-            progress.update_print(i);
+            progress.update_print(i + 1);
             // Proc: Get weight of successors
             let succ = fun_name(graph, pid, procs);
             let mut proc = {

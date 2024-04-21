@@ -29,7 +29,7 @@ impl ProgressBar {
             task_name,
             total: total_steps,
             current: 0,
-            max_bar_width: 79, // Hard code for now
+            max_bar_width: 99, // Hard code for now
         }
     }
 
@@ -38,7 +38,12 @@ impl ProgressBar {
     }
 
     fn print(&self) {
-        let prefix = format!("{}: ", self.task_name);
+        let is_done = self.current == self.total;
+        let prefix = format!(
+            "{} {}: ",
+            if is_done { "[x]" } else { "[ ]" },
+            self.task_name
+        );
         let postfix = format!(" - {}/{} ", self.current, self.total);
         let progress_width = self.max_bar_width - prefix.len() - postfix.len() - 2;
         let done = self.current as f32 / self.total as f32;
@@ -51,7 +56,7 @@ impl ProgressBar {
         );
         print!("\r{}[{}]{}", prefix, bar_content, postfix);
         std::io::stdout().flush().unwrap();
-        if self.current == self.total {
+        if is_done {
             // We assume no one calls this function afterwards.
             println!();
         }
@@ -60,6 +65,46 @@ impl ProgressBar {
     /// Updates the progress bar and prints it.
     pub fn update_print(&mut self, new_current: usize) {
         self.update(new_current);
+        self.print();
+    }
+}
+
+pub enum TaskStatus {
+    Begin,
+    Fail,
+    Done,
+}
+
+pub struct Task {
+    task_text: String,
+    status: TaskStatus,
+}
+
+impl Task {
+    pub fn new(task_text: String) -> Task {
+        Task {
+            task_text,
+            status: TaskStatus::Begin,
+        }
+    }
+
+    pub fn print(&self) {
+        print!("\r[");
+        match self.status {
+            TaskStatus::Begin => print!(" "),
+            TaskStatus::Fail => print!("!"),
+            TaskStatus::Done => print!("x"),
+        }
+        print!("] {}", self.task_text);
+        std::io::stdout().flush().unwrap();
+        match self.status {
+            TaskStatus::Begin => {}
+            _ => println!(),
+        };
+    }
+
+    pub fn set_print(&mut self, status: TaskStatus) {
+        self.status = status;
         self.print();
     }
 }
