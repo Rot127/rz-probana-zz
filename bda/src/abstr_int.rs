@@ -55,5 +55,8 @@ impl InterpreterProducts {
 }
 
 pub fn interpret(_path: &Vec<NodeId>) -> InterpreterProducts {
-    todo!()
+    InterpreterProducts {
+        resolved_icalls: Vec::new(),
+        mem_values: Vec::new(),
+    }
 }
