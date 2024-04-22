@@ -13,8 +13,8 @@ use binding::{
     log_rizn, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
     rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
-    rz_core_graph_icfg, rz_notify_error, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore,
-    RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
+    rz_core_graph_icfg, rz_graph_free, rz_notify_error, RzAnalysis, RzBinAddr, RzBinFile,
+    RzCmdStatus, RzCore, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
@@ -333,6 +333,9 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
         return;
     }
     let mut icfg = ICFG::new_graph(get_graph(rz_icfg));
+    unsafe {
+        rz_graph_free(rz_icfg);
+    }
     // TODO: Consider moving both loops into a method of the iCFG.
     // So we can get rid of the copying the node IDs.
     let mut nodes: Vec<NodeId> = Vec::new();
@@ -361,6 +364,9 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
             }),
         );
         set_cfg_node_data(icfg.get_procedure_mut(&n).get_cfg_mut(), rz_cfg);
+        unsafe {
+            rz_graph_free(rz_cfg);
+        }
         done += 1;
         progress_bar.update_print(done);
     }
