@@ -88,6 +88,7 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG) {
     }
     let state = BDAState::new(32);
     icfg.resolve_loops(state.num_threads);
+    icfg.print_stats();
     icfg.calc_weight();
 
     // Run abstract interpretation

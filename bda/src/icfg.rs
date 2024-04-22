@@ -98,6 +98,12 @@ impl ICFG {
         }
     }
 
+    pub fn print_stats(&self) {
+        println!("iCFG stats");
+        println!("\tCFGs: {}", self.graph.node_count());
+        println!("\tEdges: {}", self.graph.edge_count());
+    }
+
     pub fn has_malloc(&self) -> bool {
         for p in self.procedures.keys() {
             if self.get_procedure(p).read().unwrap().is_malloc {
