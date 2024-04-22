@@ -45,13 +45,16 @@ impl BDAState {
             num_threads,
         }
     }
+
+    fn timed_out(&self) -> bool {
+        self.analysis_start
+            .elapsed()
+            .is_ok_and(|elap| elap >= self.timeout)
+    }
 }
 
 fn run_condition_fulfilled(state: &BDAState) -> bool {
-    state
-        .analysis_start
-        .elapsed()
-        .is_ok_and(|elap| elap < state.timeout)
+    !state.timed_out()
 }
 
 fn report_mem_vals_to_rz(rz_analysis: *mut RzAnalysis, mem_vals: &Vec<MemVal>) {
@@ -119,5 +122,9 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG) {
         }
         products.clear();
     }
-    rz_notify_done(rz_core, "Finished BDA analysis".to_string());
+    let mut term_reason = "";
+    if state.timed_out() {
+        term_reason = "timeout";
+    }
+    rz_notify_done(rz_core, format!("Finished BDA analysis ({})", term_reason));
 }
