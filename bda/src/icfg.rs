@@ -292,7 +292,7 @@ impl FlowGraphOperations for ICFG {
 
         let graph = &self.graph;
         let procs = &mut self.procedures;
-        let mut progress = ProgressBar::new("Calc weight".to_string(), self.rev_topograph.len());
+        let mut progress = ProgressBar::new("Calc weight".to_string(), procs.len());
         for (i, pid) in topo.iter().enumerate() {
             progress.update_print(i + 1);
             // Proc: Get weight of successors
