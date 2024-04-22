@@ -317,7 +317,9 @@ pub trait FlowGraphOperations {
     }
 
     /// Calculate the node and edge weights over the whole graph.
-    fn calc_weight(&mut self) -> Weight;
+    /// It only returns a weight for CFGs. Because iCFG weights depend on
+    /// the entry point chosen.
+    fn calc_weight(&mut self) -> Option<&Weight>;
 
     /// Sort the graph in reverse topological order.
     fn sort(&mut self);

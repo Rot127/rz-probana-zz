@@ -520,7 +520,7 @@ impl FlowGraphOperations for CFG {
         clone
     }
 
-    fn calc_weight(&mut self) -> Weight {
+    fn calc_weight(&mut self) -> Option<&Weight> {
         self.sort();
         let topo = &self.rev_topograph;
         let graph = &mut self.graph;
@@ -559,7 +559,7 @@ impl FlowGraphOperations for CFG {
                 self
             )
         }
-        self.get_weight().clone()
+        Some(self.get_weight())
     }
 
     fn add_cloned_edge(&mut self, cloned_from: NodeId, cloned_to: NodeId) {

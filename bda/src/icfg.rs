@@ -14,7 +14,7 @@ use petgraph::{algo::toposort, Direction::Outgoing};
 use crate::{
     cfg::{InsnNodeWeightType, CFG},
     flow_graphs::{FlowGraph, FlowGraphOperations, NodeId},
-    weight::{NodeWeightMap, Weight, UNDETERMINED_WEIGHT},
+    weight::{w, NodeWeightMap, Weight, UNDETERMINED_WEIGHT},
 };
 
 /// A node in an iCFG describing a procedure.
@@ -281,9 +281,9 @@ impl FlowGraphOperations for ICFG {
         clone
     }
 
-    fn calc_weight(&mut self) -> Weight {
+    fn calc_weight(&mut self) -> Option<&Weight> {
         if self.num_procedures() == 0 {
-            return UNDETERMINED_WEIGHT!();
+            return None;
         }
 
         self.sort();
@@ -296,7 +296,7 @@ impl FlowGraphOperations for ICFG {
         for (i, pid) in topo.iter().enumerate() {
             progress.update_print(i + 1);
             // Proc: Get weight of successors
-            let succ = fun_name(graph, pid, procs);
+            let succ = get_succ_weights(graph, pid, procs);
             let mut proc = {
                 match procs.get_mut(pid) {
                     Some(p) => p.write().unwrap(),
@@ -311,14 +311,7 @@ impl FlowGraphOperations for ICFG {
             // Proc: Calc CFG weight
             proc.get_cfg_mut().calc_weight();
         }
-        procs
-            .get(topo.last().unwrap())
-            .unwrap()
-            .read()
-            .unwrap()
-            .get_cfg()
-            .get_weight()
-            .clone()
+        None
     }
 
     fn add_cloned_edge(&mut self, from: NodeId, to: NodeId) {
@@ -345,7 +338,11 @@ impl FlowGraphOperations for ICFG {
     }
 }
 
-fn fun_name(graph: &FlowGraph, pid: &NodeId, procs: &mut ProcedureMap) -> HashMap<NodeId, Weight> {
+fn get_succ_weights(
+    graph: &FlowGraph,
+    pid: &NodeId,
+    procs: &mut ProcedureMap,
+) -> HashMap<NodeId, Weight> {
     let mut succ_weight: NodeWeightMap = HashMap::new();
     for neigh in graph.neighbors_directed(*pid, Outgoing) {
         succ_weight.insert(
