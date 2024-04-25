@@ -13,5 +13,6 @@ pub mod flow_graphs;
 pub mod icfg;
 mod path_sampler;
 mod post_analysis;
+pub mod state;
 mod test_flow_graphs;
 pub mod weight;

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use std::sync::RwLock;
+
 use binding::{log_rizn, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
@@ -9,7 +11,7 @@ use crate::{
     cfg::CFG,
     flow_graphs::{Address, NodeId},
     icfg::ICFG,
-    weight::WeightRefVec,
+    weight::{WeightMap, WeightRefVec},
 };
 
 type Path = Vec<NodeId>;
@@ -27,11 +29,11 @@ impl ApproxW {
 }
 
 /// Return hsig, expi = sig × 2exp = w
-fn approximate_weights(weights: &WeightRefVec, out: &mut Vec<ApproxW>) {
+fn approximate_weights(weights: &WeightRefVec, out: &mut Vec<ApproxW>, wmap: &RwLock<WeightMap>) {
     for w in weights.iter() {
         let mut aw = ApproxW::new();
-        aw.exp = usize::max(w.log2(), 63) - 63;
-        aw.sig = w.div32usize(usize::pow(2, aw.exp as u32));
+        aw.exp = usize::max(w.log2(wmap), 63) - 63;
+        aw.sig = w.div32usize(usize::pow(2, aw.exp as u32), wmap);
         out.push(aw);
     }
 }
@@ -50,13 +52,13 @@ macro_rules! get_w {
 /// Implementation after Algorithm 2 [2] modified for n weights.
 ///
 /// [^2] https://doi.org/10.25394/PGS.23542014.v1
-fn select_branch(weights: &WeightRefVec) -> usize {
+fn select_branch(weights: &WeightRefVec, wmap: &RwLock<WeightMap>) -> usize {
     if weights.len() == 1 {
         return 0;
     }
     let mut rng = thread_rng();
     let mut approx_w: Vec<ApproxW> = Vec::new();
-    approximate_weights(weights, &mut approx_w);
+    approximate_weights(weights, &mut approx_w, wmap);
     let mut choice = 0;
     let mut opponent = 1;
     // Let the different weights compete against each other.
@@ -86,7 +88,7 @@ fn select_branch(weights: &WeightRefVec) -> usize {
     choice
 }
 
-fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize) {
+fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize, wmap: &RwLock<WeightMap>) {
     let mut cur = cfg.get_entry();
     loop {
         path.push(cur);
@@ -117,6 +119,7 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize) {
                     icfg.get_procedure(&ct).read().unwrap().get_cfg(),
                     path,
                     i + 1,
+                    wmap,
                 )
             });
         }
@@ -126,13 +129,13 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize) {
         let mut neigh_weights: WeightRefVec = Vec::new();
         cfg.graph.neighbors_directed(cur, Outgoing).for_each(|n| {
             neigh_ids.push(n);
-            neigh_weights.push(cfg.get_node_weight(n));
+            neigh_weights.push(cfg.get_node_weight_id(n));
         });
         if neigh_ids.is_empty() {
             // Leaf node. We are done
             break;
         }
-        let picked_neighbor = *neigh_ids.get(select_branch(&neigh_weights)).unwrap();
+        let picked_neighbor = *neigh_ids.get(select_branch(&neigh_weights, wmap)).unwrap();
         if picked_neighbor == cur {
             panic!("Unresolved loop in CFG detected at node {}.", cur);
         }
@@ -141,12 +144,12 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize) {
 }
 
 /// Sample a path from the given [icfg] and return it as vector.
-pub fn sample_path(icfg: &ICFG, entry_point: Address) -> Path {
+pub fn sample_path(icfg: &ICFG, entry_point: Address, wmap: &RwLock<WeightMap>) -> Path {
     let entry_proc = icfg
         .get_procedure(&NodeId::new_original(entry_point))
         .read()
         .unwrap();
     let mut path = Path::new();
-    sample_cfg_path(icfg, entry_proc.get_cfg(), &mut path, 0);
+    sample_cfg_path(icfg, entry_proc.get_cfg(), &mut path, 0, wmap);
     path
 }

@@ -13,7 +13,6 @@
 use std::{
     collections::HashMap,
     thread::{self, JoinHandle},
-    time::{Duration, SystemTime},
 };
 
 use binding::{log_rizn, log_rz, rz_notify_done, RzAnalysis, RzCore, LOG_WARN};
@@ -23,39 +22,11 @@ use rand::{thread_rng, Rng};
 use crate::{
     abstr_int::{interpret, InterpreterProducts, MemVal},
     bda_binding::get_bin_entries,
-    flow_graphs::{Address, FlowGraphOperations},
+    flow_graphs::FlowGraphOperations,
     icfg::ICFG,
     path_sampler::sample_path,
+    state::{run_condition_fulfilled, BDAState},
 };
-
-struct BDAState {
-    /// Tiemstamp when the analysis started.
-    analysis_start: SystemTime,
-    /// Maximum duration the analysis is allowed to run.
-    timeout: Duration,
-    /// Counter how many threads can be dispatched for interpretation.
-    num_threads: usize,
-}
-
-impl BDAState {
-    fn new(num_threads: usize) -> BDAState {
-        BDAState {
-            analysis_start: SystemTime::now(),
-            timeout: Duration::new(10, 0),
-            num_threads,
-        }
-    }
-
-    fn timed_out(&self) -> bool {
-        self.analysis_start
-            .elapsed()
-            .is_ok_and(|elap| elap >= self.timeout)
-    }
-}
-
-fn run_condition_fulfilled(state: &BDAState) -> bool {
-    !state.timed_out()
-}
 
 fn report_mem_vals_to_rz(rz_analysis: *mut RzAnalysis, mem_vals: &Vec<MemVal>) {
     todo!()
@@ -81,15 +52,14 @@ fn malloc_present(icfg: &ICFG) -> bool {
 /// Runs the BDA analysis by sampleing paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
-pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG) {
+pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
     let bin_entries = get_bin_entries(rz_core);
     if !malloc_present(icfg) {
         return;
     }
-    let state = BDAState::new(32);
-    icfg.resolve_loops(state.num_threads);
+    icfg.resolve_loops(state.num_threads, state.get_weight_map());
     icfg.print_stats();
-    icfg.calc_weight();
+    icfg.calc_weight(state.get_weight_map());
 
     // Run abstract interpretation
     let mut rng = thread_rng();
@@ -104,6 +74,7 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG) {
                 *bin_entries
                     .get(rng.gen_range(0..bin_entries.len()))
                     .unwrap(),
+                state.get_weight_map(),
             );
             if threads.get(&tid).is_none() {
                 threads.insert(tid, thread::spawn(move || interpret(&path)));
