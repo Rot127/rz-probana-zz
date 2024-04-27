@@ -382,7 +382,7 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
             rz_graph_free(rz_cfg);
         }
         done += 1;
-        progress_bar.update_print(done);
+        progress_bar.update_print(done, None);
     }
     run_bda(core, &mut icfg, &state);
     // Run analysis

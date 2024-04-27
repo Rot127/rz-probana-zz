@@ -7,7 +7,10 @@ use std::{
     thread::{self, ScopedJoinHandle},
 };
 
-use helper::progress::{ProgressBar, Task, TaskStatus};
+use helper::{
+    progress::{ProgressBar, Task, TaskStatus},
+    spinner::Spinner,
+};
 use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::{
@@ -149,18 +152,17 @@ impl ICFG {
 
     /// Resolve all loops in the iCFG and all its CFGs.
     pub fn resolve_loops(&mut self, num_threads: usize, wmap: &RwLock<WeightMap>) {
-        let mut progress = ProgressBar::new(
-            format!("Resolving loops ({} threads)", num_threads),
-            self.num_procedures(),
-        );
+        let mut progress = ProgressBar::new("Resolving loops".to_owned(), self.num_procedures());
         let mut resolved: usize = 0;
         let mut todo: Vec<NodeId> = self.procedures.keys().cloned().collect();
         let num_procedures = self.num_procedures();
 
+        let mut spinner = Spinner::new();
         thread::scope(|s| {
+            spinner.update("Make iCFG acyclic".to_owned());
             let mut threads: HashMap<usize, ScopedJoinHandle<_>> = HashMap::new();
             loop {
-                progress.update_print(resolved);
+                progress.update_print(resolved, None);
                 if resolved == num_procedures {
                     while !threads.is_empty() {
                         for tid in 0..num_threads {
@@ -206,10 +208,12 @@ impl ICFG {
                 }
             }
         });
-        let mut task = Task::new("Make iCFG acyclic".to_owned());
-        task.print();
         self.make_acyclic(wmap);
-        task.set_print(TaskStatus::Done);
+        spinner.done(format!(
+            "Result: CFGs: {} Edges: {}",
+            self.graph.node_count(),
+            self.graph.edge_count()
+        ));
     }
 }
 
@@ -277,11 +281,23 @@ impl FlowGraphOperations for ICFG {
         let topo = &self.rev_topograph;
         assert!(!topo.is_empty());
 
+        let mut k_max: u32 = 0;
+        let mut k_acc = 0;
+        let mut k_cnt = 1;
         let graph = &self.graph;
         let procs = &mut self.procedures;
         let mut progress = ProgressBar::new("Calc weight".to_string(), procs.len());
         for (i, pid) in topo.iter().enumerate() {
-            progress.update_print(i + 1);
+            let num_weights = wmap.read().unwrap().num_weights();
+            progress.update_print(
+                i + 1,
+                Some(format!(
+                    "k = avg.: {} max: {} - num weights = {}",
+                    k_acc / k_cnt,
+                    k_max,
+                    num_weights
+                )),
+            );
             // Proc: Get weight of successors
             let succ = get_succ_weights(graph, pid, procs);
             let mut proc = {
@@ -296,7 +312,20 @@ impl FlowGraphOperations for ICFG {
                     .set_call_weight(*target_proc_nid, target_proc_weight.to_owned());
             }
             // Proc: Calc CFG weight
-            proc.get_cfg_mut().calc_weight(wmap);
+            let weight_id = proc.get_cfg_mut().calc_weight(wmap).unwrap();
+            if wmap.read().unwrap().get_weight(weight_id).is_some() {
+                let sig_bits = wmap
+                    .read()
+                    .unwrap()
+                    .get_weight(weight_id)
+                    .unwrap()
+                    .significant_bits();
+                k_acc += sig_bits as usize;
+                k_cnt += 1;
+                if sig_bits > k_max {
+                    k_max = sig_bits
+                }
+            }
         }
         None
     }

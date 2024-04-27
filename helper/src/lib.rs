@@ -2,4 +2,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pub mod progress;
+pub mod spinner;
 pub mod user;

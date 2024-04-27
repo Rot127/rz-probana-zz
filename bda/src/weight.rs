@@ -166,6 +166,10 @@ impl WeightMap {
         val.hash(&mut hasher);
         WeightID::new(hasher.finish()) == *wid
     }
+
+    pub fn num_weights(&self) -> usize {
+        self.map.len()
+    }
 }
 
 pub type NodeWeightIDMap = HashMap<NodeId, WeightID>;
@@ -257,5 +261,9 @@ impl Weight {
             );
         }
         wid
+    }
+
+    pub fn significant_bits(&self) -> u32 {
+        self.val.significant_bits()
     }
 }

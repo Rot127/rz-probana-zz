@@ -3,18 +3,18 @@
 
 use std::{
     sync::RwLock,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant},
 };
 
 use crate::weight::WeightMap;
 
 pub fn run_condition_fulfilled(state: &BDAState) -> bool {
-    !state.timed_out()
+    !state.bda_timed_out()
 }
 
 pub struct BDAState {
     /// Tiemstamp when the analysis started.
-    pub analysis_start: SystemTime,
+    pub bda_start: Instant,
     /// Maximum duration the analysis is allowed to run.
     pub timeout: Duration,
     /// Counter how many threads can be dispatched for interpretation.
@@ -26,17 +26,19 @@ pub struct BDAState {
 impl BDAState {
     pub fn new(num_threads: usize) -> BDAState {
         BDAState {
-            analysis_start: SystemTime::now(),
+            bda_start: Instant::now(),
             timeout: Duration::new(10, 0),
             num_threads,
             weight_map: WeightMap::new(),
         }
     }
 
-    pub fn timed_out(&self) -> bool {
-        self.analysis_start
-            .elapsed()
-            .is_ok_and(|elap| elap >= self.timeout)
+    pub fn bda_timed_out(&self) -> bool {
+        self.bda_start.elapsed() >= self.timeout
+    }
+
+    pub fn reset_bda_timeout(&mut self) {
+        self.bda_start = Instant::now();
     }
 
     pub fn get_weight_map(&self) -> &RwLock<WeightMap> {

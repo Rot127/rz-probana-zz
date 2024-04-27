@@ -13,10 +13,11 @@
 use std::{
     collections::HashMap,
     thread::{self, JoinHandle},
+    time::Instant,
 };
 
 use binding::{log_rizn, log_rz, rz_notify_done, RzAnalysis, RzCore, LOG_WARN};
-use helper::user::ask_yes_no;
+use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
 
 use crate::{
@@ -49,6 +50,29 @@ fn malloc_present(icfg: &ICFG) -> bool {
     true
 }
 
+fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
+    let mut passed = (Instant::now() - state.bda_start).as_secs();
+    let hours = passed / 3600;
+    passed -= hours * 3600;
+    let minutes = passed / 60;
+    passed -= minutes * 60;
+    // Separated at the thousands mark
+    let formatted_path_num = num_bda_products
+        .to_string()
+        .as_bytes()
+        .rchunks(3)
+        .rev()
+        .map(std::str::from_utf8)
+        .collect::<Result<Vec<&str>, _>>()
+        .unwrap()
+        .join(",");
+
+    format!(
+        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interpreted: {}",
+        state.num_threads, hours, minutes, passed, formatted_path_num
+    )
+}
+
 /// Runs the BDA analysis by sampleing paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
@@ -58,10 +82,11 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
         return;
     }
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
-    icfg.print_stats();
     icfg.calc_weight(state.get_weight_map());
 
     // Run abstract interpretation
+    let mut spinner = Spinner::new();
+    let mut paths_walked = 0;
     let mut rng = thread_rng();
     let mut products: Vec<InterpreterProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<InterpreterProducts>> = HashMap::new();
@@ -87,15 +112,18 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
                 products.push(thread.join().unwrap());
             }
         }
-        for product in products.iter() {
+        for _product in products.iter() {
+            paths_walked += 1;
             // Update iCFG with resolved calls
             // Recalculate weight.
             // Report mem vals
         }
         products.clear();
+        spinner.update(get_bda_status(state, paths_walked));
     }
+    spinner.done(get_bda_status(state, paths_walked));
     let mut term_reason = "";
-    if state.timed_out() {
+    if state.bda_timed_out() {
         term_reason = "timeout";
     }
     rz_notify_done(rz_core, format!("Finished BDA analysis ({})", term_reason));
