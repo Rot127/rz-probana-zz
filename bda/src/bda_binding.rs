@@ -3,14 +3,13 @@
 
 use std::panic;
 use std::ptr::{null, null_mut};
-use std::sync::RwLock;
 
 use crate::bda::run_bda;
 use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, CFG};
 use crate::flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, MAX_ADDRESS};
 use crate::icfg::{Procedure, ICFG};
 use crate::state::BDAState;
-use crate::weight::{WeightMap, UNDETERMINED_WEIGHT};
+
 use binding::{
     log_rizn, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
@@ -231,7 +230,6 @@ fn get_insn_node_data(
     nid: NodeId,
     inode_type: InsnNodeType,
     data: &RzGraphNodeInfoDataCFG,
-    wmap: &RwLock<WeightMap>,
 ) -> InsnNodeData {
     let call_target = NodeId::new_original(data.call_address);
     let jump_target = NodeId::new_original(data.jump_address);
@@ -240,7 +238,7 @@ fn get_insn_node_data(
         inode_type.weight_type == InsnNodeWeightType::Call && call_target.address == MAX_ADDRESS;
     InsnNodeData {
         addr: nid.address,
-        weight: UNDETERMINED_WEIGHT!(wmap),
+        weight: None,
         itype: inode_type,
         call_target,
         orig_jump_target: jump_target,
@@ -261,22 +259,19 @@ fn get_rz_node_info_nodeid(node_info: &RzGraphNodeInfo) -> NodeId {
     NodeId::new_original(addr)
 }
 
-fn make_cfg_node(node_info: &RzGraphNodeInfo, wmap: &RwLock<WeightMap>) -> CFGNodeData {
+fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
     let nid = get_rz_node_info_nodeid(node_info);
     let mut node_data: CFGNodeData = CFGNodeData {
         nid,
-        weight_id: UNDETERMINED_WEIGHT!(wmap),
+        weight_id: None,
         insns: Vec::new(),
     };
     let rz_node_type: RzGraphNodeType = node_info.type_;
     if rz_node_type == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG {
         let ntype = convert_rz_cfg_node_type(unsafe { node_info.__bindgen_anon_1.cfg.subtype });
-        node_data.insns.push(get_insn_node_data(
-            nid,
-            ntype,
-            unsafe { &node_info.__bindgen_anon_1.cfg },
-            wmap,
-        ));
+        node_data.insns.push(get_insn_node_data(nid, ntype, unsafe {
+            &node_info.__bindgen_anon_1.cfg
+        }));
         return node_data;
     } else if rz_node_type == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD {
         for idata in mpvec_to_vec::<RzGraphNodeInfoDataCFG>(unsafe {
@@ -285,14 +280,14 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo, wmap: &RwLock<WeightMap>) -> CFGNo
             let ntype = convert_rz_cfg_node_type(unsafe { *idata }.subtype);
             node_data
                 .insns
-                .push(get_insn_node_data(nid, ntype, unsafe { &*idata }, wmap));
+                .push(get_insn_node_data(nid, ntype, unsafe { &*idata }));
         }
         return node_data;
     }
     panic!("UNhandled node type");
 }
 
-fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph, wmap: &RwLock<WeightMap>) {
+fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
         list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
             unsafe { (*rz_cfg).nodes },
@@ -305,7 +300,7 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph, wmap: &RwLock<WeightMa
             unsafe { *node_info }
         };
         let nid = get_rz_node_info_nodeid(&s_node_info);
-        cfg.add_node_data(nid, make_cfg_node(&s_node_info, wmap));
+        cfg.add_node_data(nid, make_cfg_node(&s_node_info));
     }
 }
 
@@ -348,7 +343,7 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
     for n in icfg.get_graph().nodes().into_iter() {
         nodes.push(n);
     }
-    let state = BDAState::new(32);
+    let state = BDAState::new(32, 10);
     let mut progress_bar = ProgressBar::new(String::from("Transfer CFGs"), nodes.len());
     let mut done = 0;
     for n in nodes {
@@ -363,20 +358,16 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
         }
         icfg.add_procedure(
             n,
-            Procedure::new(
-                Some(CFG::new_graph(get_graph(rz_cfg), state.get_weight_map())),
-                unsafe {
-                    rz_analysis_function_is_malloc(rz_analysis_get_function_at(
-                        a as *mut RzAnalysis,
-                        n.address,
-                    ))
-                },
-            ),
+            Procedure::new(Some(CFG::new_graph(get_graph(rz_cfg))), unsafe {
+                rz_analysis_function_is_malloc(rz_analysis_get_function_at(
+                    a as *mut RzAnalysis,
+                    n.address,
+                ))
+            }),
         );
         set_cfg_node_data(
-            icfg.get_procedure_mut(&n).get_cfg_mut(),
+            icfg.get_procedure(&n).write().unwrap().get_cfg_mut(),
             rz_cfg,
-            state.get_weight_map(),
         );
         unsafe {
             rz_graph_free(rz_cfg);

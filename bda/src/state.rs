@@ -24,10 +24,10 @@ pub struct BDAState {
 }
 
 impl BDAState {
-    pub fn new(num_threads: usize) -> BDAState {
+    pub fn new(num_threads: usize, timeout: u64) -> BDAState {
         BDAState {
             bda_start: Instant::now(),
-            timeout: Duration::new(10, 0),
+            timeout: Duration::new(timeout, 0),
             num_threads,
             weight_map: WeightMap::new(),
         }

@@ -6,12 +6,53 @@ use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 
 use core::panic;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
+use crate::icfg::Procedure;
 use crate::weight::{WeightID, WeightMap};
 
 pub type FlowGraph = DiGraphMap<NodeId, usize>;
+
+pub struct ProcedureMap {
+    map: HashMap<NodeId, RwLock<Procedure>>,
+}
+
+impl ProcedureMap {
+    pub fn new() -> ProcedureMap {
+        ProcedureMap {
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, nid: &NodeId) -> Option<&RwLock<Procedure>> {
+        self.map.get(nid)
+    }
+
+    pub fn insert(&mut self, nid: NodeId, p: RwLock<Procedure>) {
+        self.map.insert(nid, p);
+    }
+
+    pub fn contains_key(&self, nid: &NodeId) -> bool {
+        self.map.contains_key(nid)
+    }
+
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, NodeId, RwLock<Procedure>> {
+        self.map.iter()
+    }
+
+    pub fn values(&self) -> std::collections::hash_map::Values<'_, NodeId, RwLock<Procedure>> {
+        self.map.values()
+    }
+
+    pub fn keys(&self) -> std::collections::hash_map::Keys<'_, NodeId, RwLock<Procedure>> {
+        self.map.keys()
+    }
+}
 
 pub type Address = u64;
 
@@ -76,6 +117,13 @@ impl NodeId {
     pub fn is_invalid_call_target(&self) -> bool {
         self.address == MAX_ADDRESS
     }
+
+    /// Returns the NodeId with an incremented icfg_clone_id.
+    pub fn get_next_icfg_clone(&self) -> NodeId {
+        let mut clone = self.clone();
+        clone.icfg_clone_id += 1;
+        clone
+    }
 }
 
 impl std::fmt::Display for NodeId {
@@ -120,7 +168,7 @@ pub trait FlowGraphOperations {
     }
 
     /// Add a cloned edge to the graph.
-    /// The CFG and iCFG have to add the meta inforation to the cloned edge
+    /// The CFG and iCFG have to add the meta information to the cloned edge
     /// and add it afterwards to the real graph object.
     fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, wmap: &RwLock<WeightMap>);
 
@@ -322,21 +370,26 @@ pub trait FlowGraphOperations {
         for group in scc_groups {
             self.clone_nodes(&group.0, &group.1, wmap);
         }
-        self.clean_up_acyclic(wmap)
+        self.clean_up_acyclic(wmap);
+        self.sort();
     }
 
     /// Specific clean up tasks after making the graph acyclic.
     fn clean_up_acyclic(&mut self, wmap: &RwLock<WeightMap>);
 
     /// Update weights of graph
-    fn update_weights(&mut self, wmap: &RwLock<WeightMap>) {
-        self.calc_weight(wmap);
+    fn update_weights(&mut self, _wmap: &RwLock<WeightMap>) {
+        todo!()
     }
 
-    /// Calculate the node and edge weights over the whole graph.
-    /// It only returns a weight for CFGs. Because iCFG weights depend on
-    /// the entry point chosen.
-    fn calc_weight(&mut self, wmap: &RwLock<WeightMap>) -> Option<&WeightID>;
+    /// Calculates and returns the weight of the node. And if it wasn't determined yet, it calculates it.
+    fn calc_node_weight(
+        &mut self,
+        nid: &NodeId,
+        proc_map: &ProcedureMap,
+        wmap: &RwLock<WeightMap>,
+        recalc: bool,
+    ) -> WeightID;
 
     /// Sort the graph in reverse topological order.
     fn sort(&mut self);

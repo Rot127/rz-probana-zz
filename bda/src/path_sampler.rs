@@ -9,17 +9,17 @@ use rand::{thread_rng, Rng};
 
 use crate::{
     cfg::CFG,
-    flow_graphs::{Address, NodeId},
+    flow_graphs::{Address, FlowGraphOperations, NodeId},
     icfg::ICFG,
-    weight::{WeightMap, WeightRefVec},
+    weight::{WeightID, WeightMap},
 };
 
 type Path = Vec<NodeId>;
 
 #[derive(Clone)]
 struct ApproxW {
-    pub exp: usize,
-    pub sig: usize,
+    pub exp: u64,
+    pub sig: u64,
 }
 
 impl ApproxW {
@@ -29,11 +29,11 @@ impl ApproxW {
 }
 
 /// Return hsig, expi = sig × 2exp = w
-fn approximate_weights(weights: &WeightRefVec, out: &mut Vec<ApproxW>, wmap: &RwLock<WeightMap>) {
+fn approximate_weights(weights: &Vec<WeightID>, out: &mut Vec<ApproxW>, wmap: &RwLock<WeightMap>) {
     for w in weights.iter() {
         let mut aw = ApproxW::new();
-        aw.exp = usize::max(w.log2(wmap), 63) - 63;
-        aw.sig = w.div32usize(usize::pow(2, aw.exp as u32), wmap);
+        aw.exp = u64::max(w.log2(wmap), 63) - 63;
+        aw.sig = w.get_msbs(wmap, 64 as u32);
         out.push(aw);
     }
 }
@@ -52,7 +52,7 @@ macro_rules! get_w {
 /// Implementation after Algorithm 2 [2] modified for n weights.
 ///
 /// [^2] https://doi.org/10.25394/PGS.23542014.v1
-fn select_branch(weights: &WeightRefVec, wmap: &RwLock<WeightMap>) -> usize {
+fn select_branch(weights: &Vec<WeightID>, wmap: &RwLock<WeightMap>) -> usize {
     if weights.len() == 1 {
         return 0;
     }
@@ -71,8 +71,12 @@ fn select_branch(weights: &WeightRefVec, wmap: &RwLock<WeightMap>) -> usize {
         let n = w_cho.exp - w_opp.exp;
         if n >= 64 {
             let b = choice;
-            let r: usize = rng.gen_range(0..w_cho.sig);
-            choice = if r < w_opp.sig { choice } else { opponent };
+            let r: usize = rng.gen_range(0..w_cho.sig as usize);
+            choice = if r < w_opp.sig as usize {
+                choice
+            } else {
+                opponent
+            };
             for _ in 0..n {
                 if rng.gen_bool(0.5) {
                     choice = b;
@@ -80,16 +84,28 @@ fn select_branch(weights: &WeightRefVec, wmap: &RwLock<WeightMap>) -> usize {
                 }
             }
         } else {
-            let r: usize = rng.gen_range(0..w_cho.sig * usize::pow(2, n as u32) + w_opp.sig);
-            choice = if r < w_opp.sig { choice } else { opponent };
+            let r: usize =
+                rng.gen_range(0..(w_cho.sig * u64::pow(2, n as u32) + w_opp.sig as u64) as usize);
+            choice = if r < w_opp.sig as usize {
+                choice
+            } else {
+                opponent
+            };
         }
         opponent += 1;
     }
     choice
 }
 
-fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize, wmap: &RwLock<WeightMap>) {
-    let mut cur = cfg.get_entry();
+fn sample_cfg_path(
+    icfg: &ICFG,
+    cfg: &mut CFG,
+    start: NodeId,
+    path: &mut Path,
+    i: usize,
+    wmap: &RwLock<WeightMap>,
+) {
+    let mut cur = start;
     loop {
         path.push(cur);
         log_rz!(LOG_DEBUG, None, format!("{} -> {}", " ".repeat(i), cur));
@@ -114,9 +130,16 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize, wmap: &RwL
                     }
                 });
             call_targets.for_each(|ct| {
+                let entry = icfg
+                    .get_procedure(&ct)
+                    .read()
+                    .unwrap()
+                    .get_cfg()
+                    .get_entry();
                 sample_cfg_path(
                     icfg,
-                    icfg.get_procedure(&ct).read().unwrap().get_cfg(),
+                    icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
+                    entry,
                     path,
                     i + 1,
                     wmap,
@@ -126,11 +149,13 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize, wmap: &RwL
 
         // Visit all neighbors and decide which one to add to the path
         let mut neigh_ids: Vec<NodeId> = Vec::new();
-        let mut neigh_weights: WeightRefVec = Vec::new();
-        cfg.graph.neighbors_directed(cur, Outgoing).for_each(|n| {
+        let mut neigh_weights: Vec<WeightID> = Vec::new();
+        for n in cfg.graph.neighbors_directed(cur, Outgoing) {
             neigh_ids.push(n);
-            neigh_weights.push(cfg.get_node_weight_id(n));
-        });
+        }
+        for n in neigh_ids.iter() {
+            neigh_weights.push(cfg.calc_node_weight(&n, icfg.get_procedures(), wmap, false));
+        }
         if neigh_ids.is_empty() {
             // Leaf node. We are done
             break;
@@ -145,11 +170,19 @@ fn sample_cfg_path(icfg: &ICFG, cfg: &CFG, path: &mut Path, i: usize, wmap: &RwL
 
 /// Sample a path from the given [icfg] and return it as vector.
 pub fn sample_path(icfg: &ICFG, entry_point: Address, wmap: &RwLock<WeightMap>) -> Path {
-    let entry_proc = icfg
+    let mut entry_proc = icfg
         .get_procedure(&NodeId::new_original(entry_point))
-        .read()
+        .write()
         .unwrap();
     let mut path = Path::new();
-    sample_cfg_path(icfg, entry_proc.get_cfg(), &mut path, 0, wmap);
+    let entry_node = entry_proc.get_cfg().get_entry();
+    sample_cfg_path(
+        icfg,
+        entry_proc.get_cfg_mut(),
+        entry_node,
+        &mut path,
+        0,
+        wmap,
+    );
     path
 }

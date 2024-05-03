@@ -23,7 +23,6 @@ use rand::{thread_rng, Rng};
 use crate::{
     abstr_int::{interpret, InterpreterProducts, MemVal},
     bda_binding::get_bin_entries,
-    flow_graphs::FlowGraphOperations,
     icfg::ICFG,
     path_sampler::sample_path,
     state::{run_condition_fulfilled, BDAState},
@@ -82,7 +81,6 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
         return;
     }
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
-    icfg.calc_weight(state.get_weight_map());
 
     // Run abstract interpretation
     let mut spinner = Spinner::new();
@@ -91,6 +89,7 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
     let mut products: Vec<InterpreterProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<InterpreterProducts>> = HashMap::new();
     while run_condition_fulfilled(&state) {
+        spinner.update(get_bda_status(state, paths_walked));
         // Dispatch interpretation into threads
         for tid in 0..state.num_threads {
             let path = sample_path(
@@ -119,7 +118,6 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
             // Report mem vals
         }
         products.clear();
-        spinner.update(get_bda_status(state, paths_walked));
     }
     spinner.done(get_bda_status(state, paths_walked));
     let mut term_reason = "";
