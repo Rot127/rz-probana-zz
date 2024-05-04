@@ -11,20 +11,22 @@ pub struct Spinner {
     last_spin_change: Instant,
     spin_symbols: Vec<String>,
     spin_idx: usize,
+    main_desc: String,
 }
 
 impl Spinner {
-    pub fn new() -> Spinner {
+    pub fn new(main_desc: String) -> Spinner {
         let spin_elem = vec!["-", "+", "#", "+"];
         Spinner {
             spin_interval: Duration::new(0, 50e6 as u32),
             last_spin_change: Instant::now(),
             spin_symbols: Vec::<String>::from_iter(spin_elem.into_iter().map(str::to_owned)),
             spin_idx: 0,
+            main_desc,
         }
     }
 
-    pub fn update(&mut self, status: String) {
+    pub fn update(&mut self, status: Option<String>) {
         let now = Instant::now();
         if now - self.last_spin_change > self.spin_interval {
             self.spin_idx = (self.spin_idx + 1) % self.spin_symbols.len();
@@ -32,9 +34,14 @@ impl Spinner {
         }
 
         print!(
-            "\r[{}] {}",
+            "\r[{}] {}{}",
             self.spin_symbols.get(self.spin_idx).unwrap(),
-            status
+            self.main_desc,
+            if status.is_some() {
+                status.unwrap()
+            } else {
+                "".to_owned()
+            }
         );
         std::io::stdout().flush().unwrap();
     }

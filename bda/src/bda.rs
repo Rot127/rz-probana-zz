@@ -83,13 +83,13 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
 
     // Run abstract interpretation
-    let mut spinner = Spinner::new();
+    let mut spinner = Spinner::new("".to_string());
     let mut paths_walked = 0;
     let mut rng = thread_rng();
     let mut products: Vec<InterpreterProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<InterpreterProducts>> = HashMap::new();
     while run_condition_fulfilled(&state) {
-        spinner.update(get_bda_status(state, paths_walked));
+        spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads
         for tid in 0..state.num_threads {
             let path = sample_path(

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use helper::spinner::Spinner;
 use petgraph::algo::{is_cyclic_directed, kosaraju_scc};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
@@ -330,14 +331,22 @@ pub trait FlowGraphOperations {
     /// 3.    Get edges within, from, to SCC
     /// 4. foreach (scc, scc_edges):
     /// 5.    Clone SCC and its edges
-    fn make_acyclic(&mut self, wmap: &RwLock<WeightMap>) {
+    fn make_acyclic(&mut self, wmap: &RwLock<WeightMap>, spinner_text: Option<String>) {
         // Strongly connected components
         let sccs = kosaraju_scc(self.get_graph());
         // The SCC and Edges from, to and within the SCC
         let mut scc_groups: Vec<(Vec<NodeId>, HashSet<(NodeId, NodeId)>)> = Vec::new();
+        let mut spinner = Spinner::new(if spinner_text.is_some() {
+            spinner_text.clone().unwrap()
+        } else {
+            "".to_owned()
+        });
 
         // SCCs are in reverse topological order. The nodes in each SCC are arbitrary
         for scc in sccs {
+            if spinner_text.is_some() {
+                spinner.update(None);
+            }
             let mut edges: HashSet<(NodeId, NodeId)> = HashSet::new();
             if scc.len() == 1 {
                 // Only add edges if they self refernce the node
@@ -372,6 +381,9 @@ pub trait FlowGraphOperations {
         }
         self.clean_up_acyclic(wmap);
         self.sort();
+        if spinner_text.is_some() {
+            spinner.done(spinner_text.clone().unwrap());
+        }
     }
 
     /// Specific clean up tasks after making the graph acyclic.

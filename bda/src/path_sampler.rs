@@ -4,7 +4,10 @@
 use std::sync::RwLock;
 
 use binding::{log_rizn, log_rz, LOG_DEBUG};
-use petgraph::Direction::Outgoing;
+use petgraph::{
+    dot::{Config, Dot},
+    Direction::Outgoing,
+};
 use rand::{thread_rng, Rng};
 
 use crate::{

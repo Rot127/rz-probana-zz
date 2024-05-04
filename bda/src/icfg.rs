@@ -143,9 +143,7 @@ impl ICFG {
         let mut todo: Vec<NodeId> = self.procedures.keys().cloned().collect();
         let num_procedures = self.num_procedures();
 
-        let mut spinner = Spinner::new();
         thread::scope(|s| {
-            spinner.update("Make iCFG acyclic".to_owned());
             let mut threads: HashMap<usize, ScopedJoinHandle<_>> = HashMap::new();
             loop {
                 progress.update_print(resolved, None);
@@ -181,7 +179,7 @@ impl ICFG {
                                     panic!("Got poisoned write lock for procedure {}.", next)
                                 }
                             };
-                            writeable_proc.get_cfg_mut().make_acyclic(wmap);
+                            writeable_proc.get_cfg_mut().make_acyclic(wmap, None);
                         }),
                     );
                 }
@@ -194,12 +192,7 @@ impl ICFG {
                 }
             }
         });
-        self.make_acyclic(wmap);
-        spinner.done(format!(
-            "iCFG Result: CFGs: {} Edges: {}",
-            self.graph.node_count(),
-            self.graph.edge_count()
-        ));
+        self.make_acyclic(wmap, Some("Make iCFG acyclic".to_owned()));
     }
 }
 
@@ -294,7 +287,7 @@ impl FlowGraphOperations for ICFG {
                 .read()
                 .unwrap()
                 .get_clone(from.icfg_clone_id);
-            cloned_proc.get_cfg_mut().make_acyclic(wmap);
+            cloned_proc.get_cfg_mut().make_acyclic(wmap, None);
             self.add_procedure(from, cloned_proc);
         }
 
@@ -304,7 +297,7 @@ impl FlowGraphOperations for ICFG {
                 .read()
                 .unwrap()
                 .get_clone(to.icfg_clone_id);
-            cloned_proc.get_cfg_mut().make_acyclic(wmap);
+            cloned_proc.get_cfg_mut().make_acyclic(wmap, None);
             self.add_procedure(to, cloned_proc);
         }
     }

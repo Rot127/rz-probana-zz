@@ -524,6 +524,7 @@ impl FlowGraphOperations for CFG {
 
     /// Calculates the weight of the node with [nid].
     /// This function will re-calculate the weight of the node, if called again.
+    /// So make sure to check the weight map before for already calculated values.
     /// For just getting the current (possibly outdated) weight id of a node,
     /// use get_node_weight_id()
     /// This function assumes that all weights of called procedures are correctly calculated before.
@@ -598,13 +599,6 @@ impl FlowGraphOperations for CFG {
                     self.get_node_weight_id(nid).is_some(),
                     "The node {} as an invalid weight, although we just calculated it.",
                     nid
-                );
-                println!(
-                    "Calc for {} ==> {}",
-                    nid,
-                    wmap.write()
-                        .unwrap()
-                        .get_weight_const(&self.get_node_weight_id(nid).unwrap())
                 );
                 return self
                     .get_node_weight_id(nid)

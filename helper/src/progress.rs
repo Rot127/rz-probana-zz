@@ -63,7 +63,7 @@ impl ProgressBar {
             "▒".repeat((done * progress_width as f32) as usize),
             "-".repeat((todo * progress_width as f32) as usize)
         );
-        print!("\r{}|{}|{}", prefix, bar_content, postfix);
+        print!("\r{}|{}|{} ", prefix, bar_content, postfix);
         std::io::stdout().flush().unwrap();
         if is_done {
             // We assume no one calls this function afterwards.

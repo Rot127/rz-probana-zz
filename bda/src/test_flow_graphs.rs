@@ -715,7 +715,7 @@ mod tests {
     fn test_cfg_weight_calc_no_call() {
         let wmap = &WeightMap::new();
         let mut gee_cfg = get_gee_cfg();
-        gee_cfg.make_acyclic(wmap);
+        gee_cfg.make_acyclic(wmap, None);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false), 2, wmap);
@@ -731,19 +731,19 @@ mod tests {
     fn test_undiscovered_indirect_call() {
         let wmap = &WeightMap::new();
         let mut cfg = get_unset_indirect_call_cfg();
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         assert_node_weight(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false), 1, wmap);
         let mut proc_map = ProcedureMap::new();
         let mut lcfg = get_cfg_simple_loop();
-        lcfg.make_acyclic(wmap);
+        lcfg.make_acyclic(wmap, None);
         println!("lcfg: {:?}", Dot::with_config(&lcfg.graph, &[Config::EdgeNoLabel]));
         proc_map.insert(NodeId::from(RANDOM_FCN_ADDR), RwLock::new(Procedure::new(Some(lcfg), false)));
         assert_node_weight(cfg.calc_node_weight(&NodeId::new(0, 0, 0), &proc_map, wmap, true), 10, wmap);
         lcfg = get_cfg_linear();
-        lcfg.make_acyclic(wmap);
+        lcfg.make_acyclic(wmap, None);
         proc_map.insert(NodeId::from(RANDOM_FCN_ADDR), RwLock::new(Procedure::new(Some(lcfg), false)));
         assert_node_weight(cfg.calc_node_weight(&NodeId::new(0, 0, 0), &proc_map, wmap, true), 1, wmap);
         }
@@ -790,7 +790,7 @@ mod tests {
         //     "{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.graph.edge_count(), 22);
@@ -843,7 +843,7 @@ mod tests {
         //     "{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 7);
         assert_eq!(cfg.graph.edge_count(), 6);
@@ -867,7 +867,7 @@ mod tests {
         //     "Graph:\n{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         // println!(
         //     "Acyclic:\n{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel])
@@ -944,7 +944,7 @@ mod tests {
     fn test_cfg_single_node() {
         let wmap = &WeightMap::new();
         let mut cfg: CFG = get_cfg_single_node(wmap);
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         assert_eq!(cfg.graph.edge_count(), 0);
         assert_eq!(cfg.graph.node_count(), 1);
         assert_eq!(cfg.nodes_meta.len(), 1);
@@ -968,7 +968,7 @@ mod tests {
             ),
         );
         }
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 1, wmap);
     }
 
@@ -989,7 +989,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 1);
         assert_eq!(cfg.graph.node_count(), 1);
         assert_eq!(cfg.nodes_meta.len(), 1);
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
@@ -1003,7 +1003,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
@@ -1024,7 +1024,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 6);
         assert_eq!(cfg.graph.node_count(), 6);
         assert_eq!(cfg.nodes_meta.len(), 6);
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         assert_eq!(cfg.graph.edge_count(), 17);
         assert_eq!(cfg.graph.node_count(), 12);
         assert_eq!(cfg.nodes_meta.len(), 12);
@@ -1057,7 +1057,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 4);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         assert_eq!(cfg.graph.edge_count(), 15);
         assert_eq!(cfg.graph.node_count(), 10);
         assert_eq!(cfg.nodes_meta.len(), 10);
@@ -1088,7 +1088,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 3);
         assert_eq!(cfg.nodes_meta.len(), 3);
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         assert_eq!(cfg.graph.edge_count(), 11);
         assert_eq!(cfg.graph.node_count(), 6);
         assert_eq!(cfg.nodes_meta.len(), 6);
@@ -1119,7 +1119,7 @@ mod tests {
         //     "{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         // println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_eq!(cfg.graph.edge_count(), 22);
         assert_eq!(cfg.graph.node_count(), 14);
@@ -1230,7 +1230,7 @@ mod tests {
     fn test_endless_loop() {
         let wmap = &WeightMap::new();
         let mut cfg = get_endless_loop_cfg();
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 4, wmap);
     }
@@ -1239,7 +1239,7 @@ mod tests {
     fn test_entry_0_graph() {
         let wmap = &WeightMap::new();
         let mut cfg = get_cfg_linear_call();
-        cfg.make_acyclic(wmap);
+        cfg.make_acyclic(wmap, None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 1, wmap);
     }
