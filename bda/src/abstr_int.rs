@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use crate::flow_graphs::{Address, NodeId};
+use crate::{
+    flow_graphs::{Address, NodeId},
+    path_sampler::Path,
+};
 
 struct IndirectCall {
     from: NodeId,
@@ -54,7 +57,7 @@ impl InterpreterProducts {
     }
 }
 
-pub fn interpret(_path: &Vec<NodeId>) -> InterpreterProducts {
+pub fn interpret(path: &Path) -> InterpreterProducts {
     InterpreterProducts {
         resolved_icalls: Vec::new(),
         mem_values: Vec::new(),

@@ -4,10 +4,7 @@
 use std::sync::RwLock;
 
 use binding::{log_rizn, log_rz, LOG_DEBUG};
-use petgraph::{
-    dot::{Config, Dot},
-    Direction::Outgoing,
-};
+use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 
 use crate::{
@@ -17,7 +14,33 @@ use crate::{
     weight::{WeightID, WeightMap},
 };
 
-type Path = Vec<NodeId>;
+pub struct Path {
+    path: Vec<NodeId>,
+}
+
+impl Path {
+    pub fn new() -> Path {
+        Path { path: Vec::new() }
+    }
+
+    pub fn push(&mut self, nid: NodeId) {
+        self.path.push(nid);
+    }
+}
+
+impl std::fmt::Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "p[");
+        for (i, n) in self.path.iter().enumerate() {
+            if i != 0 {
+                write!(f, "-> {}", n);
+            } else {
+                write!(f, "{}", n);
+            }
+        }
+        write!(f, "]")
+    }
+}
 
 #[derive(Clone)]
 struct ApproxW {
