@@ -14,6 +14,7 @@ use crate::{
     weight::{WeightID, WeightMap},
 };
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Path {
     path: Vec<NodeId>,
 }
@@ -23,6 +24,10 @@ impl Path {
         Path { path: Vec::new() }
     }
 
+    pub fn from(path: Vec<NodeId>) -> Path {
+        Path { path }
+    }
+
     pub fn push(&mut self, nid: NodeId) {
         self.path.push(nid);
     }
@@ -30,15 +35,15 @@ impl Path {
 
 impl std::fmt::Display for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "p[");
+        let mut res = write!(f, "p[");
         for (i, n) in self.path.iter().enumerate() {
             if i != 0 {
-                write!(f, "-> {}", n);
+                res = res.or(write!(f, " -> {}", n));
             } else {
-                write!(f, "{}", n);
+                res = res.or(write!(f, "{}", n));
             }
         }
-        write!(f, "]")
+        res.or(write!(f, "]"))
     }
 }
 
