@@ -3,6 +3,5 @@
 
 fn main() {
     println!("cargo:rustc-link-arg-tests=-Wl,--copy-dt-needed-entries");
-    println!("cargo:rustc-link-arg-tests=-lrz_analysis");
     println!("cargo:rustc-link-arg-tests=-lrz_core");
 }

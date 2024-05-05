@@ -45,7 +45,7 @@ pub fn log_rizn(
     tag_msg.push('\0');
     filename.push('\0');
     unsafe {
-        rz_log_bind(
+        rz_log_str(
             "\0".as_ptr().cast(),
             filename.as_str().as_ptr().cast(),
             line,
@@ -94,15 +94,18 @@ pub fn get_rz_test_bin_path() -> PathBuf {
 pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
     let core: *mut RzCore;
     unsafe {
+        println!("init");
         core = rz_core_new();
-        if core.is_null() {
+        if core == std::ptr::null_mut() {
             panic!("Could not init RzCore.");
         }
+        println!("Core init");
         let cf: *const RzCoreFile =
             rz_core_file_open(core, binary.as_ptr().cast(), RZ_PERM_R as i32, 0);
-        if cf.is_null() {
+        if cf == std::ptr::null_mut() {
             panic!("Could not open file {}", binary);
         }
+        println!("Opened file");
         rz_core_bin_load(core, std::ptr::null(), 0);
         rz_core_perform_auto_analysis(core, RzCoreAnalysisType_RZ_CORE_ANALYSIS_DEEP);
     };
@@ -111,15 +114,15 @@ pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
 
 pub fn rz_notify_begin(rz_core: *mut RzCore, mut msg: String) {
     msg.push('\0');
-    unsafe { rz_core_notify_begin_bind(rz_core, msg.as_ptr().cast()) };
+    unsafe { rz_core_notify_begin_str(rz_core, msg.as_ptr().cast()) };
 }
 
 pub fn rz_notify_done(rz_core: *mut RzCore, mut msg: String) {
     msg.push('\0');
-    unsafe { rz_core_notify_done_bind(rz_core, msg.as_ptr().cast()) };
+    unsafe { rz_core_notify_done_str(rz_core, msg.as_ptr().cast()) };
 }
 
 pub fn rz_notify_error(rz_core: *mut RzCore, mut msg: String) {
     msg.push('\0');
-    unsafe { rz_core_notify_error_bind(rz_core, msg.as_ptr().cast()) };
+    unsafe { rz_core_notify_error_str(rz_core, msg.as_ptr().cast()) };
 }
