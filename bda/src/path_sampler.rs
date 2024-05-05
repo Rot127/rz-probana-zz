@@ -94,7 +94,7 @@ fn select_branch(weights: &Vec<WeightID>, wmap: &RwLock<WeightMap>) -> usize {
     let mut opponent = 1;
     // Let the different weights compete against each other.
     loop {
-        if opponent < weights.len() {
+        if opponent >= weights.len() {
             break;
         }
         let w_cho = get_w!(approx_w, choice);
