@@ -343,7 +343,7 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
     for n in icfg.get_graph().nodes().into_iter() {
         nodes.push(n);
     }
-    let state = BDAState::new(32, 120);
+    let state = BDAState::new(32, 180);
     let mut progress_bar = ProgressBar::new(String::from("Transfer CFGs"), nodes.len());
     let mut done = 0;
     for n in nodes {
