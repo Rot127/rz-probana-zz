@@ -373,20 +373,17 @@ pub fn get_cfg_no_loop_sub_routine_loop_ret() -> CFG {
     cfg
 }
 
-pub fn get_cfg_single_node(wmap: &RwLock<WeightMap>) -> CFG {
+pub fn get_cfg_single_node() -> CFG {
     let mut cfg = CFG::new();
-    cfg.add_node(
-        (
-            NodeId::new(0, 0, 0),
-            CFGNodeData::new_test_single(
-                0,
-                InsnNodeType::new(InsnNodeWeightType::Return, false),
-                INVALID_NODE_ID,
-                INVALID_NODE_ID,
-            ),
+    cfg.add_node((
+        NodeId::new(0, 0, 0),
+        CFGNodeData::new_test_single(
+            0,
+            InsnNodeType::new(InsnNodeWeightType::Return, false),
+            INVALID_NODE_ID,
+            INVALID_NODE_ID,
         ),
-        wmap,
-    );
+    ));
     cfg
 }
 

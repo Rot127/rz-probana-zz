@@ -7,11 +7,11 @@ use std::{
     thread::{self, ScopedJoinHandle},
 };
 
-use helper::{progress::ProgressBar, spinner::Spinner};
+use helper::progress::ProgressBar;
 use petgraph::algo::toposort;
 
 use crate::{
-    cfg::{InsnNodeType, InsnNodeWeightType, CFG},
+    cfg::{InsnNodeWeightType, CFG},
     flow_graphs::{FlowGraph, FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
     weight::{WeightID, WeightMap},
 };

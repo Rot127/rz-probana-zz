@@ -6,12 +6,13 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        flow_graphs::{Address, NodeId},
+        flow_graphs::{Address, FlowGraphOperations, NodeId},
         icfg::{Procedure, ICFG},
         path_sampler::{sample_path, Path},
         test_graphs::{
-            get_cfg_linear, get_cfg_simple_loop, get_gee_cfg, GEE_ADDR, LINEAR_CFG_ENTRY,
-            SIMPLE_LOOP_ENTRY,
+            get_cfg_linear, get_cfg_simple_loop, get_gee_cfg, get_unset_indirect_call_cfg,
+            get_unset_indirect_call_to_0_cfg, GEE_ADDR, LINEAR_CFG_ENTRY, SIMPLE_LOOP_ENTRY,
+            UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::WeightMap,
     };

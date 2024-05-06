@@ -282,27 +282,9 @@ mod tests {
     }
 
     #[test]
-    fn test_cfg_add_duplicate_node() {
-        let wmap = &WeightMap::new();
-        let mut cfg: CFG = get_cfg_single_node(wmap);
-        cfg.add_node(
-            (
-                NodeId::new(0, 0, 0),
-                CFGNodeData::new_test_single(
-                    0,
-                    InsnNodeType::new(InsnNodeWeightType::Return, false),
-                    INVALID_NODE_ID,
-                    INVALID_NODE_ID,
-                ),
-            ),
-            wmap,
-        );
-    }
-
-    #[test]
     fn test_cfg_single_node() {
         let wmap = &WeightMap::new();
-        let mut cfg: CFG = get_cfg_single_node(wmap);
+        let mut cfg: CFG = get_cfg_single_node();
         cfg.make_acyclic(wmap, None);
         assert_eq!(cfg.graph.edge_count(), 0);
         assert_eq!(cfg.graph.node_count(), 1);

@@ -12,8 +12,7 @@ use petgraph::{algo::toposort, Direction::Outgoing};
 
 use crate::{
     flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
-    icfg::Procedure,
-    weight::{NodeWeightIDMap, NodeWeightIDRefMap, WeightID, WeightMap},
+    weight::{NodeWeightIDRefMap, WeightID, WeightMap},
 };
 
 /// The type of a node which determines the weight calculation of it.
@@ -437,7 +436,7 @@ impl CFG {
 
     /// Adds an node to the graph.
     /// If the node was present before, it nothing is done.
-    pub fn add_node(&mut self, node: (NodeId, CFGNodeData), wmap: &RwLock<WeightMap>) {
+    pub fn add_node(&mut self, node: (NodeId, CFGNodeData)) {
         if self.nodes_meta.contains_key(&node.0) && self.graph.contains_node(node.0) {
             return;
         }
