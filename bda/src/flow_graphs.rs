@@ -65,7 +65,7 @@ pub const MAX_ADDRESS: Address = u64::MAX;
 ///
 ///
 /// [^2.4.3] https://doi.org/10.25394/PGS.23542014.v1
-#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 /// A node identifier in a iCFG and CFG
 pub struct NodeId {
     /// The i'th iCFG clone this node belongs to.
@@ -81,6 +81,18 @@ pub struct NodeId {
 impl std::convert::From<Address> for NodeId {
     fn from(value: u64) -> NodeId {
         NodeId::new(0, 0, value)
+    }
+}
+
+impl std::convert::From<(u32, u32, u64)> for NodeId {
+    fn from(v: (u32, u32, u64)) -> NodeId {
+        NodeId::new(v.0, v.1, v.2)
+    }
+}
+
+impl std::fmt::Debug for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

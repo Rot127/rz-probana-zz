@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::sync::RwLock;
+use std::{collections::VecDeque, sync::RwLock};
 
 use binding::{log_rizn, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
@@ -59,73 +59,74 @@ impl ApproxW {
     }
 }
 
-/// Return hsig, expi = sig × 2exp = w
-fn approximate_weights(weights: &Vec<WeightID>, out: &mut Vec<ApproxW>, wmap: &RwLock<WeightMap>) {
-    for w in weights.iter() {
-        let mut aw = ApproxW::new();
-        aw.exp = u64::max(w.log2(wmap), 63) - 63;
-        aw.sig = w.get_msbs(wmap, 64 as u32);
-        out.push(aw);
+/// Returns a the approximated weight of the given weights.
+/// If [weights] contains more then one element, they are summed and then approximated.
+fn approximate_weights(weights: &VecDeque<WeightID>, wmap: &RwLock<WeightMap>) -> ApproxW {
+    assert!(weights.len() > 0, "No weights given.");
+    let mut sum: WeightID = wmap.read().unwrap().get_zero();
+    for w in weights {
+        sum = sum.add(w, wmap);
     }
-}
-
-macro_rules! get_w {
-    ($v:ident, $i:expr) => {
-        match $v.get($i) {
-            Some(w) => w,
-            None => panic!("Index out of range"),
-        }
-    };
+    let mut aw = ApproxW::new();
+    aw.exp = u64::max(sum.log2(wmap), 63) - 63;
+    aw.sig = sum.get_msbs(wmap, 64 as u32);
+    aw
 }
 
 /// Selects a branch based on the given weights.
-/// Returns the index of the branch to take.
+/// Returns the index into [weights]. So the node which has the weight [weights]\[i\] should be taken.
 /// Implementation after Algorithm 2 [2] modified for n weights.
 ///
+/// Modifications:
+///
+/// We let the different weights compete against each other.
+/// We always compare the weights of a candidate node against the sum of weights
+/// of all the rest.
+/// If the candiate wins, its index is returned.
+/// If the rest is selected, the current candidate is dropped and a new candiadate is
+/// taken from the rest and the comparision is done again.
+/// The algorithm terminates if either one of candiates was chosen, all candidates
+/// lost, in which case the last index is returned.
+///
 /// [^2] https://doi.org/10.25394/PGS.23542014.v1
-fn select_branch(weights: &Vec<WeightID>, wmap: &RwLock<WeightMap>) -> usize {
+fn select_branch(mut weights: VecDeque<WeightID>, wmap: &RwLock<WeightMap>) -> usize {
     if weights.len() == 1 {
         return 0;
     }
     let mut rng = thread_rng();
-    let mut approx_w: Vec<ApproxW> = Vec::new();
-    approximate_weights(weights, &mut approx_w, wmap);
-    let mut choice = 0;
-    let mut opponent = 1;
-    // Let the different weights compete against each other.
+    let mut candidate = 0;
+    let mut next_cnd = 1;
     loop {
-        if opponent >= weights.len() {
+        if weights.len() == 1 {
             break;
         }
-        let w_cho = get_w!(approx_w, choice);
-        let w_opp = get_w!(approx_w, choice);
-        let n = w_cho.exp - w_opp.exp;
+        // Sample with one branches weight and the sum of the rest.
+        let mut choice_app = VecDeque::new();
+        choice_app.push_back(weights.pop_front().unwrap());
+        let w_choice = approximate_weights(&choice_app, wmap);
+        let w_rest = approximate_weights(&weights, wmap);
+        let n = w_choice.exp - w_rest.exp;
         if n >= 64 {
-            let b = choice;
-            let r: usize = rng.gen_range(0..w_cho.sig as usize);
-            choice = if r < w_opp.sig as usize {
-                choice
-            } else {
-                opponent
-            };
             for _ in 0..n {
                 if rng.gen_bool(0.5) {
-                    choice = b;
-                    break;
+                    return candidate;
                 }
             }
+            let r: usize = rng.gen_range(0..w_choice.sig as usize);
+            if r >= w_rest.sig as usize {
+                return candidate;
+            }
         } else {
-            let r: usize =
-                rng.gen_range(0..(w_cho.sig * u64::pow(2, n as u32) + w_opp.sig as u64) as usize);
-            choice = if r < w_opp.sig as usize {
-                choice
-            } else {
-                opponent
-            };
+            let r: usize = rng
+                .gen_range(0..(w_choice.sig * u64::pow(2, n as u32) + w_rest.sig as u64) as usize);
+            if r >= w_rest.sig as usize {
+                return candidate;
+            }
         }
-        opponent += 1;
+        candidate = next_cnd;
+        next_cnd += 1;
     }
-    choice
+    candidate
 }
 
 fn sample_cfg_path(
@@ -180,18 +181,18 @@ fn sample_cfg_path(
 
         // Visit all neighbors and decide which one to add to the path
         let mut neigh_ids: Vec<NodeId> = Vec::new();
-        let mut neigh_weights: Vec<WeightID> = Vec::new();
+        let mut neigh_weights: VecDeque<WeightID> = VecDeque::new();
         for n in cfg.graph.neighbors_directed(cur, Outgoing) {
             neigh_ids.push(n);
         }
         for n in neigh_ids.iter() {
-            neigh_weights.push(cfg.calc_node_weight(&n, icfg.get_procedures(), wmap, false));
+            neigh_weights.push_back(cfg.calc_node_weight(&n, icfg.get_procedures(), wmap, false));
         }
         if neigh_ids.is_empty() {
             // Leaf node. We are done
             break;
         }
-        let picked_neighbor = *neigh_ids.get(select_branch(&neigh_weights, wmap)).unwrap();
+        let picked_neighbor = *neigh_ids.get(select_branch(neigh_weights, wmap)).unwrap();
         if picked_neighbor == cur {
             panic!("Unresolved loop in CFG detected at node {}.", cur);
         }

@@ -467,6 +467,10 @@ pub fn get_cfg_linear_call() -> CFG {
     cfg
 }
 
+pub const SIMPLE_LOOP_ENTRY: Address = 0;
+///
+///       <---+
+/// 0 -> 1 -> 2 -> 3
 pub fn get_cfg_simple_loop() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]

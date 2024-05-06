@@ -15,6 +15,6 @@ mod path_sampler;
 mod post_analysis;
 pub mod state;
 mod test_flow_graphs;
-mod test_graphs;
+pub mod test_graphs;
 mod test_path_sampler;
 pub mod weight;
