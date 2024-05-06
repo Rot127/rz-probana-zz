@@ -451,6 +451,33 @@ impl CFG {
         }
         self.nodes_meta.insert(node_id, data);
     }
+
+    /// Update the call target of instruction [i] of the node [nid].
+    /// If the node is not a call instruction, it returns silently.
+    /// If [i] is -1, it panics if there are more than one call instructions part of the node.
+    /// Otherwise it assigns the new call target.
+    pub fn update_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
+        let ninfo = self
+            .nodes_meta
+            .get_mut(nid)
+            .expect(&format!("{} has no information saved.", nid));
+        let mut call_set = false;
+        for (j, insn) in ninfo.insns.iter_mut().enumerate() {
+            if i >= 0 && i != j as isize {
+                continue;
+            }
+            if insn.itype.weight_type == InsnNodeWeightType::Call {
+                if call_set {
+                    panic!("Two calls exist, but it wasn't specifies which one to update.");
+                }
+                insn.call_target = call_target.clone();
+                call_set = true;
+            }
+        }
+        if !call_set {
+            panic!("Call target was not updated, wither because no call exist or the instruction index is off.");
+        }
+    }
 }
 
 impl FlowGraphOperations for CFG {

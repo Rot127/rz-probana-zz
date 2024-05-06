@@ -623,6 +623,9 @@ pub fn get_paper_example_cfg_loop() -> CFG {
     cfg
 }
 
+pub const UNSET_INDIRECT_CALL_CFG_ENTRY: Address = 0;
+pub const UNSET_INDIRECT_CALL_CFG_CALL: Address = 1;
+
 pub fn get_unset_indirect_call_cfg() -> CFG {
     let mut cfg = CFG::new();
 
@@ -630,11 +633,32 @@ pub fn get_unset_indirect_call_cfg() -> CFG {
     {
     cfg.add_edge(
         (NodeId::new(0, 0, 0), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call( 1, NodeId::new(0, 0, RANDOM_FCN_ADDR), true, NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call( 1, INVALID_NODE_ID, true, NodeId::new(0, 0, 2))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call( 1, NodeId::new(0, 0, RANDOM_FCN_ADDR), true, NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call( 1, INVALID_NODE_ID, true, NodeId::new(0, 0, 2))),
         (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 3), INVALID_NODE_ID)),
+    );
+    }
+
+    cfg
+}
+
+pub const UNSET_INDIRECT_CALL_TO_0_ENTRY: Address = 0x6000;
+pub const UNSET_INDIRECT_CALL_TO_0_CALL: Address = 0x6001;
+
+pub fn get_unset_indirect_call_to_0_cfg() -> CFG {
+    let mut cfg = CFG::new();
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    cfg.add_edge(
+        (NodeId::new(0, 0, 0x6000), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0x6001), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
+    );
+    cfg.add_edge(
+        (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
+        (NodeId::new(0, 0, 0x6002), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 0x6003), INVALID_NODE_ID)),
     );
     }
 

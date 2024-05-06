@@ -10,8 +10,8 @@ mod tests {
         icfg::{Procedure, ICFG},
         path_sampler::{sample_path, Path},
         test_graphs::{
-            get_cfg_linear, get_cfg_simple_loop, get_gee_cfg, get_unset_indirect_call_cfg,
-            get_unset_indirect_call_to_0_cfg, GEE_ADDR, LINEAR_CFG_ENTRY, SIMPLE_LOOP_ENTRY,
+            get_cfg_linear, get_cfg_simple_loop, get_gee_cfg, get_unset_indirect_call_to_0_cfg,
+            GEE_ADDR, LINEAR_CFG_ENTRY, SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL,
             UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::WeightMap,
@@ -55,9 +55,9 @@ mod tests {
     }
 
     fn sample(
-        icfg: ICFG,
+        icfg: &ICFG,
         entry: Address,
-        wmap: std::sync::RwLock<WeightMap>,
+        wmap: &std::sync::RwLock<WeightMap>,
     ) -> HashMap<Path, usize> {
         let mut path_stats = HashMap::<Path, usize>::new();
         for _ in 0..TEST_SAMPLE_SIZE {
@@ -116,7 +116,7 @@ mod tests {
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
 
-        let path_stats = sample(icfg, GEE_ADDR, wmap);
+        let path_stats = sample(&icfg, GEE_ADDR, &wmap);
         assert_eq!(path_stats.len(), 2, "Wrong path count.");
         assert!(path_stats.get(&build_path!(0, 1, 2, 4)).is_some());
         assert!(path_stats.get(&build_path!(0, 1, 3, 4)).is_some());
@@ -141,7 +141,7 @@ mod tests {
         );
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
-        let path_stats = sample(icfg, SIMPLE_LOOP_ENTRY, wmap);
+        let path_stats = sample(&icfg, SIMPLE_LOOP_ENTRY, &wmap);
 
         let n00 = (0, 0, 0);
         let n01 = (0, 0, 1);
@@ -192,10 +192,63 @@ mod tests {
         }
     }
 
-    // Test for loops
-    // Test for self reference
-    // Test with call
-    // Test with call in loop
-    // Test updated call
-    // Test for nodes with 3+ outgoing nodes
+    #[test]
+    fn test_sample_undiscovered_indirect_call() {
+        let mut icfg = ICFG::new();
+        icfg.add_procedure(
+            NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY),
+            Procedure::new(Some(get_unset_indirect_call_to_0_cfg()), false),
+        );
+        let wmap = WeightMap::new();
+        icfg.resolve_loops(1, &wmap);
+        let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
+        assert_eq!(path_stats.len(), 1, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 1.0, 0.0);
+        }
+
+        // Exchange the procedures and check if the paths are sample uniform afterwards.
+
+        // Call simple loop CFG
+        let mut lcfg = get_cfg_simple_loop();
+        icfg.add_procedure(
+            NodeId::from(SIMPLE_LOOP_ENTRY),
+            Procedure::new(Some(lcfg), false),
+        );
+        icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
+            .write()
+            .unwrap()
+            .get_cfg_mut()
+            .update_call_target(
+                &NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL),
+                -1,
+                &NodeId::from(SIMPLE_LOOP_ENTRY),
+            );
+        icfg.resolve_loops(1, &wmap);
+        let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
+        assert_eq!(path_stats.len(), 10, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 1.0 / 10.0, 0.01);
+        }
+
+        lcfg = get_gee_cfg();
+        lcfg.make_acyclic(&wmap, None);
+        icfg.add_procedure(NodeId::from(GEE_ADDR), Procedure::new(Some(lcfg), false));
+        icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
+            .write()
+            .unwrap()
+            .get_cfg_mut()
+            .update_call_target(
+                &NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL),
+                -1,
+                &NodeId::from(GEE_ADDR),
+            );
+        let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
+        assert_eq!(path_stats.len(), 2, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 0.5, 0.01);
+        }
+    }
+
+    // Test with call multiplelevel call. If lowest is update, all other must become dirty.
 }

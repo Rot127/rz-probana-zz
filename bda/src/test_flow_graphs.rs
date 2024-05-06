@@ -6,7 +6,7 @@ mod tests {
 
     use std::{collections::HashSet, sync::RwLock};
 
-    use petgraph::dot::{Config, Dot};
+    use petgraph::dot::Dot;
 
     use crate::{
         cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, CFG},
@@ -18,9 +18,10 @@ mod tests {
             get_cfg_self_ref_loop, get_cfg_simple_loop, get_cfg_simple_loop_extra_nodes,
             get_cfg_single_node, get_cfg_single_self_ref, get_endless_loop_cfg,
             get_endless_loop_icfg, get_endless_loop_icfg_branch, get_gee_cfg,
-            get_icfg_with_selfref_and_recurse_cfg, get_paper_example_cfg_loop,
-            get_paper_example_icfg, get_unset_indirect_call_cfg, FOO_ADDR, GEE_ADDR, MAIN_ADDR,
-            RANDOM_FCN_ADDR,
+            get_icfg_with_selfref_and_recurse_cfg, get_main_cfg, get_paper_example_cfg_loop,
+            get_paper_example_icfg, get_unset_indirect_call_to_0_cfg, FOO_ADDR, GEE_ADDR,
+            LINEAR_CFG_ENTRY, MAIN_ADDR, SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL,
+            UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::{WeightID, WeightMap},
     };
@@ -87,24 +88,37 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "Can't add procedure. Index and entry node address miss-match: index((0:0:0x99999999999999)) != entry((0:0:0xb))"]
+    fn test_proc_insert_mmismatch() {
+        let mut icfg = ICFG::new();
+        icfg.add_procedure(
+            NodeId::from(0x99999999999999),
+            Procedure::new(Some(get_main_cfg()), false),
+        )
+    }
+
+    #[test]
     fn test_undiscovered_indirect_call() {
         let wmap = &WeightMap::new();
-        let mut cfg = get_unset_indirect_call_cfg();
+        let mut cfg = get_unset_indirect_call_to_0_cfg();
         cfg.make_acyclic(wmap, None);
-        println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
+
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_node_weight(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false), 1, wmap);
+        assert_node_weight(cfg.calc_node_weight(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY), empty_proc_map!(), wmap, false), 1, wmap);
+
         let mut proc_map = ProcedureMap::new();
         let mut lcfg = get_cfg_simple_loop();
         lcfg.make_acyclic(wmap, None);
-        println!("lcfg: {:?}", Dot::with_config(&lcfg.graph, &[Config::EdgeNoLabel]));
-        proc_map.insert(NodeId::from(RANDOM_FCN_ADDR), RwLock::new(Procedure::new(Some(lcfg), false)));
-        assert_node_weight(cfg.calc_node_weight(&NodeId::new(0, 0, 0), &proc_map, wmap, true), 10, wmap);
+        proc_map.insert(NodeId::from(SIMPLE_LOOP_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false)));
+        cfg.update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
+        assert_node_weight(cfg.calc_node_weight(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY), &proc_map, wmap, true), 10, wmap);
+
+        cfg.update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
         lcfg = get_cfg_linear();
         lcfg.make_acyclic(wmap, None);
-        proc_map.insert(NodeId::from(RANDOM_FCN_ADDR), RwLock::new(Procedure::new(Some(lcfg), false)));
-        assert_node_weight(cfg.calc_node_weight(&NodeId::new(0, 0, 0), &proc_map, wmap, true), 1, wmap);
+        proc_map.insert(NodeId::from(LINEAR_CFG_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false)));
+        assert_node_weight(cfg.calc_node_weight(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY), &proc_map, wmap, true), 1, wmap);
         }
     }
 
