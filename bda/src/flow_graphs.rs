@@ -10,46 +10,39 @@ use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
-use crate::icfg::Procedure;
+use crate::cfg::Procedure;
 use crate::weight::{WeightID, WeightMap};
 
 pub type FlowGraph = DiGraphMap<NodeId, usize>;
 
+#[macro_export]
+macro_rules! proc_map_get_cfg {
+    ($pmap:expr, $nid:expr) => {
+        $pmap.get($nid).unwrap().read().unwrap().get_cfg()
+    };
+}
+
+pub use proc_map_get_cfg;
+
+#[macro_export]
+macro_rules! proc_map_get_cfg_mut {
+    ($pmap:expr, $nid:expr) => {
+        $pmap.get($nid).unwrap().write().unwrap().get_cfg_mut()
+    };
+}
+
+pub use proc_map_get_cfg_mut;
+
 pub struct ProcedureMap {
     /// Map of CFG entry node IDs and their procedure objects.
     map: HashMap<NodeId, RwLock<Procedure>>,
-    /// Set of node IDs which were added but haven't had
-    /// any weight calculation performed on the yet.
-    dirty: RwLock<HashSet<NodeId>>,
 }
 
 impl ProcedureMap {
     pub fn new() -> ProcedureMap {
         ProcedureMap {
             map: HashMap::new(),
-            dirty: RwLock::new(HashSet::new()),
         }
-    }
-
-    /// Returns the procedure with the [nid] if any exists.
-    /// This function will calculate the weight of the entry point of
-    /// the procedure.
-    pub fn get_calc(
-        &mut self,
-        nid: &NodeId,
-        proc_map: &ProcedureMap,
-        wmap: &RwLock<WeightMap>,
-    ) -> Option<&RwLock<Procedure>> {
-        let p = self.map.get(nid);
-        if p.is_some() && self.dirty.read().unwrap().contains(nid) {
-            p.unwrap()
-                .write()
-                .unwrap()
-                .get_cfg_mut()
-                .calc_node_weight(nid, proc_map, wmap, true);
-            self.dirty.write().unwrap().remove(nid);
-        }
-        p
     }
 
     /// Returns the procedure with the [nid] if any exists.

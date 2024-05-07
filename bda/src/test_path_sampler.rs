@@ -6,13 +6,15 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
+        cfg::Procedure,
         flow_graphs::{Address, FlowGraphOperations, NodeId},
-        icfg::{Procedure, ICFG},
+        icfg::ICFG,
         path_sampler::{sample_path, Path},
         test_graphs::{
-            get_cfg_linear, get_cfg_simple_loop, get_gee_cfg, get_unset_indirect_call_to_0_cfg,
-            GEE_ADDR, LINEAR_CFG_ENTRY, SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL,
-            UNSET_INDIRECT_CALL_TO_0_ENTRY,
+            get_A, get_B, get_C, get_cfg_linear, get_cfg_simple_loop, get_gee_cfg,
+            get_unset_indirect_call_to_0_cfg, CFG_ENTRY_A, CFG_ENTRY_A_CALL, CFG_ENTRY_B,
+            CFG_ENTRY_B_CALL_1, CFG_ENTRY_B_CALL_2, CFG_ENTRY_C, GEE_ADDR, LINEAR_CFG_ENTRY,
+            SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::WeightMap,
     };
@@ -133,6 +135,32 @@ mod tests {
     }
 
     #[test]
+    fn test_two_edges() {
+        let mut icfg = ICFG::new();
+        icfg.add_procedure(
+            NodeId::from(CFG_ENTRY_C),
+            Procedure::new(Some(get_C()), false),
+        );
+        let wmap = WeightMap::new();
+        icfg.resolve_loops(1, &wmap);
+
+        let path_stats = sample(&icfg, CFG_ENTRY_C, &wmap);
+        assert_eq!(path_stats.len(), 2, "Wrong path count.");
+        assert!(path_stats.get(&build_path!(0xcccccc0, 0xcccccc1)).is_some());
+        assert!(path_stats.get(&build_path!(0xcccccc0, 0xcccccc2)).is_some());
+        check_p_path(
+            *path_stats.get(&build_path!(0xcccccc0, 0xcccccc1)).unwrap(),
+            0.5,
+            0.01,
+        );
+        check_p_path(
+            *path_stats.get(&build_path!(0xcccccc0, 0xcccccc2)).unwrap(),
+            0.5,
+            0.01,
+        );
+    }
+
+    #[test]
     fn test_sample_simple_loop() {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
@@ -218,7 +246,6 @@ mod tests {
         icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
             .write()
             .unwrap()
-            .get_cfg_mut()
             .update_call_target(
                 &NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL),
                 -1,
@@ -237,7 +264,6 @@ mod tests {
         icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
             .write()
             .unwrap()
-            .get_cfg_mut()
             .update_call_target(
                 &NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL),
                 -1,
@@ -250,5 +276,69 @@ mod tests {
         }
     }
 
-    // Test with call multiplelevel call. If lowest is update, all other must become dirty.
+    #[test]
+    fn test_second_level_cfg_update() {
+        let mut icfg = ICFG::new();
+        icfg.add_procedure(
+            NodeId::from(CFG_ENTRY_A),
+            Procedure::new(Some(get_A()), false),
+        );
+        let wmap = WeightMap::new();
+        icfg.resolve_loops(1, &wmap);
+        let mut path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
+        assert_eq!(path_stats.len(), 1, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 1.0, 0.0);
+        }
+
+        // Add two levels of calls and check weights again.
+        icfg.add_procedure(
+            NodeId::from(CFG_ENTRY_B),
+            Procedure::new(Some(get_B()), false),
+        );
+        icfg.get_procedure(&NodeId::from(CFG_ENTRY_A))
+            .write()
+            .unwrap()
+            .update_call_target(
+                &NodeId::from(CFG_ENTRY_A_CALL),
+                -1,
+                &NodeId::from(CFG_ENTRY_B),
+            );
+
+        icfg.add_procedure(
+            NodeId::from(CFG_ENTRY_C),
+            Procedure::new(Some(get_C()), false),
+        );
+        icfg.get_procedure(&NodeId::from(CFG_ENTRY_B))
+            .write()
+            .unwrap()
+            .update_call_target(
+                &NodeId::from(CFG_ENTRY_B_CALL_1),
+                -1,
+                &NodeId::from(CFG_ENTRY_C),
+            );
+        icfg.resolve_loops(1, &wmap);
+        path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
+        assert_eq!(path_stats.len(), 3, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 1.0 / 3.0, 0.01);
+        }
+
+        // Add another call to C and check the paths again.
+        icfg.get_procedure(&NodeId::from(CFG_ENTRY_B))
+            .write()
+            .unwrap()
+            .update_call_target(
+                &NodeId::from(CFG_ENTRY_B_CALL_2),
+                -1,
+                &NodeId::from(CFG_ENTRY_C),
+            );
+        icfg.resolve_loops(1, &wmap);
+        path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
+        println!("{:?}", path_stats);
+        assert_eq!(path_stats.len(), 4, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 0.25, 0.01);
+        }
+    }
 }

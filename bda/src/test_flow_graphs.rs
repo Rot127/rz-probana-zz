@@ -9,9 +9,10 @@ mod tests {
     use petgraph::dot::Dot;
 
     use crate::{
-        cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, CFG},
+        cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG},
         flow_graphs::{FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
-        icfg::{Procedure, ICFG},
+        icfg::ICFG,
+        proc_map_get_cfg, proc_map_get_cfg_mut,
         test_graphs::{
             get_cfg_linear, get_cfg_linear_call, get_cfg_loop_self_ref,
             get_cfg_no_loop_sub_routine, get_cfg_no_loop_sub_routine_loop_ret,
@@ -100,25 +101,34 @@ mod tests {
     #[test]
     fn test_undiscovered_indirect_call() {
         let wmap = &WeightMap::new();
-        let mut cfg = get_unset_indirect_call_to_0_cfg();
-        cfg.make_acyclic(wmap, None);
+        let mut proc_map = ProcedureMap::new();
+        let unset_0_entry = NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY);
+        proc_map.insert(
+            unset_0_entry,
+            RwLock::new(Procedure::new(
+                Some(get_unset_indirect_call_to_0_cfg()),
+                false,
+            )),
+        );
+        proc_map_get_cfg_mut!(proc_map, &unset_0_entry).make_acyclic(wmap, None);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_node_weight(cfg.calc_node_weight(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY), empty_proc_map!(), wmap, false), 1, wmap);
+        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, empty_proc_map!(), wmap, false), 1, wmap);
 
-        let mut proc_map = ProcedureMap::new();
         let mut lcfg = get_cfg_simple_loop();
         lcfg.make_acyclic(wmap, None);
         proc_map.insert(NodeId::from(SIMPLE_LOOP_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false)));
-        cfg.update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
-        assert_node_weight(cfg.calc_node_weight(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY), &proc_map, wmap, true), 10, wmap);
+        proc_map.get(&unset_0_entry).unwrap().write().unwrap()
+            .update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
+        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap, true), 10, wmap);
 
-        cfg.update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
+        proc_map.get(&unset_0_entry).unwrap().write().unwrap()
+            .update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
         lcfg = get_cfg_linear();
         lcfg.make_acyclic(wmap, None);
         proc_map.insert(NodeId::from(LINEAR_CFG_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false)));
-        assert_node_weight(cfg.calc_node_weight(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY), &proc_map, wmap, true), 1, wmap);
+        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap, true), 1, wmap);
         }
     }
 

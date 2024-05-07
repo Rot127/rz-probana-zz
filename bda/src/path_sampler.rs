@@ -186,7 +186,8 @@ fn sample_cfg_path(
             neigh_ids.push(n);
         }
         for n in neigh_ids.iter() {
-            neigh_weights.push_back(cfg.calc_node_weight(&n, icfg.get_procedures(), wmap, false));
+            let recalc = cfg.needs_recalc(icfg.get_procedures());
+            neigh_weights.push_back(cfg.calc_node_weight(&n, icfg.get_procedures(), wmap, recalc));
         }
         if neigh_ids.is_empty() {
             // Leaf node. We are done

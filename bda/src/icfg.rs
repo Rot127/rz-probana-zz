@@ -11,45 +11,10 @@ use helper::progress::ProgressBar;
 use petgraph::algo::toposort;
 
 use crate::{
-    cfg::{InsnNodeWeightType, CFG},
+    cfg::{InsnNodeWeightType, Procedure},
     flow_graphs::{FlowGraph, FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
     weight::{WeightID, WeightMap},
 };
-
-/// A node in an iCFG describing a procedure.
-pub struct Procedure {
-    // The CFG of the procedure. Must be None if already added.
-    cfg: Option<CFG>,
-    /// Flag if this procedure is malloc.
-    is_malloc: bool,
-}
-
-impl Procedure {
-    pub fn new(cfg: Option<CFG>, is_malloc: bool) -> Procedure {
-        Procedure { cfg, is_malloc }
-    }
-
-    pub fn get_cfg(&self) -> &CFG {
-        match &self.cfg {
-            Some(cfg) => &cfg,
-            None => panic!("Procedure has no CFG defined."),
-        }
-    }
-
-    pub fn get_cfg_mut(&mut self) -> &mut CFG {
-        match &mut self.cfg {
-            Some(ref mut cfg) => cfg,
-            None => panic!("Procedure has no CFG defined."),
-        }
-    }
-
-    pub fn get_clone(&self, icfg_clone_id: u32) -> Procedure {
-        Procedure {
-            cfg: Some(self.get_cfg().get_clone(icfg_clone_id)),
-            is_malloc: self.is_malloc,
-        }
-    }
-}
 
 /// An inter-procedual control flow graph.
 pub struct ICFG {

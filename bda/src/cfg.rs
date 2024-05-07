@@ -5,6 +5,7 @@ use core::panic;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::RwLock,
+    time::Instant,
 };
 
 use binding::{log_rizn, log_rz, LOG_DEBUG};
@@ -66,13 +67,15 @@ impl InsnNodeType {
 pub struct InsnNodeData {
     /// The memory address the instruction is located.
     pub addr: Address,
-    /// The weight of the instruction.
-    pub weight: Option<WeightID>,
     /// Instruction type. Determines weight calculation.
     pub itype: InsnNodeType,
     /// Node this instruction calls. The NodeId points to another CFG.
     /// It can point to a cloned NodeId.
     pub call_target: NodeId,
+    /// The timestamp of the call target last used.
+    /// If this timestamp is earlier then the procedures timestamp
+    /// the procedure was edited and the weight of this node should be recaclulated.
+    ct_last_state: Option<Instant>,
     /// Node this instruction jumps to.
     /// It always points to the original NodeId. It is not updated if a cloned edge is added.
     pub orig_jump_target: NodeId,
@@ -222,11 +225,38 @@ impl CFGNodeData {
             addr,
             itype: ntype,
             call_target: INVALID_NODE_ID,
+            ct_last_state: None,
             orig_jump_target: jump_target,
             orig_next: next,
             is_indirect_call: false,
         });
         node
+    }
+
+    /// Updaets the nodes weight ID with the given one and updates last access times of procedures.
+    pub fn update_node_weight(&mut self, new_wid: WeightID, proc_map: &ProcedureMap) {
+        self.weight_id = Some(new_wid);
+        self.insns.iter_mut().for_each(|i| {
+            if proc_map.contains_key(&i.call_target) // The procedure is known AND
+                && (i.ct_last_state.is_none() // We haven't used it yet in a calculation
+                    || proc_map // OR the procedure was updated since our last usage.
+                        .get(&i.call_target)
+                        .expect("Just tested")
+                        .read()
+                        .unwrap()
+                        .last_change
+                        > i.ct_last_state.unwrap())
+            {
+                i.ct_last_state = Some(
+                    proc_map
+                        .get(&i.call_target)
+                        .expect("Just tested")
+                        .read()
+                        .unwrap()
+                        .last_change,
+                )
+            }
+        });
     }
 
     /// Calulcates the weights of all instructions part of this instruction word
@@ -417,7 +447,48 @@ impl CFG {
                 panic!("If get_weight_id() is called on a CFG, the graph has to be made acyclic before.")
             }
         };
-        Some(self.calc_node_weight(&entry_nid, procedures, wmap, false))
+        let recalc = self.needs_recalc(procedures);
+        Some(self.calc_node_weight(&entry_nid, procedures, wmap, recalc))
+    }
+
+    /// Recursively checks if any reachable procedure was updated
+    /// and hence, if this one needs a recalculation of its weight.
+    pub fn needs_recalc(&self, proc_map: &ProcedureMap) -> bool {
+        let mut needs_recalc = false;
+        for ct in self.get_all_call_targets().iter() {
+            if !proc_map.contains_key(&ct.0) || ct.1.is_none() {
+                continue;
+            }
+            if proc_map.get(&ct.0).unwrap().read().unwrap().last_change > ct.1.unwrap() {
+                return true;
+            }
+            needs_recalc |= proc_map
+                .get(&ct.0)
+                .unwrap()
+                .read()
+                .unwrap()
+                .get_cfg()
+                .needs_recalc(proc_map);
+        }
+        needs_recalc
+    }
+
+    /// Returns the call targets and their last known state as timestamp as a vector.
+    fn get_all_call_targets(&self) -> Vec<(NodeId, Option<Instant>)> {
+        let mut targets: Vec<(NodeId, Option<Instant>)> = Vec::new();
+        for ninfo in self.nodes_meta.values() {
+            if !ninfo.has_type(InsnNodeWeightType::Call) {
+                continue;
+            }
+            ninfo.insns.iter().for_each(|i| {
+                if i.itype.weight_type == InsnNodeWeightType::Call
+                    && !i.call_target.is_invalid_call_target()
+                {
+                    targets.push((i.call_target, i.ct_last_state))
+                }
+            });
+        }
+        targets
     }
 
     /// Get the total weight of the CFG.
@@ -479,7 +550,13 @@ impl CFG {
     /// If the node is not a call instruction, it returns silently.
     /// If [i] is -1, it panics if there are more than one call instructions part of the node.
     /// Otherwise it assigns the new call target.
-    pub fn update_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
+    fn update_call_target(
+        &mut self,
+        nid: &NodeId,
+        i: isize,
+        call_target: &NodeId,
+        procedure_timestamp: Instant,
+    ) {
         let ninfo = self
             .nodes_meta
             .get_mut(nid)
@@ -494,6 +571,7 @@ impl CFG {
                     panic!("Two calls exist, but it wasn't specifies which one to update.");
                 }
                 insn.call_target = call_target.clone();
+                insn.ct_last_state = Some(procedure_timestamp);
                 call_set = true;
             }
         }
@@ -573,6 +651,7 @@ impl FlowGraphOperations for CFG {
 
     /// Calculates the weight of the node with [nid].
     /// This function will re-calculate the weight of the node, if called again.
+    /// If a CFG needs to be recalculated can be checked with CFG::needs_recalc().
     /// So make sure to check the weight map before for already calculated values.
     /// For just getting the current (possibly outdated) weight id of a node,
     /// use get_node_weight_id()
@@ -660,5 +739,73 @@ impl FlowGraphOperations for CFG {
                 .pop_back()
                 .expect("Logic error: There is no parent, but there should be");
         }
+    }
+}
+
+/// A node in an iCFG describing a procedure.
+pub struct Procedure {
+    // The CFG of the procedure. Must be None if already added.
+    cfg: Option<CFG>,
+    /// Flag if this procedure is malloc.
+    is_malloc: bool,
+    /// Timestamp of the last change performed.
+    last_change: Instant,
+}
+
+impl Procedure {
+    pub fn new(cfg: Option<CFG>, is_malloc: bool) -> Procedure {
+        Procedure {
+            cfg,
+            is_malloc,
+            last_change: Instant::now(),
+        }
+    }
+
+    pub fn is_cfg_set(&self) -> bool {
+        match &self.cfg {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
+    pub fn get_cfg(&self) -> &CFG {
+        match &self.cfg {
+            Some(cfg) => &cfg,
+            None => panic!("Procedure has no CFG defined."),
+        }
+    }
+
+    /// Reutrns the mutable CFG. This updates the last_changed timestamp
+    /// because it is assumed that the CFG is edited.
+    pub fn get_cfg_mut(&mut self) -> &mut CFG {
+        self.last_change = Instant::now();
+        match &mut self.cfg {
+            Some(ref mut cfg) => cfg,
+            None => panic!("Procedure has no CFG defined."),
+        }
+    }
+
+    pub fn get_clone(&self, icfg_clone_id: u32) -> Procedure {
+        Procedure {
+            cfg: Some(self.get_cfg().get_clone(icfg_clone_id)),
+            is_malloc: self.is_malloc,
+            last_change: Instant::now(),
+        }
+    }
+
+    /// True if this procedure is considered a memory allocating functions.
+    /// False otherwise.
+    pub fn is_malloc(&self) -> bool {
+        self.is_malloc
+    }
+
+    /// Update the call target of instruction [i] of the node [nid] in the procedures CFG.
+    /// If [i] is -1, it panics if there are more than one call instructions part of the node.
+    /// It panics of no call was updated.
+    pub fn update_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
+        self.last_change = Instant::now();
+        let lc = self.last_change.clone();
+        self.get_cfg_mut()
+            .update_call_target(nid, i, call_target, lc);
     }
 }
