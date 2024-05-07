@@ -5,9 +5,9 @@ use std::panic;
 use std::ptr::{null, null_mut};
 
 use crate::bda::run_bda;
-use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, CFG};
+use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG};
 use crate::flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, MAX_ADDRESS};
-use crate::icfg::{Procedure, ICFG};
+use crate::icfg::ICFG;
 use crate::state::BDAState;
 
 use binding::{
@@ -236,15 +236,14 @@ fn get_insn_node_data(
     let next = NodeId::new_original(data.next);
     let is_indirect_call =
         inode_type.weight_type == InsnNodeWeightType::Call && call_target.address == MAX_ADDRESS;
-    InsnNodeData {
-        addr: nid.address,
-        weight: None,
-        itype: inode_type,
+    InsnNodeData::new(
+        nid.address,
+        inode_type,
         call_target,
-        orig_jump_target: jump_target,
-        orig_next: next,
+        jump_target,
+        next,
         is_indirect_call,
-    }
+    )
 }
 
 fn get_rz_node_info_nodeid(node_info: &RzGraphNodeInfo) -> NodeId {
@@ -261,11 +260,7 @@ fn get_rz_node_info_nodeid(node_info: &RzGraphNodeInfo) -> NodeId {
 
 fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
     let nid = get_rz_node_info_nodeid(node_info);
-    let mut node_data: CFGNodeData = CFGNodeData {
-        nid,
-        weight_id: None,
-        insns: Vec::new(),
-    };
+    let mut node_data = CFGNodeData::new(nid);
     let rz_node_type: RzGraphNodeType = node_info.type_;
     if rz_node_type == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG {
         let ntype = convert_rz_cfg_node_type(unsafe { node_info.__bindgen_anon_1.cfg.subtype });

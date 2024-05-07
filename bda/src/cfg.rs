@@ -93,11 +93,30 @@ impl InsnNodeData {
     ) -> InsnNodeData {
         InsnNodeData {
             addr,
-            weight: None,
             itype: InsnNodeType::new(InsnNodeWeightType::Call, false),
             call_target,
+            ct_last_state: None,
             orig_jump_target: jump_target,
             orig_next: next,
+            is_indirect_call,
+        }
+    }
+
+    pub fn new(
+        addr: Address,
+        itype: InsnNodeType,
+        call_target: NodeId,
+        orig_jump_target: NodeId,
+        orig_next: NodeId,
+        is_indirect_call: bool,
+    ) -> InsnNodeData {
+        InsnNodeData {
+            addr,
+            itype,
+            call_target,
+            ct_last_state: None,
+            orig_jump_target,
+            orig_next,
             is_indirect_call,
         }
     }
@@ -168,7 +187,7 @@ impl InsnNodeData {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CFGNodeData {
     pub nid: NodeId,
-    pub weight_id: Option<WeightID>,
+    weight_id: Option<WeightID>,
     pub insns: Vec<InsnNodeData>,
 }
 
@@ -179,6 +198,14 @@ impl std::fmt::Display for CFGNodeData {
 }
 
 impl CFGNodeData {
+    pub fn new(nid: NodeId) -> CFGNodeData {
+        CFGNodeData {
+            nid,
+            weight_id: None,
+            insns: Vec::new(),
+        }
+    }
+
     /// Initialize an CFG node with a single instruction.
     pub fn new_test_single(
         addr: Address,
@@ -193,7 +220,6 @@ impl CFGNodeData {
         };
         node.insns.push(InsnNodeData {
             addr,
-            weight: None,
             itype: ntype,
             call_target: INVALID_NODE_ID,
             orig_jump_target: jump_target,
@@ -376,7 +402,7 @@ impl CFG {
         self.get_nodes_meta(&node).weight_id
     }
 
-    /// Get the WieghtID of the CFG which saves the total CFG weight.
+    /// Get the WeightID of the CFG which saves the total CFG weight.
     pub fn get_entry_weight_id(
         &mut self,
         procedures: &ProcedureMap,

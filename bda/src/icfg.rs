@@ -86,7 +86,7 @@ impl ICFG {
 
     pub fn has_malloc(&self) -> bool {
         for p in self.procedures.keys() {
-            if self.get_procedure(p).read().unwrap().is_malloc {
+            if self.get_procedure(p).read().unwrap().is_malloc() {
                 return true;
             }
         }
@@ -114,13 +114,13 @@ impl ICFG {
     pub fn add_edge(&mut self, from: (NodeId, Procedure), to: (NodeId, Procedure)) {
         // Check if a procedure is located at the actual address.
         if !self.procedures.contains_key(&from.0) {
-            if from.1.cfg.is_none() {
+            if !from.1.is_cfg_set() {
                 panic!("If a new node is added to the iCFG, the procedure can not be None.");
             }
             self.add_procedure(from.0, from.1);
         }
         if !self.procedures.contains_key(&to.0) {
-            if to.1.cfg.is_none() {
+            if !to.1.is_cfg_set() {
                 panic!("If a new node is added to the iCFG, the procedure can not be None.");
             }
             self.add_procedure(to.0, to.1);
