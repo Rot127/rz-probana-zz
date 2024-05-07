@@ -59,11 +59,13 @@ impl ProcedureMap {
 
     pub fn insert(&mut self, nid: NodeId, p: RwLock<Procedure>) {
         let entry = p.read().unwrap().get_cfg().get_entry();
-        assert_eq!(
-            nid, entry,
-            "Can't add procedure. Index and entry node address miss-match: index({}) != entry({})",
-            nid, entry
-        );
+        if entry != INVALID_NODE_ID {
+            assert_eq!(
+                nid, entry,
+                "Can't add procedure. Index and entry node address miss-match: index({}) != entry({})",
+                nid, entry
+            );
+        }
         self.map.insert(nid, p);
     }
 
