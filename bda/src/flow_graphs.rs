@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use helper::spinner::Spinner;
-use petgraph::algo::{is_cyclic_directed, kosaraju_scc};
+use petgraph::algo::{is_cyclic_directed, kosaraju_scc, toposort};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 
@@ -443,8 +443,18 @@ pub trait FlowGraphOperations {
         recalc: bool,
     ) -> WeightID;
 
+    fn set_rev_topograph_mut(&mut self, rev_topograph: Vec<NodeId>);
+
     /// Sort the graph in reverse topological order.
-    fn sort(&mut self);
+    fn sort(&mut self) {
+        // Remove cycles
+        let mut rev_topograph = match toposort(&self.get_graph(), None) {
+            Ok(graph) => graph,
+            Err(_) => panic!("Graph contains cycles. Cannot sort it to topological order."),
+        };
+        rev_topograph.reverse();
+        self.set_rev_topograph_mut(rev_topograph);
+    }
 
     fn get_graph_mut(&mut self) -> &mut FlowGraph;
 

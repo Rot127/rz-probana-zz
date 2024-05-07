@@ -226,13 +226,8 @@ impl FlowGraphOperations for ICFG {
         &self.graph
     }
 
-    fn sort(&mut self) {
-        // Remove cycles
-        self.rev_topograph = match toposort(&self.graph, None) {
-            Ok(graph) => graph,
-            Err(_) => panic!("Graph contains cycles. Cannot sort it to topological order."),
-        };
-        self.rev_topograph.reverse();
+    fn set_rev_topograph_mut(&mut self, rev_topograph: Vec<NodeId>) {
+        self.rev_topograph = rev_topograph;
     }
 
     /// Increments [nid.icfg_clone_count] by [increment].
