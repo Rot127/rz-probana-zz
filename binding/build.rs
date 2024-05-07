@@ -10,10 +10,7 @@ use std::path::PathBuf;
 fn main() {
     let rz_repo: String = match env::var("RZ_REPO_PATH") {
         Ok(v) => v,
-        Err(_e) => {
-            println!("RZ_REPO_PATH must be set to Rizins repo path.");
-            std::process::exit(1)
-        }
+        Err(_e) => "".to_owned(),
     };
     let rz_install_root: String = match env::var("RZ_INSTALL_ROOT_PATH") {
         Ok(v) => v,
@@ -22,7 +19,10 @@ fn main() {
     println!("cargo:rustc-link-search=/usr/local/lib");
     println!("cargo:rustc-link-search={}/usr/local/lib", rz_install_root);
     println!("cargo:rustc-link-search=/usr/local/lib64");
-    println!("cargo:rustc-link-search={}/usr/local/lib64", rz_install_root);
+    println!(
+        "cargo:rustc-link-search={}/usr/local/lib64",
+        rz_install_root
+    );
     println!("cargo:rustc-link-lib=rz_util");
     println!("cargo:rerun-if-changed=wrapper.h");
 
