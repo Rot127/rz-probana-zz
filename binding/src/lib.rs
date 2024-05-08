@@ -8,7 +8,12 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use core::panic;
-use std::{env, path::PathBuf, str::FromStr};
+use std::{
+    env,
+    path::PathBuf,
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 #[macro_export]
 macro_rules! log_rz {
@@ -76,6 +81,25 @@ pub struct rz_lib_struct_t {
 
 pub type RzLibStruct = rz_lib_struct_t;
 
+/// Wrapper struct around a *mut rz_core_t
+/// Clone and Copy should definitely not be implemented for this struct.
+pub struct RzCoreWrapper {
+    pub ptr: *mut rz_core_t,
+}
+
+/// Guraded RzCore
+pub type GRzCore = Arc<Mutex<RzCoreWrapper>>;
+
+impl RzCoreWrapper {
+    pub fn new(core: *mut rz_core_t) -> GRzCore {
+        Arc::new(Mutex::new(RzCoreWrapper { ptr: core }))
+    }
+}
+
+/// This allows us to pass the *mut GRzCore between threads.
+/// This is inherintly unsafe. So rz_core should never be used without Mutex.
+unsafe impl Send for RzCoreWrapper {}
+
 pub fn get_rz_test_bin_path() -> PathBuf {
     let rz_repo: String = match env::var("RZ_REPO_PATH") {
         Ok(v) => v,
@@ -112,17 +136,20 @@ pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
     core
 }
 
-pub fn rz_notify_begin(rz_core: *mut RzCore, mut msg: String) {
+pub fn rz_notify_begin(rz_core: GRzCore, mut msg: String) {
     msg.push('\0');
-    unsafe { rz_core_notify_begin_str(rz_core, msg.as_ptr().cast()) };
+    let core = rz_core.lock().unwrap();
+    unsafe { rz_core_notify_begin_str(core.ptr, msg.as_ptr().cast()) };
 }
 
-pub fn rz_notify_done(rz_core: *mut RzCore, mut msg: String) {
+pub fn rz_notify_done(rz_core: GRzCore, mut msg: String) {
     msg.push('\0');
-    unsafe { rz_core_notify_done_str(rz_core, msg.as_ptr().cast()) };
+    let core = rz_core.lock().unwrap();
+    unsafe { rz_core_notify_done_str(core.ptr, msg.as_ptr().cast()) };
 }
 
-pub fn rz_notify_error(rz_core: *mut RzCore, mut msg: String) {
+pub fn rz_notify_error(rz_core: GRzCore, mut msg: String) {
     msg.push('\0');
-    unsafe { rz_core_notify_error_str(rz_core, msg.as_ptr().cast()) };
+    let core = rz_core.lock().unwrap();
+    unsafe { rz_core_notify_error_str(core.ptr, msg.as_ptr().cast()) };
 }

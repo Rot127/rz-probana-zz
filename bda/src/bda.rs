@@ -12,6 +12,7 @@
 
 use std::{
     collections::HashMap,
+    sync::RwLock,
     thread::{self, JoinHandle},
     time::Instant,
 };
@@ -75,8 +76,8 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
 /// Runs the BDA analysis by sampleing paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
-pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
-    let bin_entries = get_bin_entries(rz_core);
+pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
+    let bin_entries = get_bin_entries(core.clone());
     if !malloc_present(icfg) {
         return;
     }
@@ -101,7 +102,13 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
                 state.get_weight_map(),
             );
             if threads.get(&tid).is_none() {
-                threads.insert(tid, thread::spawn(move || interpret(&path)));
+                let core_ref = core.clone();
+                threads.insert(
+                    tid,
+                    thread::spawn(move || {
+                        interpret(core_ref, &mut InterpreterVM::new(), path.to_addr_path())
+                    }),
+                );
             }
         }
 
@@ -124,5 +131,8 @@ pub fn run_bda(rz_core: *mut RzCore, icfg: &mut ICFG, state: &BDAState) {
     if state.bda_timed_out() {
         term_reason = "timeout";
     }
-    rz_notify_done(rz_core, format!("Finished BDA analysis ({})", term_reason));
+    rz_notify_done(
+        core.clone(),
+        format!("Finished BDA analysis ({})", term_reason),
+    );
 }

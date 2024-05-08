@@ -14,8 +14,8 @@ use binding::{
     log_rizn, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
     rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
-    rz_core_graph_icfg, rz_graph_free, rz_notify_error, RzAnalysis, RzBinAddr, RzBinFile,
-    RzCmdStatus, RzCore, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
+    rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error, GRzCore, RzAnalysis, RzBinAddr,
+    RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
@@ -124,9 +124,10 @@ macro_rules! get_node_info_address {
     };
 }
 
-pub fn get_bin_entries(rz_core: *mut RzCore) -> Vec<Address> {
+pub fn get_bin_entries(rz_core: GRzCore) -> Vec<Address> {
     let binfiles: Vec<*mut RzBinFile> = unsafe {
-        list_to_vec::<*mut RzBinFile>((*(*rz_core).bin).binfiles, |elem| elem as *mut RzBinFile)
+        let core = rz_core.lock().unwrap();
+        list_to_vec::<*mut RzBinFile>((*(*(core.ptr)).bin).binfiles, |elem| elem as *mut RzBinFile)
     };
     let mut entries: Vec<Address> = Vec::new();
     unsafe {
@@ -312,13 +313,19 @@ fn bin_entry_present(bin_entries: &Vec<Address>) -> bool {
     true
 }
 
-pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
-    if !bin_entry_present(&get_bin_entries(core)) {
-        rz_notify_error(core, "BDA analysis failed with an error".to_owned());
+fn guarded_rz_core_graph_icfg(core: GRzCore) -> *mut RzGraph {
+    let c = core.lock().unwrap();
+    unsafe { rz_core_graph_icfg(c.ptr) }
+}
+
+pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) {
+    let core = RzCoreWrapper::new(rz_core);
+    if !bin_entry_present(&get_bin_entries(core.clone())) {
+        rz_notify_error(core.clone(), "BDA analysis failed with an error".to_owned());
         return;
     }
     // get iCFG
-    let rz_icfg = unsafe { rz_core_graph_icfg(core) };
+    let rz_icfg = guarded_rz_core_graph_icfg(core.clone());
     if rz_icfg.is_null() {
         log_rz!(
             LOG_ERROR,
@@ -344,9 +351,9 @@ pub extern "C" fn run_bda_analysis(core: *mut RzCore, a: *mut RzAnalysis) {
     for n in nodes {
         let get_iword_cfg = unsafe { (*(*a).cur).decode_iword.is_some() };
         let rz_cfg = if get_iword_cfg {
-            unsafe { rz_core_graph_cfg_iwords(core, n.address) }
+            unsafe { rz_core_graph_cfg_iwords(rz_core, n.address) }
         } else {
-            unsafe { rz_core_graph_cfg(core, n.address) }
+            unsafe { rz_core_graph_cfg(rz_core, n.address) }
         };
         if rz_cfg.is_null() {
             panic!("A value for an CFG was NULL");
