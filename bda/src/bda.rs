@@ -12,24 +12,23 @@
 
 use std::{
     collections::HashMap,
-    sync::RwLock,
     thread::{self, JoinHandle},
     time::Instant,
 };
 
-use binding::{log_rizn, log_rz, rz_notify_done, RzAnalysis, RzCore, LOG_WARN};
+use binding::{log_rizn, log_rz, rz_notify_done, GRzCore, RzAnalysis, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
+use rzil_abstr::interpreter::{interpret, AbstrVal, InterpreterVM, IntrpByProducts};
 
 use crate::{
-    abstr_int::{interpret, InterpreterProducts, MemVal},
     bda_binding::get_bin_entries,
     icfg::ICFG,
     path_sampler::sample_path,
     state::{run_condition_fulfilled, BDAState},
 };
 
-fn report_mem_vals_to_rz(rz_analysis: *mut RzAnalysis, mem_vals: &Vec<MemVal>) {
+fn report_mem_vals_to_rz(rz_analysis: *mut RzAnalysis, mem_vals: &Vec<AbstrVal>) {
     todo!()
 }
 
@@ -87,8 +86,8 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
     let mut spinner = Spinner::new("".to_string());
     let mut paths_walked = 0;
     let mut rng = thread_rng();
-    let mut products: Vec<InterpreterProducts> = Vec::new();
-    let mut threads: HashMap<usize, JoinHandle<InterpreterProducts>> = HashMap::new();
+    let mut products: Vec<IntrpByProducts> = Vec::new();
+    let mut threads: HashMap<usize, JoinHandle<IntrpByProducts>> = HashMap::new();
     while run_condition_fulfilled(&state) {
         spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads

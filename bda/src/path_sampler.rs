@@ -6,6 +6,7 @@ use std::{collections::VecDeque, sync::RwLock};
 use binding::{log_rizn, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
+use rzil_abstr::interpreter::IntrpPath;
 
 use crate::{
     cfg::CFG,
@@ -30,6 +31,15 @@ impl Path {
 
     pub fn push(&mut self, nid: NodeId) {
         self.path.push(nid);
+    }
+
+    /// Translates the path to an interpreter path.
+    pub fn to_addr_path(&self) -> IntrpPath {
+        let mut ipath: IntrpPath = IntrpPath::new();
+        for n in self.path.iter() {
+            ipath.push(n.address);
+        }
+        ipath
     }
 }
 

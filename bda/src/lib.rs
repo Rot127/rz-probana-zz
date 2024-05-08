@@ -5,7 +5,6 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-mod abstr_int;
 mod bda;
 pub mod bda_binding;
 pub mod cfg;
