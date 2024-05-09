@@ -22,6 +22,23 @@ macro_rules! log_rz {
     };
 }
 
+#[macro_export]
+macro_rules! null_check {
+    ( $($ptr:expr),* ) => {
+        $(
+            assert_ne!($ptr, std::ptr::null_mut(), "{:?} is NULL", $ptr);
+        )*
+    };
+}
+
+#[macro_export]
+macro_rules! pderef {
+    ($ptr:expr) => {{
+        null_check!($ptr);
+        unsafe { *$ptr }
+    }};
+}
+
 pub const LOG_DEBUG: u32 = rz_log_level_RZ_LOGLVL_DEBUG;
 pub const LOG_VERBOSE: u32 = rz_log_level_RZ_LOGLVL_VERBOSE;
 pub const LOG_INFO: u32 = rz_log_level_RZ_LOGLVL_INFO;

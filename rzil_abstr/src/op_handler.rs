@@ -1,0 +1,642 @@
+// SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
+// SPDX-License-Identifier: LGPL-3.0-only
+
+#![allow(unused)]
+
+use binding::{
+    RzILOpEffect, RzILOpEffectCode, RzILOpEffectCode_RZ_IL_OP_BLK,
+    RzILOpEffectCode_RZ_IL_OP_BRANCH, RzILOpEffectCode_RZ_IL_OP_EFFECT_MAX,
+    RzILOpEffectCode_RZ_IL_OP_EMPTY, RzILOpEffectCode_RZ_IL_OP_GOTO, RzILOpEffectCode_RZ_IL_OP_JMP,
+    RzILOpEffectCode_RZ_IL_OP_NOP, RzILOpEffectCode_RZ_IL_OP_REPEAT, RzILOpEffectCode_RZ_IL_OP_SEQ,
+    RzILOpEffectCode_RZ_IL_OP_SET, RzILOpEffectCode_RZ_IL_OP_STORE,
+    RzILOpEffectCode_RZ_IL_OP_STOREW, RzILOpPure, RzILOpPureCode, RzILOpPureCode_RZ_IL_OP_ADD,
+    RzILOpPureCode_RZ_IL_OP_AND, RzILOpPureCode_RZ_IL_OP_APPEND, RzILOpPureCode_RZ_IL_OP_B0,
+    RzILOpPureCode_RZ_IL_OP_B1, RzILOpPureCode_RZ_IL_OP_BITV, RzILOpPureCode_RZ_IL_OP_CAST,
+    RzILOpPureCode_RZ_IL_OP_DIV, RzILOpPureCode_RZ_IL_OP_EQ, RzILOpPureCode_RZ_IL_OP_FABS,
+    RzILOpPureCode_RZ_IL_OP_FADD, RzILOpPureCode_RZ_IL_OP_FBITS,
+    RzILOpPureCode_RZ_IL_OP_FCAST_FLOAT, RzILOpPureCode_RZ_IL_OP_FCAST_INT,
+    RzILOpPureCode_RZ_IL_OP_FCAST_SFLOAT, RzILOpPureCode_RZ_IL_OP_FCAST_SINT,
+    RzILOpPureCode_RZ_IL_OP_FCOMPOUND, RzILOpPureCode_RZ_IL_OP_FCONVERT,
+    RzILOpPureCode_RZ_IL_OP_FDIV, RzILOpPureCode_RZ_IL_OP_FHYPOT, RzILOpPureCode_RZ_IL_OP_FLOAT,
+    RzILOpPureCode_RZ_IL_OP_FMAD, RzILOpPureCode_RZ_IL_OP_FMOD, RzILOpPureCode_RZ_IL_OP_FMUL,
+    RzILOpPureCode_RZ_IL_OP_FNEG, RzILOpPureCode_RZ_IL_OP_FORDER, RzILOpPureCode_RZ_IL_OP_FPOW,
+    RzILOpPureCode_RZ_IL_OP_FPOWN, RzILOpPureCode_RZ_IL_OP_FPRED, RzILOpPureCode_RZ_IL_OP_FREQUAL,
+    RzILOpPureCode_RZ_IL_OP_FROOTN, RzILOpPureCode_RZ_IL_OP_FROUND, RzILOpPureCode_RZ_IL_OP_FRSQRT,
+    RzILOpPureCode_RZ_IL_OP_FSQRT, RzILOpPureCode_RZ_IL_OP_FSUB, RzILOpPureCode_RZ_IL_OP_FSUCC,
+    RzILOpPureCode_RZ_IL_OP_INV, RzILOpPureCode_RZ_IL_OP_IS_FINITE,
+    RzILOpPureCode_RZ_IL_OP_IS_FNEG, RzILOpPureCode_RZ_IL_OP_IS_FPOS,
+    RzILOpPureCode_RZ_IL_OP_IS_FZERO, RzILOpPureCode_RZ_IL_OP_IS_INF,
+    RzILOpPureCode_RZ_IL_OP_IS_NAN, RzILOpPureCode_RZ_IL_OP_IS_ZERO, RzILOpPureCode_RZ_IL_OP_ITE,
+    RzILOpPureCode_RZ_IL_OP_LET, RzILOpPureCode_RZ_IL_OP_LOAD, RzILOpPureCode_RZ_IL_OP_LOADW,
+    RzILOpPureCode_RZ_IL_OP_LOGAND, RzILOpPureCode_RZ_IL_OP_LOGNOT, RzILOpPureCode_RZ_IL_OP_LOGOR,
+    RzILOpPureCode_RZ_IL_OP_LOGXOR, RzILOpPureCode_RZ_IL_OP_LSB, RzILOpPureCode_RZ_IL_OP_MOD,
+    RzILOpPureCode_RZ_IL_OP_MSB, RzILOpPureCode_RZ_IL_OP_MUL, RzILOpPureCode_RZ_IL_OP_NEG,
+    RzILOpPureCode_RZ_IL_OP_OR, RzILOpPureCode_RZ_IL_OP_PURE_MAX, RzILOpPureCode_RZ_IL_OP_SDIV,
+    RzILOpPureCode_RZ_IL_OP_SHIFTL, RzILOpPureCode_RZ_IL_OP_SHIFTR, RzILOpPureCode_RZ_IL_OP_SLE,
+    RzILOpPureCode_RZ_IL_OP_SMOD, RzILOpPureCode_RZ_IL_OP_SUB, RzILOpPureCode_RZ_IL_OP_ULE,
+    RzILOpPureCode_RZ_IL_OP_VAR, RzILOpPureCode_RZ_IL_OP_XOR, RzILTypePure,
+};
+
+use crate::interpreter::AbstrVM;
+
+pub const IL_OP_VAR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_VAR;
+pub const IL_OP_ITE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ITE;
+pub const IL_OP_LET: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LET;
+pub const IL_OP_B0: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_B0;
+pub const IL_OP_B1: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_B1;
+pub const IL_OP_INV: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_INV;
+pub const IL_OP_AND: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_AND;
+pub const IL_OP_OR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_OR;
+pub const IL_OP_XOR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_XOR;
+pub const IL_OP_BITV: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_BITV;
+pub const IL_OP_MSB: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_MSB;
+pub const IL_OP_LSB: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LSB;
+pub const IL_OP_IS_ZERO: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_IS_ZERO;
+pub const IL_OP_NEG: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_NEG;
+pub const IL_OP_LOGNOT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LOGNOT;
+pub const IL_OP_ADD: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ADD;
+pub const IL_OP_SUB: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_SUB;
+pub const IL_OP_MUL: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_MUL;
+pub const IL_OP_DIV: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_DIV;
+pub const IL_OP_SDIV: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_SDIV;
+pub const IL_OP_MOD: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_MOD;
+pub const IL_OP_SMOD: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_SMOD;
+pub const IL_OP_LOGAND: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LOGAND;
+pub const IL_OP_LOGOR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LOGOR;
+pub const IL_OP_LOGXOR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LOGXOR;
+pub const IL_OP_SHIFTR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_SHIFTR;
+pub const IL_OP_SHIFTL: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_SHIFTL;
+pub const IL_OP_EQ: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_EQ;
+pub const IL_OP_SLE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_SLE;
+pub const IL_OP_ULE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ULE;
+pub const IL_OP_CAST: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_CAST;
+pub const IL_OP_APPEND: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_APPEND;
+pub const IL_OP_FLOAT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FLOAT;
+pub const IL_OP_FBITS: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FBITS;
+pub const IL_OP_IS_FINITE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_IS_FINITE;
+pub const IL_OP_IS_NAN: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_IS_NAN;
+pub const IL_OP_IS_INF: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_IS_INF;
+pub const IL_OP_IS_FZERO: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_IS_FZERO;
+pub const IL_OP_IS_FNEG: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_IS_FNEG;
+pub const IL_OP_IS_FPOS: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_IS_FPOS;
+pub const IL_OP_FNEG: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FNEG;
+pub const IL_OP_FABS: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FABS;
+pub const IL_OP_FCAST_INT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FCAST_INT;
+pub const IL_OP_FCAST_SINT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FCAST_SINT;
+pub const IL_OP_FCAST_FLOAT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FCAST_FLOAT;
+pub const IL_OP_FCAST_SFLOAT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FCAST_SFLOAT;
+pub const IL_OP_FCONVERT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FCONVERT;
+pub const IL_OP_FREQUAL: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FREQUAL;
+pub const IL_OP_FSUCC: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FSUCC;
+pub const IL_OP_FPRED: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FPRED;
+pub const IL_OP_FORDER: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FORDER;
+pub const IL_OP_FROUND: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FROUND;
+pub const IL_OP_FSQRT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FSQRT;
+pub const IL_OP_FRSQRT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FRSQRT;
+pub const IL_OP_FADD: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FADD;
+pub const IL_OP_FSUB: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FSUB;
+pub const IL_OP_FMUL: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FMUL;
+pub const IL_OP_FDIV: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FDIV;
+pub const IL_OP_FMOD: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FMOD;
+pub const IL_OP_FHYPOT: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FHYPOT;
+pub const IL_OP_FPOW: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FPOW;
+pub const IL_OP_FMAD: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FMAD;
+pub const IL_OP_FROOTN: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FROOTN;
+pub const IL_OP_FPOWN: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FPOWN;
+pub const IL_OP_FCOMPOUND: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_FCOMPOUND;
+pub const IL_OP_LOAD: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LOAD;
+pub const IL_OP_LOADW: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_LOADW;
+pub const IL_OP_PURE_MAX: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_PURE_MAX;
+
+pub const IL_OP_STORE: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_STORE;
+pub const IL_OP_STOREW: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_STOREW;
+pub const IL_OP_EMPTY: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_EMPTY;
+pub const IL_OP_NOP: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_NOP;
+pub const IL_OP_SET: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_SET;
+pub const IL_OP_JMP: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_JMP;
+pub const IL_OP_GOTO: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_GOTO;
+pub const IL_OP_SEQ: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_SEQ;
+pub const IL_OP_BLK: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BLK;
+pub const IL_OP_REPEAT: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_REPEAT;
+pub const IL_OP_BRANCH: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BRANCH;
+
+// Handler for core theory opcodes
+pub fn rz_il_handler_ite(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_var(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_let(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+
+pub fn rz_il_handler_bitv(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_msb(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_lsb(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_is_zero(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_eq(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_ule(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_sle(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_neg(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_logical_not(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_add(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_sub(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_mul(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_div(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_sdiv(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_mod(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_smod(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_shiftl(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_shiftr(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_logical_and(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_logical_or(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_logical_xor(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+
+pub fn rz_il_handler_bool_false(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_bool_true(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_bool_and(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_bool_or(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_bool_xor(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_bool_inv(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+
+pub fn rz_il_handler_cast(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_append(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+
+pub fn rz_il_handler_empty(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_nop(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_seq(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_blk(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_branch(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+
+pub fn rz_il_handler_load(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+pub fn rz_il_handler_loadw(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}
+
+pub fn rz_il_handler_float(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fbits(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_is_finite(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_is_nan(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_is_inf(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_is_fzero(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_is_fneg(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_is_fpos(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fneg(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fabs(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fcast_int(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fcast_sint(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fcast_float(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fcast_sfloat(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fconvert(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_frequal(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fsucc(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fpred(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_forder(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fround(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fsqrt(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_frsqrt(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fadd(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fsub(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fdiv(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fmul(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fmod(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fhypot(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fpow(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fmad(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_frootn(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fpown(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_fcompound(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+
+pub fn rz_il_handler_pure_unimplemented(
+    vm: &mut AbstrVM,
+    op: *mut RzILOpPure,
+    ptype: &mut RzILTypePure,
+) -> *mut RzILOpPure {
+    todo!()
+}
+pub fn rz_il_handler_effect_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+    todo!()
+}

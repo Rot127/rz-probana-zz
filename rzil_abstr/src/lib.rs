@@ -2,3 +2,4 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pub mod interpreter;
+mod op_handler;

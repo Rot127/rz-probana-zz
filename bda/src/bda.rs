@@ -16,10 +16,10 @@ use std::{
     time::Instant,
 };
 
-use binding::{log_rizn, log_rz, rz_notify_done, GRzCore, RzAnalysis, LOG_WARN};
+use binding::{log_rizn, log_rz, rz_notify_done, GRzCore, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
-use rzil_abstr::interpreter::{interpret, AbstrVal, InterpreterVM, IntrpByProducts};
+use rzil_abstr::interpreter::{interpret, IntrpByProducts};
 
 use crate::{
     bda_binding::get_bin_entries,
@@ -27,10 +27,6 @@ use crate::{
     path_sampler::sample_path,
     state::{run_condition_fulfilled, BDAState},
 };
-
-fn report_mem_vals_to_rz(rz_analysis: *mut RzAnalysis, mem_vals: &Vec<AbstrVal>) {
-    todo!()
-}
 
 fn malloc_present(icfg: &ICFG) -> bool {
     if !icfg.has_malloc() {
@@ -104,9 +100,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
                 let core_ref = core.clone();
                 threads.insert(
                     tid,
-                    thread::spawn(move || {
-                        interpret(core_ref, &mut InterpreterVM::new(), path.to_addr_path())
-                    }),
+                    thread::spawn(move || interpret(core_ref, path.to_addr_path())),
                 );
             }
         }
