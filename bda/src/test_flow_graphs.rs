@@ -12,7 +12,7 @@ mod tests {
         cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG},
         flow_graphs::{FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
         icfg::ICFG,
-        proc_map_get_cfg, proc_map_get_cfg_mut,
+        proc_map_get_cfg_mut,
         test_graphs::{
             get_cfg_linear, get_cfg_linear_call, get_cfg_loop_self_ref,
             get_cfg_no_loop_sub_routine, get_cfg_no_loop_sub_routine_loop_ret,

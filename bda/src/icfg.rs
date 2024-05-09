@@ -8,7 +8,6 @@ use std::{
 };
 
 use helper::progress::ProgressBar;
-use petgraph::algo::toposort;
 
 use crate::{
     cfg::{InsnNodeWeightType, Procedure},

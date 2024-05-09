@@ -9,7 +9,7 @@ use std::{
 };
 
 use binding::{log_rizn, log_rz, LOG_DEBUG};
-use petgraph::{algo::toposort, Direction::Outgoing};
+use petgraph::Direction::Outgoing;
 
 use crate::{
     flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},

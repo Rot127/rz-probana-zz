@@ -25,6 +25,8 @@ impl Path {
         Path { path: Vec::new() }
     }
 
+    // Function only used in macro and is not detected as used.
+    #[allow(dead_code)]
     pub fn from(path: Vec<NodeId>) -> Path {
         Path { path }
     }
