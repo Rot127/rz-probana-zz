@@ -11,8 +11,8 @@ use crate::icfg::ICFG;
 use crate::state::BDAState;
 
 use binding::{
-    log_rizn, log_rz, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
-    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
+    log_rizn, log_rz, null_check, pderef, rz_analysis_function_is_malloc,
+    rz_analysis_get_function_at, rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
     rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
     rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error, GRzCore, RzAnalysis, RzBinAddr,
     RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
@@ -35,13 +35,13 @@ pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
         return vec;
     }
 
-    let len = unsafe { (*pvec).v.len };
+    let len = pderef!(pvec).v.len;
     if len <= 0 {
         return vec;
     }
     vec.reserve(len as usize);
     let data_arr: &mut [*mut T] =
-        unsafe { std::slice::from_raw_parts_mut((*pvec).v.a as *mut *mut T, len as usize) };
+        unsafe { std::slice::from_raw_parts_mut(pderef!(pvec).v.a as *mut *mut T, len as usize) };
     for i in 0..len {
         vec.push(data_arr[i]);
     }
@@ -56,13 +56,13 @@ pub fn cpvec_to_vec<T>(pvec: *const RzPVector) -> Vec<*mut T> {
         return vec;
     }
 
-    let len = unsafe { (*pvec).v.len };
+    let len = pderef!(pvec).v.len;
     if len <= 0 {
         return vec;
     }
     vec.reserve(len as usize);
     let data_arr: &mut [*mut T] =
-        unsafe { std::slice::from_raw_parts_mut((*pvec).v.a as *mut *mut T, len as usize) };
+        unsafe { std::slice::from_raw_parts_mut(pderef!(pvec).v.a as *mut *mut T, len as usize) };
     for i in 0..len {
         vec.push(data_arr[i]);
     }
@@ -79,19 +79,19 @@ pub fn list_to_vec<T>(
         println!("List pointer is null.");
         return vec;
     }
-    let len = unsafe { (*list).length };
+    let len = pderef!(list).length;
     vec.reserve(len as usize);
-    let mut iter: *mut RzListIter = unsafe { (*list).head };
+    let mut iter: *mut RzListIter = pderef!(list).head;
     if iter.is_null() {
         assert_eq!(len, vec.len() as u32);
         return vec;
     }
     loop {
-        vec.push(elem_conv(unsafe { (*iter).elem }));
+        vec.push(elem_conv(pderef!(iter).elem));
         if unsafe { *iter }.next == null_mut() {
             break;
         }
-        iter = unsafe { (*iter).next };
+        iter = pderef!(iter).next;
     }
     assert_eq!(len, vec.len() as u32);
     vec
@@ -100,25 +100,26 @@ pub fn list_to_vec<T>(
 fn list_elem_to_graph_node_tuple(
     elem: *mut ::std::os::raw::c_void,
 ) -> (*mut RzGraphNode, *mut RzGraphNodeInfo) {
-    (elem as *mut RzGraphNode, unsafe {
-        (*(elem as *mut RzGraphNode)).data as *mut RzGraphNodeInfo
-    })
+    (
+        elem as *mut RzGraphNode,
+        pderef!(elem as *mut RzGraphNode).data as *mut RzGraphNodeInfo,
+    )
 }
 
 macro_rules! get_node_info_address {
     ( $node_info:ident ) => {
         unsafe {
-            match (*$node_info).type_ {
+            match pderef!($node_info).type_ {
                 RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG => {
-                    (*$node_info).__bindgen_anon_1.cfg.address
+                    pderef!($node_info).__bindgen_anon_1.cfg.address
                 }
                 RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD => {
-                    (*$node_info).__bindgen_anon_1.cfg_iword.address
+                    pderef!($node_info).__bindgen_anon_1.cfg_iword.address
                 }
                 RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG => {
-                    (*$node_info).__bindgen_anon_1.icfg.address
+                    pderef!($node_info).__bindgen_anon_1.icfg.address
                 }
-                _ => panic!("Node type {} not handled.", (*$node_info).type_),
+                _ => panic!("Node type {} not handled.", pderef!($node_info).type_),
             }
         }
     };
@@ -127,17 +128,19 @@ macro_rules! get_node_info_address {
 pub fn get_bin_entries(rz_core: GRzCore) -> Vec<Address> {
     let binfiles: Vec<*mut RzBinFile> = unsafe {
         let core = rz_core.lock().unwrap();
-        list_to_vec::<*mut RzBinFile>((*(*(core.ptr)).bin).binfiles, |elem| elem as *mut RzBinFile)
+        list_to_vec::<*mut RzBinFile>((*(pderef!(core.ptr)).bin).binfiles, |elem| {
+            elem as *mut RzBinFile
+        })
     };
     let mut entries: Vec<Address> = Vec::new();
     unsafe {
         let entry_vectors = binfiles
             .into_iter()
-            .map(|binfile| rz_bin_object_get_entries((*binfile).o));
+            .map(|binfile| rz_bin_object_get_entries(pderef!(binfile).o));
         entry_vectors.into_iter().for_each(|entry_vec| {
             cpvec_to_vec::<RzBinAddr>(entry_vec)
                 .into_iter()
-                .for_each(|addr| entries.push((*addr).vaddr))
+                .for_each(|addr| entries.push(pderef!(addr).vaddr))
         });
     }
     entries
@@ -147,19 +150,19 @@ pub fn get_bin_entries(rz_core: GRzCore) -> Vec<Address> {
 fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
         list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
-            unsafe { (*rz_graph).nodes },
+            pderef!(rz_graph).nodes,
             list_elem_to_graph_node_tuple,
         );
     let mut graph: FlowGraph = FlowGraph::new();
     for (node, node_info) in nodes {
         let out_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
             list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
-                unsafe { (*node).out_nodes },
+                pderef!(node).out_nodes,
                 list_elem_to_graph_node_tuple,
             );
         let in_nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
             list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
-                unsafe { (*node).in_nodes },
+                pderef!(node).in_nodes,
                 list_elem_to_graph_node_tuple,
             );
 
@@ -192,8 +195,8 @@ fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
             );
         }
     }
-    assert_eq!(graph.node_count(), unsafe { (*rz_graph).n_nodes } as usize);
-    assert_eq!(graph.edge_count(), unsafe { (*rz_graph).n_edges } as usize);
+    assert_eq!(graph.node_count(), pderef!(rz_graph).n_nodes as usize);
+    assert_eq!(graph.edge_count(), pderef!(rz_graph).n_edges as usize);
 
     log_rz!(
         LOG_DEBUG,
@@ -286,7 +289,7 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
 fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
         list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
-            unsafe { (*rz_cfg).nodes },
+            pderef!(rz_cfg).nodes,
             list_elem_to_graph_node_tuple,
         );
     for (_, node_info) in nodes {
@@ -349,7 +352,7 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) 
     let mut progress_bar = ProgressBar::new(String::from("Transfer CFGs"), nodes.len());
     let mut done = 0;
     for n in nodes {
-        let get_iword_cfg = unsafe { (*(*a).cur).decode_iword.is_some() };
+        let get_iword_cfg = pderef!(pderef!(a).cur).decode_iword.is_some();
         let rz_cfg = if get_iword_cfg {
             unsafe { rz_core_graph_cfg_iwords(rz_core, n.address) }
         } else {
@@ -386,7 +389,7 @@ pub extern "C" fn rz_analysis_bda_handler(
     _argc: i32,
     _argv: *mut *const i8,
 ) -> RzCmdStatus {
-    if unsafe { (*core).analysis.cast_const() == null() } {
+    if pderef!(core).analysis.cast_const() == null() {
         log_rz!(
             LOG_WARN,
             None,
@@ -394,7 +397,7 @@ pub extern "C" fn rz_analysis_bda_handler(
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }
-    let result = run_bda_analysis(core, unsafe { (*core).analysis });
+    let result = run_bda_analysis(core, pderef!(core).analysis);
     // if result.is_ok() {
     //     return rz_cmd_status_t_RZ_CMD_STATUS_OK;
     // }
