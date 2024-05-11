@@ -111,6 +111,81 @@ impl RzCoreWrapper {
     pub fn new(core: *mut rz_core_t) -> GRzCore {
         Arc::new(Mutex::new(RzCoreWrapper { ptr: core }))
     }
+
+    pub fn get_analysis_op(&self, addr: u64) -> *mut RzAnalysisOp {
+        let iop: *mut RzAnalysisOp = unsafe {
+            rz_core_analysis_op(
+                self.ptr,
+                addr,
+                RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL as i32,
+            )
+        };
+        iop
+    }
+
+    pub fn get_iword(&self, addr: u64) -> *mut RzAnalysisInsnWord {
+        let iword_decoder = self.get_iword_decoder();
+        unsafe {
+            let leading_bytes = if addr < 8 { addr } else { 8 };
+            let iword = rz_analysis_insn_word_new();
+            let buf_len = 64;
+            let mut buf = Vec::<u8>::with_capacity(buf_len);
+            if !rz_io_read_at_mapped(
+                self.get_io(),
+                addr - leading_bytes,
+                buf.as_mut_ptr(),
+                buf_len,
+            ) {
+                log_rz!(
+                    LOG_ERROR,
+                    None,
+                    format!("rz_io_read_at_mapped() failed at {}", addr)
+                );
+                return std::ptr::null_mut();
+            }
+            let success = iword_decoder.unwrap()(
+                self.get_analysis(),
+                iword,
+                addr,
+                buf.as_ptr(),
+                buf_len,
+                leading_bytes as usize,
+            );
+            if !success {
+                log_rz!(LOG_ERROR, None, "decode_iword failed".to_string());
+                return std::ptr::null_mut();
+            }
+
+            iword
+        }
+    }
+
+    pub fn get_io(&self) -> *mut rz_io_t {
+        pderef!(self.ptr).io
+    }
+
+    pub fn get_analysis(&self) -> *mut rz_analysis_t {
+        pderef!(self.ptr).analysis
+    }
+
+    pub fn get_cur(&self) -> *mut rz_analysis_plugin_t {
+        pderef!(self.get_analysis()).cur
+    }
+
+    pub fn get_iword_decoder(
+        &self,
+    ) -> Option<
+        unsafe extern "C" fn(
+            *mut rz_analysis_t,
+            *mut RzAnalysisInsnWord,
+            u64,
+            *const u8,
+            usize,
+            usize,
+        ) -> bool,
+    > {
+        pderef!(self.get_cur()).decode_iword
+    }
 }
 
 /// This allows us to pass the *mut GRzCore between threads.

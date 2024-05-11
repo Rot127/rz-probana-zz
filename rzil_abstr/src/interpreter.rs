@@ -4,11 +4,14 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use binding::{null_check, pderef, GRzCore, RzILOpEffect, RzILOpPure, RzILTypePure};
+use binding::{
+    null_check, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
+    RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure,
+};
 
 use crate::op_handler::{
-    rz_il_handler_add, rz_il_handler_append, rz_il_handler_bitv, rz_il_handler_blk,
-    rz_il_handler_bool_and, rz_il_handler_bool_false, rz_il_handler_bool_inv,
+    eval_effect, eval_pure, rz_il_handler_add, rz_il_handler_append, rz_il_handler_bitv,
+    rz_il_handler_blk, rz_il_handler_bool_and, rz_il_handler_bool_false, rz_il_handler_bool_inv,
     rz_il_handler_bool_or, rz_il_handler_bool_true, rz_il_handler_bool_xor, rz_il_handler_branch,
     rz_il_handler_cast, rz_il_handler_div, rz_il_handler_empty, rz_il_handler_eq,
     rz_il_handler_fabs, rz_il_handler_fadd, rz_il_handler_fbits, rz_il_handler_fcast_float,
@@ -182,96 +185,8 @@ pub struct AbstrVM {
     cs: CallStack,
     /// The resulting memory operand sequences of the interpretation
     mos: MemOpSeq,
-}
-
-fn eval_pure(vm: &mut AbstrVM, pure: *mut RzILOpPure, ptype: &mut RzILTypePure) -> *mut RzILOpPure {
-    match pderef!(pure).code {
-        IL_OP_VAR => rz_il_handler_var(vm, pure, ptype),
-        IL_OP_ITE => rz_il_handler_ite(vm, pure, ptype),
-        IL_OP_LET => rz_il_handler_let(vm, pure, ptype),
-        IL_OP_B0 => rz_il_handler_bool_false(vm, pure, ptype),
-        IL_OP_B1 => rz_il_handler_bool_true(vm, pure, ptype),
-        IL_OP_INV => rz_il_handler_bool_inv(vm, pure, ptype),
-        IL_OP_AND => rz_il_handler_bool_and(vm, pure, ptype),
-        IL_OP_OR => rz_il_handler_bool_or(vm, pure, ptype),
-        IL_OP_XOR => rz_il_handler_bool_xor(vm, pure, ptype),
-        IL_OP_BITV => rz_il_handler_bitv(vm, pure, ptype),
-        IL_OP_MSB => rz_il_handler_msb(vm, pure, ptype),
-        IL_OP_LSB => rz_il_handler_lsb(vm, pure, ptype),
-        IL_OP_IS_ZERO => rz_il_handler_is_zero(vm, pure, ptype),
-        IL_OP_NEG => rz_il_handler_neg(vm, pure, ptype),
-        IL_OP_LOGNOT => rz_il_handler_logical_not(vm, pure, ptype),
-        IL_OP_ADD => rz_il_handler_add(vm, pure, ptype),
-        IL_OP_SUB => rz_il_handler_sub(vm, pure, ptype),
-        IL_OP_MUL => rz_il_handler_mul(vm, pure, ptype),
-        IL_OP_DIV => rz_il_handler_div(vm, pure, ptype),
-        IL_OP_SDIV => rz_il_handler_sdiv(vm, pure, ptype),
-        IL_OP_MOD => rz_il_handler_mod(vm, pure, ptype),
-        IL_OP_SMOD => rz_il_handler_smod(vm, pure, ptype),
-        IL_OP_LOGAND => rz_il_handler_logical_and(vm, pure, ptype),
-        IL_OP_LOGOR => rz_il_handler_logical_or(vm, pure, ptype),
-        IL_OP_LOGXOR => rz_il_handler_logical_xor(vm, pure, ptype),
-        IL_OP_SHIFTR => rz_il_handler_shiftr(vm, pure, ptype),
-        IL_OP_SHIFTL => rz_il_handler_shiftl(vm, pure, ptype),
-        IL_OP_EQ => rz_il_handler_eq(vm, pure, ptype),
-        IL_OP_SLE => rz_il_handler_sle(vm, pure, ptype),
-        IL_OP_ULE => rz_il_handler_ule(vm, pure, ptype),
-        IL_OP_CAST => rz_il_handler_cast(vm, pure, ptype),
-        IL_OP_APPEND => rz_il_handler_append(vm, pure, ptype),
-        IL_OP_FLOAT => rz_il_handler_float(vm, pure, ptype),
-        IL_OP_FBITS => rz_il_handler_fbits(vm, pure, ptype),
-        IL_OP_IS_FINITE => rz_il_handler_is_finite(vm, pure, ptype),
-        IL_OP_IS_NAN => rz_il_handler_is_nan(vm, pure, ptype),
-        IL_OP_IS_INF => rz_il_handler_is_inf(vm, pure, ptype),
-        IL_OP_IS_FZERO => rz_il_handler_is_fzero(vm, pure, ptype),
-        IL_OP_IS_FNEG => rz_il_handler_is_fneg(vm, pure, ptype),
-        IL_OP_IS_FPOS => rz_il_handler_is_fpos(vm, pure, ptype),
-        IL_OP_FNEG => rz_il_handler_fneg(vm, pure, ptype),
-        IL_OP_FABS => rz_il_handler_fabs(vm, pure, ptype),
-        IL_OP_FCAST_INT => rz_il_handler_fcast_int(vm, pure, ptype),
-        IL_OP_FCAST_SINT => rz_il_handler_fcast_sint(vm, pure, ptype),
-        IL_OP_FCAST_FLOAT => rz_il_handler_fcast_float(vm, pure, ptype),
-        IL_OP_FCAST_SFLOAT => rz_il_handler_fcast_sfloat(vm, pure, ptype),
-        IL_OP_FCONVERT => rz_il_handler_fconvert(vm, pure, ptype),
-        IL_OP_FREQUAL => rz_il_handler_frequal(vm, pure, ptype),
-        IL_OP_FSUCC => rz_il_handler_fsucc(vm, pure, ptype),
-        IL_OP_FPRED => rz_il_handler_fpred(vm, pure, ptype),
-        IL_OP_FORDER => rz_il_handler_forder(vm, pure, ptype),
-        IL_OP_FROUND => rz_il_handler_fround(vm, pure, ptype),
-        IL_OP_FSQRT => rz_il_handler_fsqrt(vm, pure, ptype),
-        IL_OP_FRSQRT => rz_il_handler_frsqrt(vm, pure, ptype),
-        IL_OP_FADD => rz_il_handler_fadd(vm, pure, ptype),
-        IL_OP_FSUB => rz_il_handler_fsub(vm, pure, ptype),
-        IL_OP_FMUL => rz_il_handler_fmul(vm, pure, ptype),
-        IL_OP_FDIV => rz_il_handler_fdiv(vm, pure, ptype),
-        IL_OP_FMOD => rz_il_handler_fmod(vm, pure, ptype),
-        IL_OP_FHYPOT => rz_il_handler_fhypot(vm, pure, ptype),
-        IL_OP_FPOW => rz_il_handler_fpow(vm, pure, ptype),
-        IL_OP_FMAD => rz_il_handler_fmad(vm, pure, ptype),
-        IL_OP_FROOTN => rz_il_handler_frootn(vm, pure, ptype),
-        IL_OP_FPOWN => rz_il_handler_fpown(vm, pure, ptype),
-        IL_OP_FCOMPOUND => rz_il_handler_fcompound(vm, pure, ptype),
-        IL_OP_LOAD => rz_il_handler_load(vm, pure, ptype),
-        IL_OP_LOADW => rz_il_handler_loadw(vm, pure, ptype),
-        pt => panic!("Pure type {} not handled.", pt),
-    }
-}
-
-fn eval_effect(vm: &mut AbstrVM, eff: *mut RzILOpEffect) -> bool {
-    match pderef!(eff).code {
-        IL_OP_STORE => rz_il_handler_store(vm, eff),
-        IL_OP_STOREW => rz_il_handler_storew(vm, eff),
-        IL_OP_EMPTY => rz_il_handler_empty(vm, eff),
-        IL_OP_NOP => rz_il_handler_nop(vm, eff),
-        IL_OP_SET => rz_il_handler_set(vm, eff),
-        IL_OP_JMP => rz_il_handler_jmp(vm, eff),
-        IL_OP_GOTO => rz_il_handler_goto(vm, eff),
-        IL_OP_SEQ => rz_il_handler_seq(vm, eff),
-        IL_OP_BLK => rz_il_handler_blk(vm, eff),
-        IL_OP_REPEAT => rz_il_handler_repeat(vm, eff),
-        IL_OP_BRANCH => rz_il_handler_branch(vm, eff),
-        et => panic!("Pure type {} not handled.", et),
-    }
+    /// IL operation buffer
+    il_op_buf: HashMap<Address, *mut RzILOpEffect>,
 }
 
 impl AbstrVM {
@@ -293,17 +208,32 @@ impl AbstrVM {
             rv: rand_input_valuator,
             cs: CallStack::new(),
             mos: MemOpSeq::new(),
+            il_op_buf: HashMap::new(),
         }
     }
 
-    fn step(&mut self) -> bool {
+    fn step(&mut self, rz_core: &GRzCore) -> bool {
         let iaddr = self.pa.next();
         if iaddr.is_none() {
             return false;
         }
-        // Get il op
-        // execute
-        true
+
+        let rz_core = rz_core.lock().unwrap();
+        let iword_decoder = rz_core.get_iword_decoder();
+        let mut effect;
+        let result;
+        if iword_decoder.is_some() {
+            let iword = rz_core.get_iword(iaddr.unwrap());
+            effect = pderef!(iword).il_op;
+            result = eval_effect(self, effect);
+            unsafe { rz_analysis_insn_word_free(iword) };
+        } else {
+            let ana_op = rz_core.get_analysis_op(iaddr.unwrap());
+            effect = pderef!(ana_op).il_op;
+            result = eval_effect(self, effect);
+            unsafe { rz_analysis_op_free(ana_op.cast()) };
+        }
+        result
     }
 }
 
@@ -311,7 +241,7 @@ impl AbstrVM {
 pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
     let mut vm = AbstrVM::new(path.get(0), path, |addr, c| addr);
 
-    while vm.step() {}
+    while vm.step(&rz_core) {}
 
     // Replace with Channel and send/rcv
     IntrpByProducts {
