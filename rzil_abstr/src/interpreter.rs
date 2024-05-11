@@ -143,6 +143,7 @@ struct MemRegion {
 /// An abstract value.
 /// Constant values are represented a value of the Global memory region
 /// and the constant value set in [offset].
+#[derive(Clone)]
 pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
@@ -190,7 +191,9 @@ struct CallFrame {
     sp: AbstrVal,
 }
 
-type CallStack = VecDeque<CallFrame>;
+/// The call stack. With every Call to a procedure another CallFrame is pushed.
+/// With every return, a CallFrame is popped.
+type CallStack = Vec<CallFrame>;
 
 /// Resulting by-products of the abstract interpretation.
 pub struct IntrpByProducts {
@@ -344,6 +347,26 @@ impl AbstrVM {
             tainted = true;
         }
         (v3, tainted)
+    }
+
+    /// Normilzes the given value. If the value is not a stack memory value,
+    /// it returns a clone.
+    /// Otherwise, it returns an abtract value with the memory region set to
+    /// the enclosing stack frame. [^1]
+    /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
+    pub fn normalize_val(&self, v: &AbstrVal) -> AbstrVal {
+        let mut v_clone = v.clone();
+        if v.m.class != MemRegionClass::Stack {
+            return v_clone;
+        }
+        for vt in self.cs.iter().rev() {
+            if v.c < 0 {
+                break;
+            }
+            v_clone.m = vt.sp.m.clone();
+            v_clone.c += vt.sp.c.clone();
+        }
+        v_clone
     }
 }
 
