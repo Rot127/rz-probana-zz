@@ -2,11 +2,17 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    ffi::CString,
+};
+
+use rug::Integer;
 
 use binding::{
-    null_check, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
-    RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure,
+    log_rizin, log_rz, null_check, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
+    GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure,
+    LOG_DEBUG,
 };
 
 use crate::op_handler::{
@@ -44,10 +50,27 @@ use crate::op_handler::{
     IL_OP_SUB, IL_OP_ULE, IL_OP_VAR, IL_OP_XOR,
 };
 
+/// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 type Address = u64;
-type Const = u64;
+
+/// A constant value. It is an arbitrary size Integer because it must also
+/// be able to hold constant vector values of more then 64/128bit.
+type Const = Integer;
+
 type PC = Address;
-type Register = u64;
+
+struct Register {
+    /// Size in bits
+    size: usize,
+    /// The current value
+    val: AbstrVal,
+}
+
+impl Register {
+    fn new(size: usize, val: AbstrVal) -> Register {
+        Register { size, val }
+    }
+}
 
 pub struct IntrpPath {
     path: VecDeque<Address>,
@@ -115,12 +138,27 @@ struct MemRegion {
     addr: Address,
 }
 
-/// An abstract value
+/// An abstract value.
+/// Constant values are represented a value of the Global memory region
+/// and the constant value set in [offset].
 struct AbstrVal {
     /// The memory region of this value
-    region: MemRegion,
+    m: MemRegion,
     /// The offset of this variable from the base of the region.
-    offset: i64,
+    /// Or, if this is a global value, the constant.
+    c: Const,
+}
+
+impl AbstrVal {
+    fn new_global(c: Const) -> AbstrVal {
+        let m = MemRegion {
+            class: MemRegionClass::Global,
+            base: 0,
+            c: 0,
+            addr: 0,
+        };
+        AbstrVal { m, c }
+    }
 }
 
 struct MemOp {
@@ -159,6 +197,12 @@ impl IntrpByProducts {
     }
 }
 
+/// This function samples a random value from its distribution to
+/// emulate actual input for the program.
+/// It takes the address of an input-functions at [address] and the current
+/// [invocation] of the function.
+type RandInputValuator = fn(address: Address, invocation: Const) -> Const;
+
 /// An abstract interpreter VM. It will perform the abstract execution.
 pub struct AbstrVM {
     /// Program counter
@@ -179,22 +223,23 @@ pub struct AbstrVM {
     rt: HashMap<Register, AbstrVal>,
     /// Path
     pa: IntrpPath,
-    /// Random input validation
-    rv: fn(Address, Const) -> Const,
+    /// Random input valuator.
+    rv: RandInputValuator,
     /// Call stack
     cs: CallStack,
     /// The resulting memory operand sequences of the interpretation
     mos: MemOpSeq,
     /// IL operation buffer
     il_op_buf: HashMap<Address, *mut RzILOpEffect>,
+    /// The register file
+    regs: HashMap<String, Register>,
 }
 
 impl AbstrVM {
-    pub fn new(
-        pc: PC,
-        path: IntrpPath,
-        rand_input_valuator: fn(Address, Const) -> Const,
-    ) -> AbstrVM {
+    /// Creates a new abstract interpreter VM.
+    /// It takes the initial programm counter [pc], the [path] to walk
+    /// and the sampling function for generating random values for input values.
+    pub fn new(pc: PC, path: IntrpPath, rand_input_valuator: RandInputValuator) -> AbstrVM {
         AbstrVM {
             pc,
             is: HashMap::new(),
@@ -209,6 +254,7 @@ impl AbstrVM {
             cs: CallStack::new(),
             mos: MemOpSeq::new(),
             il_op_buf: HashMap::new(),
+            regs: HashMap::new(),
         }
     }
 
@@ -239,11 +285,39 @@ impl AbstrVM {
         }
         result
     }
+
+    fn init_register_file(&mut self, rz_core: GRzCore) {
+        log_rz!(
+            LOG_DEBUG,
+            None,
+            "Init register file for abstract interpreter.".to_string()
+        );
+        let core = rz_core.lock().unwrap();
+        let reg_bindings = core.get_reg_bindings().expect("Could not get reg_bindings");
+        let reg_count = pderef!(reg_bindings).regs_count;
+        let regs = pderef!(reg_bindings).regs;
+        (0..reg_count).for_each(|i| {
+            let reg = unsafe { regs.offset(i as isize) };
+            let rsize = pderef!(reg).size;
+            let rname = pderef!(reg).name;
+            let name = unsafe {
+                CString::from_raw(rname)
+                    .into_string()
+                    .expect("CString to String failed.")
+            };
+            log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
+            self.regs.insert(
+                name.to_owned(),
+                Register::new(rsize as usize, AbstrVal::new_global(Integer::from(0))),
+            );
+        });
+    }
 }
 
 /// Interprets the given path with the given interpeter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
-    let mut vm = AbstrVM::new(path.get(0), path, |addr, c| addr);
+    let mut vm = AbstrVM::new(path.get(0), path, |addr, c| todo!());
+    vm.init_register_file(rz_core.clone());
 
     while vm.step(&rz_core) {}
 

@@ -10,3 +10,4 @@ edition = "2021"
 
 [dependencies]
 binding = { path = "../binding", version = "0.1.0" }
+rug = "1.24.1"

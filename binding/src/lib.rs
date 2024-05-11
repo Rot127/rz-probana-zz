@@ -187,6 +187,41 @@ impl RzCoreWrapper {
     > {
         pderef!(self.get_cur()).decode_iword
     }
+
+    pub fn get_reg_bindings(&self) -> Option<*mut RzILRegBinding> {
+        let reg: *mut RzReg = unsafe { rz_reg_new() };
+        if reg == std::ptr::null_mut() {
+            return None;
+        }
+        let cur = self.get_cur();
+        let get_reg_profile = pderef!(cur)
+            .get_reg_profile
+            .expect("get_reg_profile not set");
+        let profile = unsafe { get_reg_profile(self.get_analysis()) };
+        if profile == std::ptr::null_mut() {
+            return None;
+        }
+        let succ = unsafe { rz_reg_set_profile_string(reg, profile) };
+        unsafe {
+            free(profile.cast());
+        }
+        if !succ {
+            return None;
+        }
+        let il_config = pderef!(self.get_cur())
+            .il_config
+            .expect("il_config not set.");
+        let cfg = unsafe { il_config(self.get_analysis()) };
+        if pderef!(cfg).reg_bindings != std::ptr::null_mut() {
+            let mut count = 0;
+            let reg_bindings = pderef!(cfg).reg_bindings;
+            while unsafe { reg_bindings.offset(count) } != std::ptr::null_mut() {
+                count += 1;
+            }
+            return Some(unsafe { rz_il_reg_binding_exactly(reg, count as usize, reg_bindings) });
+        }
+        Some(unsafe { rz_il_reg_binding_derive(reg) })
+    }
 }
 
 /// This allows us to pass the *mut GRzCore between threads.
