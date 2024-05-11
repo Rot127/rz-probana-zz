@@ -17,8 +17,8 @@ use std::{
 
 #[macro_export]
 macro_rules! log_rz {
-    ($level:ident, $msg:expr, $tag:expr) => {
-        log_rizn($level, $msg, $tag, line!(), file!().to_string())
+    ($level:ident, $tag:expr, $msg:expr) => {
+        log_rizn($level, $tag, $msg, line!(), file!().to_string())
     };
 }
 
