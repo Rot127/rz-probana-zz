@@ -18,7 +18,7 @@ use std::{
 #[macro_export]
 macro_rules! log_rz {
     ($level:ident, $tag:expr, $msg:expr) => {
-        log_rizn($level, $tag, $msg, line!(), file!().to_string())
+        log_rizin($level, $tag, $msg, line!(), file!().to_string())
     };
 }
 
@@ -51,7 +51,7 @@ pub fn get_rz_loglevel() -> u32 {
 }
 
 /// Write a log message in Rizin style.
-pub fn log_rizn(
+pub fn log_rizin(
     level: rz_log_level,
     tag: Option<String>,
     mut msg: String,

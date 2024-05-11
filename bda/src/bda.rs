@@ -16,7 +16,7 @@ use std::{
     time::Instant,
 };
 
-use binding::{log_rizn, log_rz, rz_notify_done, GRzCore, LOG_WARN};
+use binding::{log_rizin, log_rz, rz_notify_done, GRzCore, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, IntrpByProducts};

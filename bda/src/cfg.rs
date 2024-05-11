@@ -8,7 +8,7 @@ use std::{
     time::Instant,
 };
 
-use binding::{log_rizn, log_rz, LOG_DEBUG};
+use binding::{log_rizin, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 
 use crate::{

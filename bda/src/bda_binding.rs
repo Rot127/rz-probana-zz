@@ -11,7 +11,7 @@ use crate::icfg::ICFG;
 use crate::state::BDAState;
 
 use binding::{
-    log_rizn, log_rz, null_check, pderef, rz_analysis_function_is_malloc,
+    log_rizin, log_rz, null_check, pderef, rz_analysis_function_is_malloc,
     rz_analysis_get_function_at, rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
     rz_core_graph_cfg, rz_core_graph_cfg_iwords, rz_core_graph_icfg, rz_core_t, rz_graph_free,
     rz_notify_error, GRzCore, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper,

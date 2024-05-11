@@ -3,7 +3,7 @@
 
 use std::{collections::VecDeque, sync::RwLock};
 
-use binding::{log_rizn, log_rz, LOG_DEBUG};
+use binding::{log_rizin, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::IntrpPath;
