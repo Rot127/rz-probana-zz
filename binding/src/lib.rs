@@ -60,11 +60,6 @@ pub fn log_rizin(
 ) {
     msg.push('\n');
     msg.push('\0');
-    let mut tag_msg: String = match tag {
-        Some(t) => t,
-        None => "".to_string(),
-    };
-    tag_msg.push('\0');
     filename.push('\0');
     unsafe {
         rz_log_str(
@@ -72,7 +67,13 @@ pub fn log_rizin(
             filename.as_str().as_ptr().cast(),
             line,
             level,
-            tag_msg.as_str().as_ptr().cast(),
+            match tag {
+                Some(mut t) => {
+                    t.push('\0');
+                    t.as_str().as_ptr().cast()
+                }
+                None => std::ptr::null_mut(),
+            },
             msg.as_str().as_ptr().cast(),
         );
     }
