@@ -213,22 +213,26 @@ impl AbstrVM {
     }
 
     fn step(&mut self, rz_core: &GRzCore) -> bool {
-        let iaddr = self.pa.next();
-        if iaddr.is_none() {
+        let mut iaddr: Address;
+        if let Some(na) = self.pa.next() {
+            iaddr = na;
+        } else {
             return false;
         }
+
+        *self.ic.entry(iaddr).or_default() += 1;
 
         let rz_core = rz_core.lock().unwrap();
         let iword_decoder = rz_core.get_iword_decoder();
         let mut effect;
         let result;
         if iword_decoder.is_some() {
-            let iword = rz_core.get_iword(iaddr.unwrap());
+            let iword = rz_core.get_iword(iaddr);
             effect = pderef!(iword).il_op;
             result = eval_effect(self, effect);
             unsafe { rz_analysis_insn_word_free(iword) };
         } else {
-            let ana_op = rz_core.get_analysis_op(iaddr.unwrap());
+            let ana_op = rz_core.get_analysis_op(iaddr);
             effect = pderef!(ana_op).il_op;
             result = eval_effect(self, effect);
             unsafe { rz_analysis_op_free(ana_op.cast()) };
