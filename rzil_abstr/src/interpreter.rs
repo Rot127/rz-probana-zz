@@ -109,6 +109,7 @@ pub struct ConcreteIndirectCall {
 }
 
 /// Memory region classes: Global, Stack, Heap
+#[derive(Clone, PartialEq, Eq)]
 enum MemRegionClass {
     /// Global memory region. E.g. .data, .rodata, .bss
     Global,
@@ -119,6 +120,7 @@ enum MemRegionClass {
 }
 
 /// A memory region. Either of Global, Stack or Heap.
+#[derive(Clone)]
 struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
@@ -141,7 +143,7 @@ struct MemRegion {
 /// An abstract value.
 /// Constant values are represented a value of the Global memory region
 /// and the constant value set in [offset].
-struct AbstrVal {
+pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
     /// The offset of this variable from the base of the region.
@@ -159,7 +161,14 @@ impl AbstrVal {
         };
         AbstrVal { m, c }
     }
+
+    fn new(m: MemRegion, c: Const) -> AbstrVal {
+        AbstrVal { m, c }
+    }
 }
+
+/// An operation on the constant share of abstract values
+type AbstrOp = fn(v1: &Const, v2: &Const) -> Const;
 
 struct MemOp {
     /// Address of the memory instruction
@@ -197,20 +206,14 @@ impl IntrpByProducts {
     }
 }
 
-/// This function samples a random value from its distribution to
-/// emulate actual input for the program.
-/// It takes the address of an input-functions at [address] and the current
-/// [invocation] of the function.
-type RandInputValuator = fn(address: Address, invocation: Const) -> Const;
-
 /// An abstract interpreter VM. It will perform the abstract execution.
 pub struct AbstrVM {
     /// Program counter
     pc: PC,
     /// Instruction sizes map
-    is: HashMap<Address, Const>,
+    is: HashMap<Address, u64>,
     /// Invocation count map
-    ic: HashMap<Address, Const>,
+    ic: HashMap<Address, u64>,
     /// Loop predicate map
     lp: HashMap<Address, bool>,
     /// MemStore map
@@ -223,8 +226,6 @@ pub struct AbstrVM {
     rt: HashMap<Register, AbstrVal>,
     /// Path
     pa: IntrpPath,
-    /// Random input valuator.
-    rv: RandInputValuator,
     /// Call stack
     cs: CallStack,
     /// The resulting memory operand sequences of the interpretation
@@ -239,7 +240,7 @@ impl AbstrVM {
     /// Creates a new abstract interpreter VM.
     /// It takes the initial programm counter [pc], the [path] to walk
     /// and the sampling function for generating random values for input values.
-    pub fn new(pc: PC, path: IntrpPath, rand_input_valuator: RandInputValuator) -> AbstrVM {
+    pub fn new(pc: PC, path: IntrpPath) -> AbstrVM {
         AbstrVM {
             pc,
             is: HashMap::new(),
@@ -250,12 +251,19 @@ impl AbstrVM {
             mt: HashMap::new(),
             rt: HashMap::new(),
             pa: path,
-            rv: rand_input_valuator,
             cs: CallStack::new(),
             mos: MemOpSeq::new(),
             il_op_buf: HashMap::new(),
             regs: HashMap::new(),
         }
+    }
+
+    /// This function samples a random value from its distribution to
+    /// emulate actual input for the program.
+    /// It takes the address of an input-functions at [address] and the current
+    /// [invocation] of the function.
+    fn rv(&self, address: Address, invocation: u64) -> Const {
+        todo!()
     }
 
     fn step(&mut self, rz_core: &GRzCore) -> bool {
@@ -312,11 +320,36 @@ impl AbstrVM {
             );
         });
     }
+
+    /// Gives the invocation count for a given instruction address.
+    fn get_ic(&mut self, iaddr: Address) -> u64 {
+        self.ic.entry(iaddr).or_default().clone()
+    }
+
+    /// Calculates the result of an operation on two abstract values and their taint flags [^1]
+    /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
+    pub fn calc_value(&mut self, op: AbstrOp, v1: &AbstrVal, v2: AbstrVal) -> (AbstrVal, bool) {
+        let mut tainted: bool;
+        let mut v3: AbstrVal;
+        if v1.m.class == MemRegionClass::Global {
+            v3 = AbstrVal::new(v2.m.clone(), op(&v1.c, &v2.c));
+            tainted = false;
+        } else if v2.m.class == MemRegionClass::Global {
+            v3 = AbstrVal::new(v1.m.clone(), op(&v1.c, &v2.c));
+            tainted = false;
+        } else {
+            let pc = self.pc;
+            let ic_pc = self.get_ic(pc);
+            v3 = AbstrVal::new_global(self.rv(pc, ic_pc));
+            tainted = true;
+        }
+        (v3, tainted)
+    }
 }
 
 /// Interprets the given path with the given interpeter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
-    let mut vm = AbstrVM::new(path.get(0), path, |addr, c| todo!());
+    let mut vm = AbstrVM::new(path.get(0), path);
     vm.init_register_file(rz_core.clone());
 
     while vm.step(&rz_core) {}
