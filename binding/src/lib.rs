@@ -8,6 +8,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use core::panic;
+use rug::Integer;
 use std::{
     env,
     path::PathBuf,
@@ -280,4 +281,14 @@ pub fn rz_notify_error(rz_core: GRzCore, mut msg: String) {
     msg.push('\0');
     let core = rz_core.lock().unwrap();
     unsafe { rz_core_notify_error_str(core.ptr, msg.as_ptr().cast()) };
+}
+
+/// Converts a BitVector to an arbitrary sized Integer. It panics in case of failure.
+pub fn bv_to_int(bv: *mut RzBitVector) -> Integer {
+    null_check!(bv);
+    let len = unsafe { rz_bv_len(bv) };
+    if len <= 64 {
+        return Integer::from(unsafe { rz_bv_to_ut64(bv) });
+    }
+    todo!()
 }

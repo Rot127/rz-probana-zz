@@ -55,7 +55,7 @@ type Address = u64;
 
 /// A constant value. It is an arbitrary size Integer because it must also
 /// be able to hold constant vector values of more then 64/128bit.
-type Const = Integer;
+pub type Const = Integer;
 
 type PC = Address;
 
@@ -121,7 +121,7 @@ enum MemRegionClass {
 
 /// A memory region. Either of Global, Stack or Heap.
 #[derive(Clone)]
-struct MemRegion {
+pub struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
     /// Base address of the region.
@@ -153,7 +153,7 @@ pub struct AbstrVal {
 }
 
 impl AbstrVal {
-    fn new_global(c: Const) -> AbstrVal {
+    pub fn new_global(c: Const) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
             base: 0,
@@ -163,7 +163,7 @@ impl AbstrVal {
         AbstrVal { m, c }
     }
 
-    fn new(m: MemRegion, c: Const) -> AbstrVal {
+    pub fn new(m: MemRegion, c: Const) -> AbstrVal {
         AbstrVal { m, c }
     }
 }

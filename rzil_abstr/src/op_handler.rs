@@ -4,7 +4,7 @@
 #![allow(unused)]
 
 use binding::{
-    log_rizin, log_rz, null_check, pderef, RzILOpEffect, RzILOpEffectCode,
+    bv_to_int, log_rizin, log_rz, null_check, pderef, RzILOpEffect, RzILOpEffectCode,
     RzILOpEffectCode_RZ_IL_OP_BLK, RzILOpEffectCode_RZ_IL_OP_BRANCH,
     RzILOpEffectCode_RZ_IL_OP_EFFECT_MAX, RzILOpEffectCode_RZ_IL_OP_EMPTY,
     RzILOpEffectCode_RZ_IL_OP_GOTO, RzILOpEffectCode_RZ_IL_OP_JMP, RzILOpEffectCode_RZ_IL_OP_NOP,
@@ -37,7 +37,7 @@ use binding::{
     RzILOpPureCode_RZ_IL_OP_VAR, RzILOpPureCode_RZ_IL_OP_XOR, RzILTypePure, LOG_WARN,
 };
 
-use crate::interpreter::AbstrVM;
+use crate::interpreter::{AbstrVM, AbstrVal, Const};
 
 pub const IL_OP_VAR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_VAR;
 pub const IL_OP_ITE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ITE;
@@ -120,889 +120,603 @@ pub const IL_OP_BLK: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BLK;
 pub const IL_OP_REPEAT: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_REPEAT;
 pub const IL_OP_BRANCH: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BRANCH;
 
+pub fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
+    Some(AbstrVal::new_global(Const::from(0)))
+}
+
+pub fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
+    Some(AbstrVal::new_global(Const::from(1)))
+}
+
+pub fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    let bv = unsafe { pderef!(op).op.bitv.value };
+    Some(AbstrVal::new_global(bv_to_int(bv)))
+}
+
 // Handler for core theory opcodes
-pub fn rz_il_handler_ite(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_ite not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_var(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_var not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_let(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_let not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_bitv(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_bitv not yet implemented.".to_string()
-    );
-    std::ptr::null_mut()
-}
-
-pub fn rz_il_handler_msb(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_msb not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_lsb(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_lsb not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_is_zero(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_is_zero not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_eq(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_eq not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_ule(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_ule not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_sle(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_sle not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_neg(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_neg not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_logical_not(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_logical_not not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_add(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_add not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_sub(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_sub not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_mul(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_mul not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_div(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_div not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_sdiv(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_sdiv not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_mod(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_mod not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_smod(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_smod not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_shiftl(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_shiftl not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_shiftr(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_shiftr not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_logical_and(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_logical_and not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_logical_or(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_logical_or not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_logical_xor(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_logical_xor not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_bool_false(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_bool_false not yet implemented.".to_string()
-    );
-    std::ptr::null_mut()
-}
-
-pub fn rz_il_handler_bool_true(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_bool_true not yet implemented.".to_string()
-    );
-    std::ptr::null_mut()
-}
-
-pub fn rz_il_handler_bool_and(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_bool_and not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_bool_or(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_bool_or not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_bool_xor(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_bool_xor not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_bool_inv(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_bool_inv not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_cast(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_cast not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_append(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_append not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_load(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_load not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_loadw(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_loadw not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_float(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_float not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fbits(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fbits(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fbits not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_is_finite(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_is_finite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_is_finite not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_is_nan(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_is_nan(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_is_nan not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_is_inf(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_is_inf(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_is_inf not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_is_fzero(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_is_fzero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_is_fzero not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_is_fneg(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_is_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_is_fneg not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_is_fpos(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_is_fpos(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_is_fpos not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fneg(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fneg not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fabs(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fabs(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fabs not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fcast_int(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fcast_int(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fcast_int not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fcast_sint(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fcast_sint(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fcast_sint not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fcast_float(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fcast_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fcast_float not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fcast_sfloat(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fcast_sfloat(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fcast_sfloat not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fconvert(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fconvert(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fconvert not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_frequal(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_frequal(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_frequal not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fsucc(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fsucc(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fsucc not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fpred(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fpred(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fpred not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_forder(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_forder(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_forder not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fround(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fround(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fround not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fsqrt(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fsqrt not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_frsqrt(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_frsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_frsqrt not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fadd(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fadd(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fadd not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fsub(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fsub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fsub not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fdiv(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fdiv not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fmul(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fmul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fmul not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fmod(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fmod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fmod not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fhypot(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fhypot(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fhypot not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fpow(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fpow(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fpow not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fmad(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fmad(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fmad not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_frootn(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_frootn(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_frootn not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fpown(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fpown(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fpown not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_fcompound(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_fcompound(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_fcompound not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
-pub fn rz_il_handler_pure_unimplemented(
-    vm: &mut AbstrVM,
-    op: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn rz_il_handler_pure_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
         "rz_il_handler_pure_unimplemented not yet implemented.".to_string()
     );
-    std::ptr::null_mut()
+    None
 }
 
 pub fn rz_il_handler_empty(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
@@ -1112,79 +826,75 @@ pub fn rz_il_handler_effect_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpEffec
     false
 }
 
-pub fn eval_pure(
-    vm: &mut AbstrVM,
-    pure: *mut RzILOpPure,
-    ptype: &mut RzILTypePure,
-) -> *mut RzILOpPure {
+pub fn eval_pure(vm: &mut AbstrVM, pure: *mut RzILOpPure) -> Option<AbstrVal> {
     match pderef!(pure).code {
-        IL_OP_VAR => rz_il_handler_var(vm, pure, ptype),
-        IL_OP_ITE => rz_il_handler_ite(vm, pure, ptype),
-        IL_OP_LET => rz_il_handler_let(vm, pure, ptype),
-        IL_OP_B0 => rz_il_handler_bool_false(vm, pure, ptype),
-        IL_OP_B1 => rz_il_handler_bool_true(vm, pure, ptype),
-        IL_OP_INV => rz_il_handler_bool_inv(vm, pure, ptype),
-        IL_OP_AND => rz_il_handler_bool_and(vm, pure, ptype),
-        IL_OP_OR => rz_il_handler_bool_or(vm, pure, ptype),
-        IL_OP_XOR => rz_il_handler_bool_xor(vm, pure, ptype),
-        IL_OP_BITV => rz_il_handler_bitv(vm, pure, ptype),
-        IL_OP_MSB => rz_il_handler_msb(vm, pure, ptype),
-        IL_OP_LSB => rz_il_handler_lsb(vm, pure, ptype),
-        IL_OP_IS_ZERO => rz_il_handler_is_zero(vm, pure, ptype),
-        IL_OP_NEG => rz_il_handler_neg(vm, pure, ptype),
-        IL_OP_LOGNOT => rz_il_handler_logical_not(vm, pure, ptype),
-        IL_OP_ADD => rz_il_handler_add(vm, pure, ptype),
-        IL_OP_SUB => rz_il_handler_sub(vm, pure, ptype),
-        IL_OP_MUL => rz_il_handler_mul(vm, pure, ptype),
-        IL_OP_DIV => rz_il_handler_div(vm, pure, ptype),
-        IL_OP_SDIV => rz_il_handler_sdiv(vm, pure, ptype),
-        IL_OP_MOD => rz_il_handler_mod(vm, pure, ptype),
-        IL_OP_SMOD => rz_il_handler_smod(vm, pure, ptype),
-        IL_OP_LOGAND => rz_il_handler_logical_and(vm, pure, ptype),
-        IL_OP_LOGOR => rz_il_handler_logical_or(vm, pure, ptype),
-        IL_OP_LOGXOR => rz_il_handler_logical_xor(vm, pure, ptype),
-        IL_OP_SHIFTR => rz_il_handler_shiftr(vm, pure, ptype),
-        IL_OP_SHIFTL => rz_il_handler_shiftl(vm, pure, ptype),
-        IL_OP_EQ => rz_il_handler_eq(vm, pure, ptype),
-        IL_OP_SLE => rz_il_handler_sle(vm, pure, ptype),
-        IL_OP_ULE => rz_il_handler_ule(vm, pure, ptype),
-        IL_OP_CAST => rz_il_handler_cast(vm, pure, ptype),
-        IL_OP_APPEND => rz_il_handler_append(vm, pure, ptype),
-        IL_OP_FLOAT => rz_il_handler_float(vm, pure, ptype),
-        IL_OP_FBITS => rz_il_handler_fbits(vm, pure, ptype),
-        IL_OP_IS_FINITE => rz_il_handler_is_finite(vm, pure, ptype),
-        IL_OP_IS_NAN => rz_il_handler_is_nan(vm, pure, ptype),
-        IL_OP_IS_INF => rz_il_handler_is_inf(vm, pure, ptype),
-        IL_OP_IS_FZERO => rz_il_handler_is_fzero(vm, pure, ptype),
-        IL_OP_IS_FNEG => rz_il_handler_is_fneg(vm, pure, ptype),
-        IL_OP_IS_FPOS => rz_il_handler_is_fpos(vm, pure, ptype),
-        IL_OP_FNEG => rz_il_handler_fneg(vm, pure, ptype),
-        IL_OP_FABS => rz_il_handler_fabs(vm, pure, ptype),
-        IL_OP_FCAST_INT => rz_il_handler_fcast_int(vm, pure, ptype),
-        IL_OP_FCAST_SINT => rz_il_handler_fcast_sint(vm, pure, ptype),
-        IL_OP_FCAST_FLOAT => rz_il_handler_fcast_float(vm, pure, ptype),
-        IL_OP_FCAST_SFLOAT => rz_il_handler_fcast_sfloat(vm, pure, ptype),
-        IL_OP_FCONVERT => rz_il_handler_fconvert(vm, pure, ptype),
-        IL_OP_FREQUAL => rz_il_handler_frequal(vm, pure, ptype),
-        IL_OP_FSUCC => rz_il_handler_fsucc(vm, pure, ptype),
-        IL_OP_FPRED => rz_il_handler_fpred(vm, pure, ptype),
-        IL_OP_FORDER => rz_il_handler_forder(vm, pure, ptype),
-        IL_OP_FROUND => rz_il_handler_fround(vm, pure, ptype),
-        IL_OP_FSQRT => rz_il_handler_fsqrt(vm, pure, ptype),
-        IL_OP_FRSQRT => rz_il_handler_frsqrt(vm, pure, ptype),
-        IL_OP_FADD => rz_il_handler_fadd(vm, pure, ptype),
-        IL_OP_FSUB => rz_il_handler_fsub(vm, pure, ptype),
-        IL_OP_FMUL => rz_il_handler_fmul(vm, pure, ptype),
-        IL_OP_FDIV => rz_il_handler_fdiv(vm, pure, ptype),
-        IL_OP_FMOD => rz_il_handler_fmod(vm, pure, ptype),
-        IL_OP_FHYPOT => rz_il_handler_fhypot(vm, pure, ptype),
-        IL_OP_FPOW => rz_il_handler_fpow(vm, pure, ptype),
-        IL_OP_FMAD => rz_il_handler_fmad(vm, pure, ptype),
-        IL_OP_FROOTN => rz_il_handler_frootn(vm, pure, ptype),
-        IL_OP_FPOWN => rz_il_handler_fpown(vm, pure, ptype),
-        IL_OP_FCOMPOUND => rz_il_handler_fcompound(vm, pure, ptype),
-        IL_OP_LOAD => rz_il_handler_load(vm, pure, ptype),
-        IL_OP_LOADW => rz_il_handler_loadw(vm, pure, ptype),
+        IL_OP_B0 => rz_il_handler_bool_false(vm, pure),
+        IL_OP_B1 => rz_il_handler_bool_true(vm, pure),
+        IL_OP_BITV => rz_il_handler_bitv(vm, pure),
+        IL_OP_VAR => rz_il_handler_var(vm, pure),
+        IL_OP_ITE => rz_il_handler_ite(vm, pure),
+        IL_OP_LET => rz_il_handler_let(vm, pure),
+        IL_OP_INV => rz_il_handler_bool_inv(vm, pure),
+        IL_OP_AND => rz_il_handler_bool_and(vm, pure),
+        IL_OP_OR => rz_il_handler_bool_or(vm, pure),
+        IL_OP_XOR => rz_il_handler_bool_xor(vm, pure),
+        IL_OP_MSB => rz_il_handler_msb(vm, pure),
+        IL_OP_LSB => rz_il_handler_lsb(vm, pure),
+        IL_OP_IS_ZERO => rz_il_handler_is_zero(vm, pure),
+        IL_OP_NEG => rz_il_handler_neg(vm, pure),
+        IL_OP_LOGNOT => rz_il_handler_logical_not(vm, pure),
+        IL_OP_ADD => rz_il_handler_add(vm, pure),
+        IL_OP_SUB => rz_il_handler_sub(vm, pure),
+        IL_OP_MUL => rz_il_handler_mul(vm, pure),
+        IL_OP_DIV => rz_il_handler_div(vm, pure),
+        IL_OP_SDIV => rz_il_handler_sdiv(vm, pure),
+        IL_OP_MOD => rz_il_handler_mod(vm, pure),
+        IL_OP_SMOD => rz_il_handler_smod(vm, pure),
+        IL_OP_LOGAND => rz_il_handler_logical_and(vm, pure),
+        IL_OP_LOGOR => rz_il_handler_logical_or(vm, pure),
+        IL_OP_LOGXOR => rz_il_handler_logical_xor(vm, pure),
+        IL_OP_SHIFTR => rz_il_handler_shiftr(vm, pure),
+        IL_OP_SHIFTL => rz_il_handler_shiftl(vm, pure),
+        IL_OP_EQ => rz_il_handler_eq(vm, pure),
+        IL_OP_SLE => rz_il_handler_sle(vm, pure),
+        IL_OP_ULE => rz_il_handler_ule(vm, pure),
+        IL_OP_CAST => rz_il_handler_cast(vm, pure),
+        IL_OP_APPEND => rz_il_handler_append(vm, pure),
+        IL_OP_FLOAT => rz_il_handler_float(vm, pure),
+        IL_OP_FBITS => rz_il_handler_fbits(vm, pure),
+        IL_OP_IS_FINITE => rz_il_handler_is_finite(vm, pure),
+        IL_OP_IS_NAN => rz_il_handler_is_nan(vm, pure),
+        IL_OP_IS_INF => rz_il_handler_is_inf(vm, pure),
+        IL_OP_IS_FZERO => rz_il_handler_is_fzero(vm, pure),
+        IL_OP_IS_FNEG => rz_il_handler_is_fneg(vm, pure),
+        IL_OP_IS_FPOS => rz_il_handler_is_fpos(vm, pure),
+        IL_OP_FNEG => rz_il_handler_fneg(vm, pure),
+        IL_OP_FABS => rz_il_handler_fabs(vm, pure),
+        IL_OP_FCAST_INT => rz_il_handler_fcast_int(vm, pure),
+        IL_OP_FCAST_SINT => rz_il_handler_fcast_sint(vm, pure),
+        IL_OP_FCAST_FLOAT => rz_il_handler_fcast_float(vm, pure),
+        IL_OP_FCAST_SFLOAT => rz_il_handler_fcast_sfloat(vm, pure),
+        IL_OP_FCONVERT => rz_il_handler_fconvert(vm, pure),
+        IL_OP_FREQUAL => rz_il_handler_frequal(vm, pure),
+        IL_OP_FSUCC => rz_il_handler_fsucc(vm, pure),
+        IL_OP_FPRED => rz_il_handler_fpred(vm, pure),
+        IL_OP_FORDER => rz_il_handler_forder(vm, pure),
+        IL_OP_FROUND => rz_il_handler_fround(vm, pure),
+        IL_OP_FSQRT => rz_il_handler_fsqrt(vm, pure),
+        IL_OP_FRSQRT => rz_il_handler_frsqrt(vm, pure),
+        IL_OP_FADD => rz_il_handler_fadd(vm, pure),
+        IL_OP_FSUB => rz_il_handler_fsub(vm, pure),
+        IL_OP_FMUL => rz_il_handler_fmul(vm, pure),
+        IL_OP_FDIV => rz_il_handler_fdiv(vm, pure),
+        IL_OP_FMOD => rz_il_handler_fmod(vm, pure),
+        IL_OP_FHYPOT => rz_il_handler_fhypot(vm, pure),
+        IL_OP_FPOW => rz_il_handler_fpow(vm, pure),
+        IL_OP_FMAD => rz_il_handler_fmad(vm, pure),
+        IL_OP_FROOTN => rz_il_handler_frootn(vm, pure),
+        IL_OP_FPOWN => rz_il_handler_fpown(vm, pure),
+        IL_OP_FCOMPOUND => rz_il_handler_fcompound(vm, pure),
+        IL_OP_LOAD => rz_il_handler_load(vm, pure),
+        IL_OP_LOADW => rz_il_handler_loadw(vm, pure),
         pt => panic!("Pure type {} not handled.", pt),
     }
 }
