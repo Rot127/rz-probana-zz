@@ -12,7 +12,7 @@ use rug::Integer;
 use binding::{
     log_rizin, log_rz, null_check, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
     GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure,
-    LOG_DEBUG,
+    LOG_DEBUG, LOG_WARN,
 };
 
 use crate::op_handler::{
@@ -237,9 +237,8 @@ pub struct AbstrVM {
     il_op_buf: HashMap<Address, *mut RzILOpEffect>,
     /// Global variables (mostly registers)
     gvars: HashMap<String, Global>,
-    /// Hash map of named expressions, defined for a given Pure body expression.
-    /// Defined via LET()
-    lets: HashMap<String, AbstrVal>,
+    /// Local pure variables. Defined via LET()
+    lpures: HashMap<String, AbstrVal>,
     /// Local variables, defined via SETL
     lvars: HashMap<String, AbstrVal>,
 }
@@ -264,8 +263,36 @@ impl AbstrVM {
             il_op_buf: HashMap::new(),
             gvars: HashMap::new(),
             lvars: HashMap::new(),
-            lets: HashMap::new(),
+            lpures: HashMap::new(),
         }
+    }
+
+    pub fn get_varg(&self, name: &str) -> Option<AbstrVal> {
+        if self.gvars.get(name).is_none() {
+            log_rz!(
+                LOG_WARN,
+                None,
+                format!("Global var '{}' not defined.", name)
+            );
+            return None;
+        }
+        Some(self.gvars.get(name).unwrap().val.clone())
+    }
+
+    pub fn get_varl(&self, name: &str) -> Option<AbstrVal> {
+        if self.lvars.get(name).is_none() {
+            log_rz!(LOG_WARN, None, format!("Local var '{}' not defined.", name));
+            return None;
+        }
+        Some(self.lvars.get(name).unwrap().clone())
+    }
+
+    pub fn get_lpure(&self, name: &str) -> Option<AbstrVal> {
+        if self.lpures.get(name).is_none() {
+            log_rz!(LOG_WARN, None, format!("LET var '{}' not defined.", name));
+            return None;
+        }
+        Some(self.lpures.get(name).unwrap().clone())
     }
 
     /// This function samples a random value from its distribution to
