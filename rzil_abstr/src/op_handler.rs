@@ -756,7 +756,7 @@ pub fn rz_il_handler_pure_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpPure) -
     log_rz!(
         LOG_WARN,
         None,
-        "rz_il_handler_pure_unimplemented not yet implemented.".to_string()
+        "rz_il_handler_pure_unimplemented reached.".to_string()
     );
     None
 }
@@ -863,7 +863,7 @@ pub fn rz_il_handler_effect_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpEffec
     log_rz!(
         LOG_WARN,
         None,
-        "rz_il_handler_effect_unimplemented not yet implemented".to_string()
+        "rz_il_handler_effect_unimplemented reached".to_string()
     );
     false
 }
