@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 #![allow(unused)]
+#![allow(non_upper_case_globals)]
+
+use std::ffi::CStr;
 
 use binding::{
     bv_to_int, log_rizin, log_rz, null_check, pderef, RzILOpEffect, RzILOpEffectCode,
@@ -34,7 +37,9 @@ use binding::{
     RzILOpPureCode_RZ_IL_OP_OR, RzILOpPureCode_RZ_IL_OP_PURE_MAX, RzILOpPureCode_RZ_IL_OP_SDIV,
     RzILOpPureCode_RZ_IL_OP_SHIFTL, RzILOpPureCode_RZ_IL_OP_SHIFTR, RzILOpPureCode_RZ_IL_OP_SLE,
     RzILOpPureCode_RZ_IL_OP_SMOD, RzILOpPureCode_RZ_IL_OP_SUB, RzILOpPureCode_RZ_IL_OP_ULE,
-    RzILOpPureCode_RZ_IL_OP_VAR, RzILOpPureCode_RZ_IL_OP_XOR, RzILTypePure, LOG_WARN,
+    RzILOpPureCode_RZ_IL_OP_VAR, RzILOpPureCode_RZ_IL_OP_XOR, RzILTypePure,
+    RzILVarKind_RZ_IL_VAR_KIND_GLOBAL, RzILVarKind_RZ_IL_VAR_KIND_LOCAL,
+    RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE, LOG_ERROR, LOG_WARN,
 };
 
 use crate::interpreter::{AbstrVM, AbstrVal, Const};
@@ -144,12 +149,27 @@ pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 }
 
 pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_var not yet implemented.".to_string()
-    );
-    None
+    match (unsafe { (*op).op.var }.kind) {
+        RzILVarKind_RZ_IL_VAR_KIND_GLOBAL => vm.get_varg(unsafe {
+            CStr::from_ptr(pderef!(op).op.var.v)
+                .to_str()
+                .expect("No UTF8 error expected")
+        }),
+        RzILVarKind_RZ_IL_VAR_KIND_LOCAL => vm.get_varl(unsafe {
+            CStr::from_ptr(pderef!(op).op.var.v)
+                .to_str()
+                .expect("No UTF8 error expected")
+        }),
+        RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE => vm.get_lpure(unsafe {
+            CStr::from_ptr(pderef!(op).op.var.v)
+                .to_str()
+                .expect("No UTF8 error expected")
+        }),
+        _ => {
+            log_rz!(LOG_ERROR, None, "Unknown var kind".to_owned());
+            None
+        }
+    }
 }
 
 pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
