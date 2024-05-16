@@ -134,6 +134,7 @@ pub fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<A
 }
 
 pub fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    null_check!(op);
     let bv = unsafe { pderef!(op).op.bitv.value };
     Some(AbstrVal::new_global(bv_to_int(bv)))
 }
@@ -149,6 +150,7 @@ pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 }
 
 pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    null_check!(op);
     match (unsafe { (*op).op.var }.kind) {
         RzILVarKind_RZ_IL_VAR_KIND_GLOBAL => vm.get_varg(unsafe {
             CStr::from_ptr(pderef!(op).op.var.v)
@@ -173,12 +175,32 @@ pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 }
 
 pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_let not yet implemented.".to_string()
-    );
-    None
+    null_check!(op);
+    let let_name = unsafe {
+        CStr::from_ptr((*op).op.let_.name)
+            .to_str()
+            .expect("No UTF8 error expected")
+    };
+    let let_v = eval_pure(vm, unsafe { (*op).op.let_.exp });
+    if let_v.is_none() {
+        log_rz!(
+            LOG_ERROR,
+            None,
+            format!("LET '{}' has invalid expression.", let_name)
+        );
+        return None;
+    }
+    vm.set_lpure(let_name.to_owned(), let_v.unwrap());
+    let result_body = eval_pure(vm, unsafe { (*op).op.let_.body });
+    if result_body.is_none() {
+        log_rz!(
+            LOG_ERROR,
+            None,
+            format!("LET '{}' has invalid body.", let_name)
+        );
+    }
+    vm.rm_lpure(let_name);
+    result_body
 }
 
 pub fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {

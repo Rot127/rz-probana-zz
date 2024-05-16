@@ -295,6 +295,22 @@ impl AbstrVM {
         Some(self.lpures.get(name).unwrap().clone())
     }
 
+    pub fn set_lpure(&mut self, name: String, av: AbstrVal) {
+        if self.lpures.get(&name).is_some() {
+            log_rz!(
+                LOG_WARN,
+                None,
+                format!("LET var '{}' already defined.", name)
+            );
+            return;
+        }
+        self.lpures.insert(name.to_owned(), av);
+    }
+
+    pub fn rm_lpure(&mut self, let_name: &str) {
+        self.lpures.remove(let_name);
+    }
+
     /// This function samples a random value from its distribution to
     /// simulate input for the program.
     /// It takes the address of an input-functions at [address] and the current
