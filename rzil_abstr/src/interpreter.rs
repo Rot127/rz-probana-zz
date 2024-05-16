@@ -59,16 +59,16 @@ pub type Const = Integer;
 
 type PC = Address;
 
-struct Register {
+struct Global {
     /// Size in bits
     size: usize,
     /// The current value
     val: AbstrVal,
 }
 
-impl Register {
-    fn new(size: usize, val: AbstrVal) -> Register {
-        Register { size, val }
+impl Global {
+    fn new(size: usize, val: AbstrVal) -> Global {
+        Global { size, val }
     }
 }
 
@@ -222,11 +222,11 @@ pub struct AbstrVM {
     /// MemStore map
     ms: HashMap<AbstrVal, AbstrVal>,
     /// RegStore map
-    rs: HashMap<Register, AbstrVal>,
+    rs: HashMap<Global, AbstrVal>,
     /// MemTaint map
     mt: HashMap<AbstrVal, AbstrVal>,
     /// RegTaint map
-    rt: HashMap<Register, AbstrVal>,
+    rt: HashMap<Global, AbstrVal>,
     /// Path
     pa: IntrpPath,
     /// Call stack
@@ -235,8 +235,13 @@ pub struct AbstrVM {
     mos: MemOpSeq,
     /// IL operation buffer
     il_op_buf: HashMap<Address, *mut RzILOpEffect>,
-    /// The register file
-    regs: HashMap<String, Register>,
+    /// Global variables (mostly registers)
+    gvars: HashMap<String, Global>,
+    /// Hash map of named expressions, defined for a given Pure body expression.
+    /// Defined via LET()
+    lets: HashMap<String, AbstrVal>,
+    /// Local variables, defined via SETL
+    lvars: HashMap<String, AbstrVal>,
 }
 
 impl AbstrVM {
@@ -257,12 +262,14 @@ impl AbstrVM {
             cs: CallStack::new(),
             mos: MemOpSeq::new(),
             il_op_buf: HashMap::new(),
-            regs: HashMap::new(),
+            gvars: HashMap::new(),
+            lvars: HashMap::new(),
+            lets: HashMap::new(),
         }
     }
 
     /// This function samples a random value from its distribution to
-    /// emulate actual input for the program.
+    /// simulate input for the program.
     /// It takes the address of an input-functions at [address] and the current
     /// [invocation] of the function.
     fn rv(&self, address: Address, invocation: u64) -> Const {
@@ -317,9 +324,9 @@ impl AbstrVM {
                     .expect("CString to String failed.")
             };
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
-            self.regs.insert(
+            self.gvars.insert(
                 name.to_owned(),
-                Register::new(rsize as usize, AbstrVal::new_global(Integer::from(0))),
+                Global::new(rsize as usize, AbstrVal::new_global(Integer::from(0))),
             );
         });
     }
