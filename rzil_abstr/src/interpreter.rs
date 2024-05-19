@@ -12,7 +12,7 @@ use rug::Integer;
 use binding::{
     log_rizin, log_rz, null_check, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
     GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure,
-    LOG_DEBUG, LOG_WARN,
+    LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 use crate::op_handler::{
@@ -307,6 +307,29 @@ impl AbstrVM {
         self.lpures.insert(name.to_owned(), av);
     }
 
+    pub fn set_varg(&mut self, name: &str, av: AbstrVal) {
+        let global = self.gvars.get(name);
+        if global.is_none() {
+            log_rz!(
+                LOG_ERROR,
+                None,
+                format!("The global {} was not initialized. Cannot be set.", name)
+            );
+            return;
+        }
+        self.gvars.insert(
+            name.to_owned(),
+            Global {
+                size: global.unwrap().size,
+                val: av,
+            },
+        );
+    }
+
+    pub fn set_varl(&mut self, name: &str, av: AbstrVal) {
+        self.lvars.insert(name.to_owned(), av);
+    }
+
     pub fn rm_lpure(&mut self, let_name: &str) {
         self.lpures.remove(let_name);
     }
@@ -404,19 +427,18 @@ impl AbstrVM {
     /// Otherwise, it returns an abtract value with the memory region set to
     /// the enclosing stack frame. [^1]
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
-    pub fn normalize_val(&self, v: &AbstrVal) -> AbstrVal {
-        let mut v_clone = v.clone();
+    pub fn normalize_val(&self, mut v: AbstrVal) -> AbstrVal {
         if v.m.class != MemRegionClass::Stack {
-            return v_clone;
+            return v;
         }
         for vt in self.cs.iter().rev() {
             if v.c < 0 {
                 break;
             }
-            v_clone.m = vt.sp.m.clone();
-            v_clone.c += vt.sp.c.clone();
+            v.m = vt.sp.m.clone();
+            v.c += vt.sp.c.clone();
         }
-        v_clone
+        v
     }
 }
 

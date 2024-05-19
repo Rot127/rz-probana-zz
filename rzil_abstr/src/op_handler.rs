@@ -792,12 +792,33 @@ pub fn rz_il_handler_nop(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 }
 
 pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_set not yet implemented".to_string()
-    );
-    false
+    null_check!(op);
+    let pure = unsafe { (*op).op.set.x };
+    let av = eval_pure(vm, pure);
+    if av.is_none() {
+        log_rz!(LOG_ERROR, None, "Error in pure evalutation.".to_string());
+        return false;
+    }
+    if unsafe { (*op).op.set.is_local } {
+        vm.set_varl(
+            unsafe {
+                CStr::from_ptr(pderef!(op).op.set.v)
+                    .to_str()
+                    .expect("No UTF8 error expected")
+            },
+            vm.normalize_val(av.unwrap()),
+        );
+    } else {
+        vm.set_varg(
+            unsafe {
+                CStr::from_ptr(pderef!(op).op.set.v)
+                    .to_str()
+                    .expect("No UTF8 error expected")
+            },
+            vm.normalize_val(av.unwrap()),
+        );
+    }
+    true
 }
 
 pub fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
