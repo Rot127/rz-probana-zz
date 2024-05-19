@@ -806,7 +806,7 @@ pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
                     .to_str()
                     .expect("No UTF8 error expected")
             },
-            vm.normalize_val(av.unwrap()),
+            av.unwrap(),
         );
     } else {
         vm.set_varg(
@@ -815,7 +815,7 @@ pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
                     .to_str()
                     .expect("No UTF8 error expected")
             },
-            vm.normalize_val(av.unwrap()),
+            av.unwrap(),
         );
     }
     true
