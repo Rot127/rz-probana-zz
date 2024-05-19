@@ -166,6 +166,16 @@ impl AbstrVal {
     pub fn new(m: MemRegion, c: Const) -> AbstrVal {
         AbstrVal { m, c }
     }
+
+    /// Checks if the abstract value is equal to global zero (a.k.a False).
+    /// This check ignores the invocation count and only checks the memory region
+    /// and constant.
+    pub fn is_global_zero(&self) -> bool {
+        if self.m.class != MemRegionClass::Global {
+            return false;
+        }
+        self.c == Const::ZERO
+    }
 }
 
 /// An operation on the constant share of abstract values

@@ -195,12 +195,22 @@ pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 
 // Handler for core theory opcodes
 pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_ite not yet implemented.".to_string()
-    );
-    None
+    null_check!(op);
+    let cond = eval_pure(vm, unsafe { (*op).op.ite.condition });
+    let x = eval_pure(vm, unsafe { (*op).op.ite.x });
+    let y = eval_pure(vm, unsafe { (*op).op.ite.y });
+    if cond.is_none() {
+        log_rz!(
+            LOG_ERROR,
+            None,
+            "Condition is not a valid Pure.".to_string()
+        );
+        return None;
+    }
+    if cond.unwrap().is_global_zero() {
+        return y;
+    }
+    x
 }
 
 pub fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
