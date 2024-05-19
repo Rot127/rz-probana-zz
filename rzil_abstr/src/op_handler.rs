@@ -762,12 +762,7 @@ pub fn rz_il_handler_pure_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpPure) -
 }
 
 pub fn rz_il_handler_empty(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_empty not yet implemented".to_string()
-    );
-    false
+    true
 }
 
 pub fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
