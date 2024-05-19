@@ -143,36 +143,48 @@ pub struct MemRegion {
 /// An abstract value.
 /// Constant values are represented a value of the Global memory region
 /// and the constant value set in [offset].
-#[derive(Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
     /// The offset of this variable from the base of the region.
     /// Or, if this is a global value, the constant.
     c: Const,
+    /// Name of the global IL variable this abstract value was read from.
+    /// If None, it is a memory value.
+    /// This is used to decide which taint map to use.
+    il_gvar: Option<String>,
 }
 
 impl AbstrVal {
-    pub fn new_global(c: Const) -> AbstrVal {
+    pub fn new_global(c: Const, is_il_gvar: Option<String>) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
             base: 0,
             c: 0,
             addr: 0,
         };
-        AbstrVal { m, c }
+        AbstrVal {
+            m,
+            c,
+            il_gvar: is_il_gvar,
+        }
     }
 
     pub fn new_true() -> AbstrVal {
-        AbstrVal::new_global(Const::ONE.clone())
+        AbstrVal::new_global(Const::ONE.clone(), None)
     }
 
     pub fn new_false() -> AbstrVal {
-        AbstrVal::new_global(Const::ZERO.clone())
+        AbstrVal::new_global(Const::ZERO.clone(), None)
     }
 
-    pub fn new(m: MemRegion, c: Const) -> AbstrVal {
-        AbstrVal { m, c }
+    pub fn new(m: MemRegion, c: Const, is_il_gvar: Option<String>) -> AbstrVal {
+        AbstrVal {
+            m,
+            c,
+            il_gvar: is_il_gvar,
+        }
     }
 
     /// Checks if the abstract value is equal to global zero (a.k.a False).
@@ -325,7 +337,7 @@ impl AbstrVM {
         self.lpures.insert(name.to_owned(), av);
     }
 
-    pub fn set_varg(&mut self, name: &str, av: AbstrVal) {
+    pub fn set_varg(&mut self, name: &str, mut av: AbstrVal) {
         let global = self.gvars.get(name);
         if global.is_none() {
             log_rz!(
@@ -335,6 +347,7 @@ impl AbstrVM {
             );
             return;
         }
+        av.il_gvar = Some(name.to_string());
         self.gvars.insert(
             name.to_owned(),
             Global {
@@ -410,7 +423,10 @@ impl AbstrVM {
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
             self.gvars.insert(
                 name.to_owned(),
-                Global::new(rsize as usize, AbstrVal::new_global(Integer::from(0))),
+                Global::new(
+                    rsize as usize,
+                    AbstrVal::new_global(Integer::from(0), Some(name)),
+                ),
             );
         });
     }
@@ -421,20 +437,21 @@ impl AbstrVM {
     }
 
     /// Calculates the result of an operation on two abstract values and their taint flags [^1]
+    /// Returns the calculated result as abstract value and the taint flag.
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
-    pub fn calc_value(&mut self, op: AbstrOp, v1: &AbstrVal, v2: AbstrVal) -> (AbstrVal, bool) {
+    pub fn calc_value(&mut self, op: AbstrOp, v1: AbstrVal, v2: AbstrVal) -> (AbstrVal, bool) {
         let mut tainted: bool;
         let mut v3: AbstrVal;
         if v1.m.class == MemRegionClass::Global {
-            v3 = AbstrVal::new(v2.m.clone(), op(&v1.c, &v2.c));
+            v3 = AbstrVal::new(v2.m.clone(), op(&v1.c, &v2.c), None);
             tainted = false;
         } else if v2.m.class == MemRegionClass::Global {
-            v3 = AbstrVal::new(v1.m.clone(), op(&v1.c, &v2.c));
+            v3 = AbstrVal::new(v1.m.clone(), op(&v1.c, &v2.c), None);
             tainted = false;
         } else {
             let pc = self.pc;
             let ic_pc = self.get_ic(pc);
-            v3 = AbstrVal::new_global(self.rv(pc, ic_pc));
+            v3 = AbstrVal::new_global(self.rv(pc, ic_pc), None);
             tainted = true;
         }
         (v3, tainted)

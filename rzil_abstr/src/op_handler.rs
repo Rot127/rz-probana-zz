@@ -126,17 +126,17 @@ pub const IL_OP_REPEAT: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_REPEAT;
 pub const IL_OP_BRANCH: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BRANCH;
 
 pub fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    Some(AbstrVal::new_global(Const::from(0)))
+    Some(AbstrVal::new_global(Const::from(0), None))
 }
 
 pub fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    Some(AbstrVal::new_global(Const::from(1)))
+    Some(AbstrVal::new_global(Const::from(1), None))
 }
 
 pub fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let bv = unsafe { pderef!(op).op.bitv.value };
-    Some(AbstrVal::new_global(bv_to_int(bv)))
+    Some(AbstrVal::new_global(bv_to_int(bv), None))
 }
 
 pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
