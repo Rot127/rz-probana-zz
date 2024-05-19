@@ -139,16 +139,6 @@ pub fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     Some(AbstrVal::new_global(bv_to_int(bv)))
 }
 
-// Handler for core theory opcodes
-pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_ite not yet implemented.".to_string()
-    );
-    None
-}
-
 pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     match (unsafe { (*op).op.var }.kind) {
@@ -201,6 +191,16 @@ pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     }
     vm.rm_lpure(let_name);
     result_body
+}
+
+// Handler for core theory opcodes
+pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    log_rz!(
+        LOG_WARN,
+        None,
+        "rz_il_handler_ite not yet implemented.".to_string()
+    );
+    None
 }
 
 pub fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
