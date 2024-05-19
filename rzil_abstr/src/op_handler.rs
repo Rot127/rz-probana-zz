@@ -232,12 +232,14 @@ pub fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 }
 
 pub fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_is_zero not yet implemented.".to_string()
-    );
-    None
+    let av = eval_pure(vm, unsafe { (*op).op.is_zero.bv });
+    if av.is_none() {
+        return None;
+    }
+    if av.unwrap().is_global_zero() {
+        return Some(AbstrVal::new_true());
+    }
+    Some(AbstrVal::new_false())
 }
 
 pub fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {

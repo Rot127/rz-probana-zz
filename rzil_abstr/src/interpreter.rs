@@ -163,6 +163,14 @@ impl AbstrVal {
         AbstrVal { m, c }
     }
 
+    pub fn new_true() -> AbstrVal {
+        AbstrVal::new_global(Const::ONE.clone())
+    }
+
+    pub fn new_false() -> AbstrVal {
+        AbstrVal::new_global(Const::ZERO.clone())
+    }
+
     pub fn new(m: MemRegion, c: Const) -> AbstrVal {
         AbstrVal { m, c }
     }
