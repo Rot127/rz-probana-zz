@@ -41,6 +41,7 @@ use binding::{
     RzILVarKind_RZ_IL_VAR_KIND_GLOBAL, RzILVarKind_RZ_IL_VAR_KIND_LOCAL,
     RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE, LOG_ERROR, LOG_WARN,
 };
+use rug::Complete;
 
 use crate::interpreter::{AbstrVM, AbstrVal, Const};
 
@@ -124,6 +125,15 @@ pub const IL_OP_SEQ: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_SEQ;
 pub const IL_OP_BLK: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BLK;
 pub const IL_OP_REPEAT: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_REPEAT;
 pub const IL_OP_BRANCH: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BRANCH;
+
+macro_rules! check_validity {
+    ($pure:expr) => {
+        if $pure.is_none() {
+            log_rz!(LOG_ERROR, None, "Pure evaluated to None".to_string());
+            return None;
+        }
+    };
+}
 
 pub fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
     Some(AbstrVal::new_global(Const::from(0), None))
@@ -288,66 +298,73 @@ pub fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Optio
 }
 
 pub fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_add not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.add.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.add.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 + c2).complete(), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_sub not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.sub.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.sub.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 - c2).complete(), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_mul not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.mul.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.mul.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 * c2).complete(), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_div not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.div.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.div.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 / c2).complete(), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_sdiv not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.sdiv.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.sdiv.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 / c2).complete(), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_mod not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.mod_.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.mod_.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 % c2).complete(), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_smod not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.smod.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.smod.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 % c2).complete(), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
