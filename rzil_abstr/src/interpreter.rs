@@ -59,6 +59,7 @@ pub type Const = Integer;
 
 type PC = Address;
 
+#[derive(Clone, Eq, PartialEq, Hash)]
 struct Global {
     /// Size in bits
     size: usize,
@@ -109,7 +110,7 @@ pub struct ConcreteIndirectCall {
 }
 
 /// Memory region classes: Global, Stack, Heap
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 enum MemRegionClass {
     /// Global memory region. E.g. .data, .rodata, .bss
     Global,
@@ -120,7 +121,7 @@ enum MemRegionClass {
 }
 
 /// A memory region. Either of Global, Stack or Heap.
-#[derive(Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
@@ -254,9 +255,9 @@ pub struct AbstrVM {
     /// RegStore map
     rs: HashMap<Global, AbstrVal>,
     /// MemTaint map
-    mt: HashMap<AbstrVal, AbstrVal>,
+    mt: HashMap<AbstrVal, bool>,
     /// RegTaint map
-    rt: HashMap<Global, AbstrVal>,
+    rt: HashMap<Global, bool>,
     /// Path
     pa: IntrpPath,
     /// Call stack
@@ -474,6 +475,22 @@ impl AbstrVM {
             v.c += vt.sp.c.clone();
         }
         v
+    }
+
+    pub fn set_taint_flag(&mut self, v3: &AbstrVal, tainted: bool) {
+        if let Some(il_gvar) = v3.il_gvar.clone() {
+            if let Some(global) = self.gvars.get(&il_gvar) {
+                self.rt.insert(global.clone(), tainted);
+                return;
+            }
+            log_rz!(
+                LOG_ERROR,
+                None,
+                "Global variable is not defined.".to_string()
+            );
+            return;
+        }
+        self.mt.insert(v3.clone(), tainted);
     }
 }
 
