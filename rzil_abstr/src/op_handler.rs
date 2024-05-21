@@ -535,18 +535,28 @@ fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
 
 fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
-    let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
-    check_pure_validity!(key, None);
-    let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
+    let k = eval_pure(vm, unsafe { (*op).op.load.key });
+    check_pure_validity!(k, None);
+    let key = k.unwrap();
+    let key_t = vm.get_taint_flag(&key);
+    let norm_k = vm.normalize_val(key);
+    let v = vm.get_mem_val(&norm_k);
+    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    vm.set_taint_flag(&norm_k, norm_t);
     vm.enqueue_mos(&v);
     Some(v)
 }
 
 fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
-    let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
-    check_pure_validity!(key, None);
-    let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
+    let k = eval_pure(vm, unsafe { (*op).op.loadw.key });
+    check_pure_validity!(k, None);
+    let key = k.unwrap();
+    let key_t = vm.get_taint_flag(&key);
+    let norm_k = vm.normalize_val(key);
+    let v = vm.get_mem_val(&norm_k);
+    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    vm.set_taint_flag(&norm_k, norm_t);
     vm.enqueue_mos(&v);
     Some(v)
 }
