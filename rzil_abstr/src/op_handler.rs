@@ -490,21 +490,19 @@ pub fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
 }
 
 pub fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_load not yet implemented.".to_string()
-    );
-    None
+    let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
+    check_validity!(key);
+    let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
+    vm.enqueue_mos(&v);
+    Some(v)
 }
 
 pub fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_loadw not yet implemented.".to_string()
-    );
-    None
+    let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
+    check_validity!(key);
+    let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
+    vm.enqueue_mos(&v);
+    Some(v)
 }
 
 pub fn rz_il_handler_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {

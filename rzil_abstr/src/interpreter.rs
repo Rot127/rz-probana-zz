@@ -124,6 +124,8 @@ pub struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
     /// Base address of the region.
+    /// For Heap regions: The address of the allocating instruction.
+    /// For Stack regions: The function address this stack frame was used.
     base: Address,
     /// The c-th invocation this region was allocated/used.
     /// For stack regions this is the c'th invocation of the function.
@@ -134,9 +136,18 @@ pub struct MemRegion {
     /// This might change though in the future, if someone
     /// invents "multiple-entry" functions or something.
     c: u64,
-    /// For Heap regions: The address of the allocating instruction.
-    /// For Stack regions: The function address this stack frame was used.
-    addr: Address,
+}
+
+impl std::fmt::Display for MemRegion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let letter = match self.class {
+            MemRegionClass::Global => "G",
+            MemRegionClass::Heap => "H",
+            MemRegionClass::Stack => "S",
+            _ => panic!("Handled mem class."),
+        };
+        write!(f, "{}({:#x})", letter, self.base)
+    }
 }
 
 /// An abstract value.
@@ -155,13 +166,18 @@ pub struct AbstrVal {
     il_gvar: Option<String>,
 }
 
+impl std::fmt::Display for AbstrVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "〈{}, {}〉", self.m, self.c)
+    }
+}
+
 impl AbstrVal {
     pub fn new_global(c: Const, is_il_gvar: Option<String>) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
             base: 0,
             c: 0,
-            addr: 0,
         };
         AbstrVal {
             m,
@@ -250,8 +266,8 @@ pub struct AbstrVM {
     lp: HashMap<Address, bool>,
     /// MemStore map
     ms: HashMap<AbstrVal, AbstrVal>,
-    /// RegStore map
-    rs: HashMap<Global, AbstrVal>,
+    /// RegStore map/Global variable store map
+    rs: HashMap<String, AbstrVal>,
     /// MemTaint map
     mt: HashMap<AbstrVal, bool>,
     /// RegTaint map
@@ -486,6 +502,37 @@ impl AbstrVM {
             return;
         }
         self.mt.insert(v3.clone(), tainted);
+    }
+
+    pub fn get_mem_val(&self, key: &AbstrVal) -> AbstrVal {
+        if let Some(v) = self.ms.get(key) {
+            return v.clone();
+        }
+        panic!("No value saved for: {}", key);
+    }
+
+    pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
+        self.ms.insert(key.clone(), val);
+    }
+
+    pub fn get_reg_val(&self, key: &AbstrVal) -> AbstrVal {
+        if let Some(rname) = &key.il_gvar {
+            self.rs
+                .get(rname)
+                .expect(&format!("Global var {} not set.", &rname));
+        }
+        panic!("Abstract value doesn't belong to a global var.");
+    }
+
+    pub fn set_reg_val(&mut self, key: &AbstrVal, val: AbstrVal) {
+        self.ms.insert(key.clone(), val);
+    }
+
+    pub fn enqueue_mos(&mut self, v: &AbstrVal) {
+        self.mos.push(MemOp {
+            addr: self.pc,
+            aval: v.clone(),
+        });
     }
 }
 
