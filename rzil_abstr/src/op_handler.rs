@@ -134,6 +134,15 @@ macro_rules! check_pure_validity {
     };
 }
 
+macro_rules! check_effect_success {
+    ($effect_res:expr) => {
+        if !$effect_res {
+            log_rz!(LOG_ERROR, None, "Effect evaluated to 'false'".to_string());
+            return false;
+        }
+    };
+}
+
 fn c_to_str(c_str: *const i8) -> String {
     unsafe {
         CStr::from_ptr(c_str)
@@ -881,12 +890,11 @@ pub fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 }
 
 pub fn rz_il_handler_seq(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_seq not yet implemented".to_string()
-    );
-    false
+    let x_success = eval_effect(vm, unsafe { (*op).op.seq.x });
+    check_effect_success!(x_success);
+    let y_success = eval_effect(vm, unsafe { (*op).op.seq.y });
+    check_effect_success!(y_success);
+    return x_success && y_success;
 }
 
 pub fn rz_il_handler_blk(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
