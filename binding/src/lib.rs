@@ -8,7 +8,6 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use core::panic;
-use rug::Integer;
 use std::{
     env,
     path::PathBuf,

@@ -41,7 +41,6 @@ use binding::{
     RzILVarKind_RZ_IL_VAR_KIND_GLOBAL, RzILVarKind_RZ_IL_VAR_KIND_LOCAL,
     RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE, LOG_ERROR, LOG_WARN,
 };
-use rug::Complete;
 
 use crate::interpreter::{AbstrVM, AbstrVal, Const};
 

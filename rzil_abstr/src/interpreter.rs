@@ -7,8 +7,6 @@ use std::{
     ffi::CString,
 };
 
-use rug::Integer;
-
 use binding::{
     log_rizin, log_rz, null_check, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
     GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure,
