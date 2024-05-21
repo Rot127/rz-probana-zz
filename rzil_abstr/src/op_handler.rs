@@ -832,6 +832,7 @@ pub fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     );
     false
 }
+
 pub fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
@@ -842,12 +843,7 @@ pub fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 }
 
 pub fn rz_il_handler_nop(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_nop not yet implemented".to_string()
-    );
-    false
+    true
 }
 
 pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
