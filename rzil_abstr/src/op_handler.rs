@@ -247,30 +247,45 @@ pub fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
 }
 
 pub fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_eq not yet implemented.".to_string()
+    let v1 = eval_pure(vm, unsafe { (*op).op.eq.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.eq.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| (if c1 < c2 { 1 } else { 0 }),
+        v1.unwrap(),
+        v2.unwrap(),
     );
-    None
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_ule not yet implemented.".to_string()
+    let v1 = eval_pure(vm, unsafe { (*op).op.ule.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.ule.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| (if c1 <= c2 { 1 } else { 0 }),
+        v1.unwrap(),
+        v2.unwrap(),
     );
-    None
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_sle not yet implemented.".to_string()
+    let v1 = eval_pure(vm, unsafe { (*op).op.sle.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.sle.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| (if c1 <= c2 { 1 } else { 0 }),
+        v1.unwrap(),
+        v2.unwrap(),
     );
-    None
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
