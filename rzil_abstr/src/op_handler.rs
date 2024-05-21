@@ -1010,12 +1010,12 @@ fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn rz_il_handler_branch(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_branch not yet implemented".to_string()
-    );
-    false
+    let cond = eval_pure(vm, unsafe { (*op).op.branch.condition });
+    check_pure_validity!(cond, false);
+    if cond.unwrap().is_global_zero() {
+        return eval_effect(vm, unsafe { (*op).op.branch.false_eff });
+    }
+    eval_effect(vm, unsafe { (*op).op.branch.true_eff })
 }
 
 fn rz_il_handler_effect_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
