@@ -135,6 +135,15 @@ macro_rules! check_validity {
     };
 }
 
+fn c_to_str(c_str: *const i8) -> String {
+    unsafe {
+        CStr::from_ptr(c_str)
+            .to_str()
+            .expect("No UTF8 error expected")
+            .to_owned()
+    }
+}
+
 pub fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
     Some(AbstrVal::new_global(Const::from(0), None))
 }
@@ -152,21 +161,13 @@ pub fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
 pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     match (unsafe { (*op).op.var }.kind) {
-        RzILVarKind_RZ_IL_VAR_KIND_GLOBAL => vm.get_varg(unsafe {
-            CStr::from_ptr(pderef!(op).op.var.v)
-                .to_str()
-                .expect("No UTF8 error expected")
-        }),
-        RzILVarKind_RZ_IL_VAR_KIND_LOCAL => vm.get_varl(unsafe {
-            CStr::from_ptr(pderef!(op).op.var.v)
-                .to_str()
-                .expect("No UTF8 error expected")
-        }),
-        RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE => vm.get_lpure(unsafe {
-            CStr::from_ptr(pderef!(op).op.var.v)
-                .to_str()
-                .expect("No UTF8 error expected")
-        }),
+        RzILVarKind_RZ_IL_VAR_KIND_GLOBAL => {
+            vm.get_varg(unsafe { &c_to_str(pderef!(op).op.var.v) })
+        }
+        RzILVarKind_RZ_IL_VAR_KIND_LOCAL => vm.get_varl(unsafe { &c_to_str(pderef!(op).op.var.v) }),
+        RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE => {
+            vm.get_lpure(unsafe { &c_to_str(pderef!(op).op.var.v) })
+        }
         _ => {
             log_rz!(LOG_ERROR, None, "Unknown var kind".to_owned());
             None
@@ -176,11 +177,7 @@ pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 
 pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
-    let let_name = unsafe {
-        CStr::from_ptr((*op).op.let_.name)
-            .to_str()
-            .expect("No UTF8 error expected")
-    };
+    let let_name = unsafe { &c_to_str((*op).op.let_.name) };
     let let_v = eval_pure(vm, unsafe { (*op).op.let_.exp });
     if let_v.is_none() {
         log_rz!(
@@ -829,23 +826,9 @@ pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
         return false;
     }
     if unsafe { (*op).op.set.is_local } {
-        vm.set_varl(
-            unsafe {
-                CStr::from_ptr(pderef!(op).op.set.v)
-                    .to_str()
-                    .expect("No UTF8 error expected")
-            },
-            av.unwrap(),
-        );
+        vm.set_varl(unsafe { &c_to_str(pderef!(op).op.set.v) }, av.unwrap());
     } else {
-        vm.set_varg(
-            unsafe {
-                CStr::from_ptr(pderef!(op).op.set.v)
-                    .to_str()
-                    .expect("No UTF8 error expected")
-            },
-            av.unwrap(),
-        );
+        vm.set_varg(unsafe { &c_to_str(pderef!(op).op.set.v) }, av.unwrap());
     }
     true
 }
