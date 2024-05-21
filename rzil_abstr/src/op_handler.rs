@@ -484,12 +484,9 @@ pub fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<A
 }
 
 pub fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_cast not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.logxor.x });
+    check_validity!(v1);
+    Some(v1.unwrap().clone())
 }
 
 pub fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
