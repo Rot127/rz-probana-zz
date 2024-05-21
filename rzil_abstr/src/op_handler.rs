@@ -365,75 +365,101 @@ pub fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
 }
 
 pub fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_shiftl not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.shiftl.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.shiftl.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 << c2), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_shiftr not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.shiftr.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.shiftr.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 >> c2), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_logical_and not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.logand.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.logand.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 & c2), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_logical_or not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.logor.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.logor.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 | c2), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_logical_xor not yet implemented.".to_string()
-    );
-    None
+    let v1 = eval_pure(vm, unsafe { (*op).op.logxor.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.logxor.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(|c1, c2| (c1 ^ c2), v1.unwrap(), v2.unwrap());
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_bool_and not yet implemented.".to_string()
+    let v1 = eval_pure(vm, unsafe { (*op).op.booland.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.booland.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| (if *c1 != 0 && *c2 != 0 { 1 } else { 0 }),
+        v1.unwrap(),
+        v2.unwrap(),
     );
-    None
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_bool_or not yet implemented.".to_string()
+    let v1 = eval_pure(vm, unsafe { (*op).op.boolor.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.boolor.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| (if *c1 != 0 || *c2 != 0 { 1 } else { 0 }),
+        v1.unwrap(),
+        v2.unwrap(),
     );
-    None
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_bool_xor not yet implemented.".to_string()
+    let v1 = eval_pure(vm, unsafe { (*op).op.boolxor.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.boolxor.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| {
+            (if ((*c1 == 0) && (*c2 == 0)) || ((*c1 != 0) && (*c2 != 0)) {
+                0
+            } else {
+                1
+            })
+        },
+        v1.unwrap(),
+        v2.unwrap(),
     );
-    None
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
