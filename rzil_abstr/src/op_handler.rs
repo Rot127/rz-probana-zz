@@ -898,22 +898,34 @@ fn rz_il_handler_empty(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_store not yet implemented".to_string()
-    );
-    false
+    let mut k = eval_pure(vm, unsafe { (*op).op.store.key });
+    check_pure_validity!(k, false);
+    let key = k.unwrap();
+    let value = eval_pure(vm, unsafe { (*op).op.store.value });
+    check_pure_validity!(value, false);
+    let v = value.unwrap();
+    let norm_t = vm.get_taint_flag(&key) || vm.get_taint_flag(&v);
+    let norm_v = &vm.normalize_val(key);
+    vm.set_mem_val(norm_v, v.clone());
+    vm.set_taint_flag(&norm_v, norm_t);
+    vm.enqueue_mos(&norm_v);
+    true
 }
 
 fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_storew not yet implemented".to_string()
-    );
-    false
+    let mut k = eval_pure(vm, unsafe { (*op).op.storew.key });
+    check_pure_validity!(k, false);
+    let key = k.unwrap();
+    let value = eval_pure(vm, unsafe { (*op).op.storew.value });
+    check_pure_validity!(value, false);
+    let v = value.unwrap();
+    let norm_t = vm.get_taint_flag(&key) || vm.get_taint_flag(&v);
+    let norm_v = &vm.normalize_val(key);
+    vm.set_mem_val(norm_v, v.clone());
+    vm.set_taint_flag(&norm_v, norm_t);
+    vm.enqueue_mos(&norm_v);
+    true
 }
 
 fn rz_il_handler_nop(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {

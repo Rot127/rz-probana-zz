@@ -236,7 +236,7 @@ pub struct AbstrVM {
     /// MemTaint map
     mt: HashMap<AbstrVal, bool>,
     /// RegTaint map
-    rt: HashMap<Global, bool>,
+    rt: HashMap<String, bool>,
     /// Path
     pa: IntrpPath,
     /// Call stack
@@ -453,10 +453,25 @@ impl AbstrVM {
         v
     }
 
+    pub fn get_taint_flag(&mut self, v: &AbstrVal) -> bool {
+        if v.m.class == MemRegionClass::Global && v.il_gvar.is_some() {
+            if let Some(t) = self.rt.get(v.il_gvar.as_ref().unwrap()) {
+                return *t;
+            } else {
+                panic!("Has no taint flag set for abstr. global {}", v)
+            }
+        }
+        if let Some(t) = self.mt.get(v) {
+            *t
+        } else {
+            panic!("Has no taint flag set for abstr. memory value {}", v)
+        }
+    }
+
     pub fn set_taint_flag(&mut self, v3: &AbstrVal, tainted: bool) {
         if let Some(il_gvar) = v3.il_gvar.clone() {
             if let Some(global) = self.gvars.get(&il_gvar) {
-                self.rt.insert(global.clone(), tainted);
+                self.rt.insert(il_gvar, tainted);
                 return;
             }
             log_rz!(
