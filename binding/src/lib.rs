@@ -284,11 +284,11 @@ pub fn rz_notify_error(rz_core: GRzCore, mut msg: String) {
 }
 
 /// Converts a BitVector to an arbitrary sized Integer. It panics in case of failure.
-pub fn bv_to_int(bv: *mut RzBitVector) -> Integer {
+pub fn bv_to_int(bv: *mut RzBitVector) -> i128 {
     null_check!(bv);
     let len = unsafe { rz_bv_len(bv) };
     if len <= 64 {
-        return Integer::from(unsafe { rz_bv_to_ut64(bv) });
+        return unsafe { rz_bv_to_ut64(bv) } as i128;
     }
     todo!()
 }

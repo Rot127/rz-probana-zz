@@ -53,9 +53,7 @@ use crate::op_handler::{
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 type Address = u64;
 
-/// A constant value. It is an arbitrary size Integer because it must also
-/// be able to hold constant vector values of more then 64/128bit.
-pub type Const = Integer;
+pub type Const = i128;
 
 type PC = Address;
 
@@ -173,11 +171,11 @@ impl AbstrVal {
     }
 
     pub fn new_true() -> AbstrVal {
-        AbstrVal::new_global(Const::ONE.clone(), None)
+        AbstrVal::new_global(1, None)
     }
 
     pub fn new_false() -> AbstrVal {
-        AbstrVal::new_global(Const::ZERO.clone(), None)
+        AbstrVal::new_global(0, None)
     }
 
     pub fn new(m: MemRegion, c: Const, is_il_gvar: Option<String>) -> AbstrVal {
@@ -195,7 +193,7 @@ impl AbstrVal {
         if self.m.class != MemRegionClass::Global {
             return false;
         }
-        self.c == Const::ZERO
+        self.c == 0
     }
 }
 
@@ -424,10 +422,7 @@ impl AbstrVM {
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
             self.gvars.insert(
                 name.to_owned(),
-                Global::new(
-                    rsize as usize,
-                    AbstrVal::new_global(Integer::from(0), Some(name)),
-                ),
+                Global::new(rsize as usize, AbstrVal::new_global(0, Some(name))),
             );
         });
     }
