@@ -13,40 +13,7 @@ use binding::{
     LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
-use crate::op_handler::{
-    eval_effect, eval_pure, rz_il_handler_add, rz_il_handler_append, rz_il_handler_bitv,
-    rz_il_handler_blk, rz_il_handler_bool_and, rz_il_handler_bool_false, rz_il_handler_bool_inv,
-    rz_il_handler_bool_or, rz_il_handler_bool_true, rz_il_handler_bool_xor, rz_il_handler_branch,
-    rz_il_handler_cast, rz_il_handler_div, rz_il_handler_empty, rz_il_handler_eq,
-    rz_il_handler_fabs, rz_il_handler_fadd, rz_il_handler_fbits, rz_il_handler_fcast_float,
-    rz_il_handler_fcast_int, rz_il_handler_fcast_sfloat, rz_il_handler_fcast_sint,
-    rz_il_handler_fcompound, rz_il_handler_fconvert, rz_il_handler_fdiv, rz_il_handler_fhypot,
-    rz_il_handler_float, rz_il_handler_fmad, rz_il_handler_fmod, rz_il_handler_fmul,
-    rz_il_handler_fneg, rz_il_handler_forder, rz_il_handler_fpow, rz_il_handler_fpown,
-    rz_il_handler_fpred, rz_il_handler_frequal, rz_il_handler_frootn, rz_il_handler_fround,
-    rz_il_handler_frsqrt, rz_il_handler_fsqrt, rz_il_handler_fsub, rz_il_handler_fsucc,
-    rz_il_handler_goto, rz_il_handler_is_finite, rz_il_handler_is_fneg, rz_il_handler_is_fpos,
-    rz_il_handler_is_fzero, rz_il_handler_is_inf, rz_il_handler_is_nan, rz_il_handler_is_zero,
-    rz_il_handler_ite, rz_il_handler_jmp, rz_il_handler_let, rz_il_handler_load,
-    rz_il_handler_loadw, rz_il_handler_logical_and, rz_il_handler_logical_not,
-    rz_il_handler_logical_or, rz_il_handler_logical_xor, rz_il_handler_lsb, rz_il_handler_mod,
-    rz_il_handler_msb, rz_il_handler_mul, rz_il_handler_neg, rz_il_handler_nop,
-    rz_il_handler_repeat, rz_il_handler_sdiv, rz_il_handler_seq, rz_il_handler_set,
-    rz_il_handler_shiftl, rz_il_handler_shiftr, rz_il_handler_sle, rz_il_handler_smod,
-    rz_il_handler_store, rz_il_handler_storew, rz_il_handler_sub, rz_il_handler_ule,
-    rz_il_handler_var, IL_OP_ADD, IL_OP_AND, IL_OP_APPEND, IL_OP_B0, IL_OP_B1, IL_OP_BITV,
-    IL_OP_BLK, IL_OP_BRANCH, IL_OP_CAST, IL_OP_DIV, IL_OP_EMPTY, IL_OP_EQ, IL_OP_FABS, IL_OP_FADD,
-    IL_OP_FBITS, IL_OP_FCAST_FLOAT, IL_OP_FCAST_INT, IL_OP_FCAST_SFLOAT, IL_OP_FCAST_SINT,
-    IL_OP_FCOMPOUND, IL_OP_FCONVERT, IL_OP_FDIV, IL_OP_FHYPOT, IL_OP_FLOAT, IL_OP_FMAD, IL_OP_FMOD,
-    IL_OP_FMUL, IL_OP_FNEG, IL_OP_FORDER, IL_OP_FPOW, IL_OP_FPOWN, IL_OP_FPRED, IL_OP_FREQUAL,
-    IL_OP_FROOTN, IL_OP_FROUND, IL_OP_FRSQRT, IL_OP_FSQRT, IL_OP_FSUB, IL_OP_FSUCC, IL_OP_GOTO,
-    IL_OP_INV, IL_OP_IS_FINITE, IL_OP_IS_FNEG, IL_OP_IS_FPOS, IL_OP_IS_FZERO, IL_OP_IS_INF,
-    IL_OP_IS_NAN, IL_OP_IS_ZERO, IL_OP_ITE, IL_OP_JMP, IL_OP_LET, IL_OP_LOAD, IL_OP_LOADW,
-    IL_OP_LOGAND, IL_OP_LOGNOT, IL_OP_LOGOR, IL_OP_LOGXOR, IL_OP_LSB, IL_OP_MOD, IL_OP_MSB,
-    IL_OP_MUL, IL_OP_NEG, IL_OP_NOP, IL_OP_OR, IL_OP_PURE_MAX, IL_OP_REPEAT, IL_OP_SDIV, IL_OP_SEQ,
-    IL_OP_SET, IL_OP_SHIFTL, IL_OP_SHIFTR, IL_OP_SLE, IL_OP_SMOD, IL_OP_STORE, IL_OP_STOREW,
-    IL_OP_SUB, IL_OP_ULE, IL_OP_VAR, IL_OP_XOR,
-};
+use crate::op_handler::eval_effect;
 
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 type Address = u64;

@@ -152,21 +152,21 @@ fn c_to_str(c_str: *const i8) -> String {
     }
 }
 
-pub fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
     Some(AbstrVal::new_global(0, None))
 }
 
-pub fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
     Some(AbstrVal::new_global(1, None))
 }
 
-pub fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let bv = unsafe { pderef!(op).op.bitv.value };
     Some(AbstrVal::new_global(bv_to_int(bv), None))
 }
 
-pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     match (unsafe { (*op).op.var }.kind) {
         RzILVarKind_RZ_IL_VAR_KIND_GLOBAL => {
@@ -183,7 +183,7 @@ pub fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     }
 }
 
-pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let let_name = unsafe { &c_to_str((*op).op.let_.name) };
     let let_v = eval_pure(vm, unsafe { (*op).op.let_.exp });
@@ -209,7 +209,7 @@ pub fn rz_il_handler_let(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 }
 
 // Handler for core theory opcodes
-pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let cond = eval_pure(vm, unsafe { (*op).op.ite.condition });
     let x = eval_pure(vm, unsafe { (*op).op.ite.x });
@@ -228,7 +228,7 @@ pub fn rz_il_handler_ite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     x
 }
 
-pub fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -237,7 +237,7 @@ pub fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     None
 }
 
-pub fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -246,7 +246,7 @@ pub fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     None
 }
 
-pub fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let av = eval_pure(vm, unsafe { (*op).op.is_zero.bv });
     check_pure_validity!(av);
     if av.unwrap().is_global_zero() {
@@ -255,7 +255,7 @@ pub fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     Some(AbstrVal::new_false())
 }
 
-pub fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.eq.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.eq.y });
@@ -269,7 +269,7 @@ pub fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
     Some(v3)
 }
 
-pub fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.ule.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.ule.y });
@@ -283,7 +283,7 @@ pub fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     Some(v3)
 }
 
-pub fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.sle.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.sle.y });
@@ -297,7 +297,7 @@ pub fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     Some(v3)
 }
 
-pub fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -306,7 +306,7 @@ pub fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     None
 }
 
-pub fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -315,7 +315,7 @@ pub fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Optio
     None
 }
 
-pub fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.booland.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.booland.y });
@@ -329,7 +329,7 @@ pub fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<A
     Some(v3)
 }
 
-pub fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.boolor.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.boolor.y });
@@ -343,7 +343,7 @@ pub fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     Some(v3)
 }
 
-pub fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.boolxor.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.boolxor.y });
@@ -363,7 +363,7 @@ pub fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<A
     Some(v3)
 }
 
-pub fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.add.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.add.y });
@@ -373,7 +373,7 @@ pub fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     Some(v3)
 }
 
-pub fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.sub.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.sub.y });
@@ -383,7 +383,7 @@ pub fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     Some(v3)
 }
 
-pub fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.mul.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.mul.y });
@@ -393,7 +393,7 @@ pub fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     Some(v3)
 }
 
-pub fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.div.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.div.y });
@@ -403,7 +403,7 @@ pub fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     Some(v3)
 }
 
-pub fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.sdiv.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.sdiv.y });
@@ -413,7 +413,7 @@ pub fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     Some(v3)
 }
 
-pub fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.mod_.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.mod_.y });
@@ -423,7 +423,7 @@ pub fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     Some(v3)
 }
 
-pub fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.smod.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.smod.y });
@@ -433,7 +433,7 @@ pub fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     Some(v3)
 }
 
-pub fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.shiftl.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.shiftl.y });
@@ -443,7 +443,7 @@ pub fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     Some(v3)
 }
 
-pub fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.shiftr.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.shiftr.y });
@@ -453,7 +453,7 @@ pub fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     Some(v3)
 }
 
-pub fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.logand.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.logand.y });
@@ -463,7 +463,7 @@ pub fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Optio
     Some(v3)
 }
 
-pub fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.logor.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.logor.y });
@@ -473,7 +473,7 @@ pub fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option
     Some(v3)
 }
 
-pub fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.logxor.x });
     check_pure_validity!(v1);
     let v2 = eval_pure(vm, unsafe { (*op).op.logxor.y });
@@ -483,7 +483,7 @@ pub fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Optio
     Some(v3)
 }
 
-pub fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -492,13 +492,13 @@ pub fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<A
     None
 }
 
-pub fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let v1 = eval_pure(vm, unsafe { (*op).op.logxor.x });
     check_pure_validity!(v1);
     Some(v1.unwrap().clone())
 }
 
-pub fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -507,7 +507,7 @@ pub fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
     check_pure_validity!(key);
     let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
@@ -515,7 +515,7 @@ pub fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     Some(v)
 }
 
-pub fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
     check_pure_validity!(key);
     let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
@@ -523,7 +523,7 @@ pub fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
     Some(v)
 }
 
-pub fn rz_il_handler_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -532,7 +532,7 @@ pub fn rz_il_handler_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
     None
 }
 
-pub fn rz_il_handler_fbits(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fbits(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -541,7 +541,7 @@ pub fn rz_il_handler_fbits(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
     None
 }
 
-pub fn rz_il_handler_is_finite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_is_finite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -550,7 +550,7 @@ pub fn rz_il_handler_is_finite(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<
     None
 }
 
-pub fn rz_il_handler_is_nan(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_is_nan(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -559,7 +559,7 @@ pub fn rz_il_handler_is_nan(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_is_inf(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_is_inf(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -568,7 +568,7 @@ pub fn rz_il_handler_is_inf(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_is_fzero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_is_fzero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -577,7 +577,7 @@ pub fn rz_il_handler_is_fzero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<A
     None
 }
 
-pub fn rz_il_handler_is_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_is_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -586,7 +586,7 @@ pub fn rz_il_handler_is_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     None
 }
 
-pub fn rz_il_handler_is_fpos(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_is_fpos(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -595,7 +595,7 @@ pub fn rz_il_handler_is_fpos(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     None
 }
 
-pub fn rz_il_handler_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -604,7 +604,7 @@ pub fn rz_il_handler_fneg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fabs(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fabs(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -613,7 +613,7 @@ pub fn rz_il_handler_fabs(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fcast_int(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fcast_int(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -622,7 +622,7 @@ pub fn rz_il_handler_fcast_int(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<
     None
 }
 
-pub fn rz_il_handler_fcast_sint(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fcast_sint(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -631,7 +631,7 @@ pub fn rz_il_handler_fcast_sint(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option
     None
 }
 
-pub fn rz_il_handler_fcast_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fcast_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -640,7 +640,7 @@ pub fn rz_il_handler_fcast_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Optio
     None
 }
 
-pub fn rz_il_handler_fcast_sfloat(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fcast_sfloat(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -649,7 +649,7 @@ pub fn rz_il_handler_fcast_sfloat(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Opti
     None
 }
 
-pub fn rz_il_handler_fconvert(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fconvert(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -658,7 +658,7 @@ pub fn rz_il_handler_fconvert(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<A
     None
 }
 
-pub fn rz_il_handler_frequal(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_frequal(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -667,7 +667,7 @@ pub fn rz_il_handler_frequal(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     None
 }
 
-pub fn rz_il_handler_fsucc(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fsucc(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -676,7 +676,7 @@ pub fn rz_il_handler_fsucc(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
     None
 }
 
-pub fn rz_il_handler_fpred(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fpred(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -685,7 +685,7 @@ pub fn rz_il_handler_fpred(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
     None
 }
 
-pub fn rz_il_handler_forder(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_forder(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -694,7 +694,7 @@ pub fn rz_il_handler_forder(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_fround(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fround(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -703,7 +703,7 @@ pub fn rz_il_handler_fround(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_fsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -712,7 +712,7 @@ pub fn rz_il_handler_fsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
     None
 }
 
-pub fn rz_il_handler_frsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_frsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -721,7 +721,7 @@ pub fn rz_il_handler_frsqrt(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_fadd(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fadd(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -730,7 +730,7 @@ pub fn rz_il_handler_fadd(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fsub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fsub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -739,7 +739,7 @@ pub fn rz_il_handler_fsub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -748,7 +748,7 @@ pub fn rz_il_handler_fdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fmul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fmul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -757,7 +757,7 @@ pub fn rz_il_handler_fmul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fmod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fmod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -766,7 +766,7 @@ pub fn rz_il_handler_fmod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fhypot(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fhypot(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -775,7 +775,7 @@ pub fn rz_il_handler_fhypot(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_fpow(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fpow(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -784,7 +784,7 @@ pub fn rz_il_handler_fpow(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_fmad(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fmad(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -793,7 +793,7 @@ pub fn rz_il_handler_fmad(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     None
 }
 
-pub fn rz_il_handler_frootn(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_frootn(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -802,7 +802,7 @@ pub fn rz_il_handler_frootn(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     None
 }
 
-pub fn rz_il_handler_fpown(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fpown(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -811,7 +811,7 @@ pub fn rz_il_handler_fpown(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
     None
 }
 
-pub fn rz_il_handler_fcompound(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_fcompound(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -820,7 +820,7 @@ pub fn rz_il_handler_fcompound(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<
     None
 }
 
-pub fn rz_il_handler_pure_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+fn rz_il_handler_pure_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     log_rz!(
         LOG_WARN,
         None,
@@ -829,11 +829,11 @@ pub fn rz_il_handler_pure_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpPure) -
     None
 }
 
-pub fn rz_il_handler_empty(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_empty(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     true
 }
 
-pub fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
@@ -842,7 +842,7 @@ pub fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     false
 }
 
-pub fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
@@ -851,11 +851,11 @@ pub fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     false
 }
 
-pub fn rz_il_handler_nop(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_nop(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     true
 }
 
-pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
     let pure = unsafe { (*op).op.set.x };
     let av = eval_pure(vm, pure);
@@ -871,7 +871,7 @@ pub fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     true
 }
 
-pub fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
@@ -880,7 +880,7 @@ pub fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     false
 }
 
-pub fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
@@ -889,7 +889,7 @@ pub fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     false
 }
 
-pub fn rz_il_handler_seq(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_seq(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     let x_success = eval_effect(vm, unsafe { (*op).op.seq.x });
     check_effect_success!(x_success);
     let y_success = eval_effect(vm, unsafe { (*op).op.seq.y });
@@ -897,7 +897,7 @@ pub fn rz_il_handler_seq(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     return x_success && y_success;
 }
 
-pub fn rz_il_handler_blk(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_blk(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
@@ -906,7 +906,7 @@ pub fn rz_il_handler_blk(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     false
 }
 
-pub fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
@@ -915,7 +915,7 @@ pub fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     false
 }
 
-pub fn rz_il_handler_branch(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_branch(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
@@ -924,7 +924,7 @@ pub fn rz_il_handler_branch(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     false
 }
 
-pub fn rz_il_handler_effect_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
+fn rz_il_handler_effect_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     log_rz!(
         LOG_WARN,
         None,
