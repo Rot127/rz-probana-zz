@@ -961,12 +961,11 @@ fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_jmp not yet implemented".to_string()
-    );
-    false
+    // Jump is pretty much ignored (because the path was already sampled).
+    // So we only check for calls to input and malloc
+    // functions.
+    // TODO: Do actually the check.
+    true
 }
 
 fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
