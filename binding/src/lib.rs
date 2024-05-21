@@ -34,7 +34,7 @@ macro_rules! null_check {
 #[macro_export]
 macro_rules! pderef {
     ($ptr:expr) => {{
-        null_check!($ptr);
+        assert_ne!($ptr, std::ptr::null_mut(), "{:?} is NULL", $ptr);
         unsafe { *$ptr }
     }};
 }
