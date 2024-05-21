@@ -239,9 +239,7 @@ pub fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 
 pub fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     let av = eval_pure(vm, unsafe { (*op).op.is_zero.bv });
-    if av.is_none() {
-        return None;
-    }
+    check_validity!(av);
     if av.unwrap().is_global_zero() {
         return Some(AbstrVal::new_true());
     }
@@ -291,6 +289,54 @@ pub fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Optio
         "rz_il_handler_logical_not not yet implemented.".to_string()
     );
     None
+}
+
+pub fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    let v1 = eval_pure(vm, unsafe { (*op).op.booland.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.booland.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| (if *c1 != 0 && *c2 != 0 { 1 } else { 0 }),
+        v1.unwrap(),
+        v2.unwrap(),
+    );
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
+}
+
+pub fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    let v1 = eval_pure(vm, unsafe { (*op).op.boolor.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.boolor.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| (if *c1 != 0 || *c2 != 0 { 1 } else { 0 }),
+        v1.unwrap(),
+        v2.unwrap(),
+    );
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
+}
+
+pub fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    let v1 = eval_pure(vm, unsafe { (*op).op.boolxor.x });
+    check_validity!(v1);
+    let v2 = eval_pure(vm, unsafe { (*op).op.boolxor.y });
+    check_validity!(v2);
+    let (v3, tainted) = vm.calc_value(
+        |c1, c2| {
+            (if ((*c1 == 0) && (*c2 == 0)) || ((*c1 != 0) && (*c2 != 0)) {
+                0
+            } else {
+                1
+            })
+        },
+        v1.unwrap(),
+        v2.unwrap(),
+    );
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
 }
 
 pub fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
@@ -409,54 +455,6 @@ pub fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Optio
     let v2 = eval_pure(vm, unsafe { (*op).op.logxor.y });
     check_validity!(v2);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 ^ c2), v1.unwrap(), v2.unwrap());
-    vm.set_taint_flag(&v3, tainted);
-    Some(v3)
-}
-
-pub fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    let v1 = eval_pure(vm, unsafe { (*op).op.booland.x });
-    check_validity!(v1);
-    let v2 = eval_pure(vm, unsafe { (*op).op.booland.y });
-    check_validity!(v2);
-    let (v3, tainted) = vm.calc_value(
-        |c1, c2| (if *c1 != 0 && *c2 != 0 { 1 } else { 0 }),
-        v1.unwrap(),
-        v2.unwrap(),
-    );
-    vm.set_taint_flag(&v3, tainted);
-    Some(v3)
-}
-
-pub fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    let v1 = eval_pure(vm, unsafe { (*op).op.boolor.x });
-    check_validity!(v1);
-    let v2 = eval_pure(vm, unsafe { (*op).op.boolor.y });
-    check_validity!(v2);
-    let (v3, tainted) = vm.calc_value(
-        |c1, c2| (if *c1 != 0 || *c2 != 0 { 1 } else { 0 }),
-        v1.unwrap(),
-        v2.unwrap(),
-    );
-    vm.set_taint_flag(&v3, tainted);
-    Some(v3)
-}
-
-pub fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    let v1 = eval_pure(vm, unsafe { (*op).op.boolxor.x });
-    check_validity!(v1);
-    let v2 = eval_pure(vm, unsafe { (*op).op.boolxor.y });
-    check_validity!(v2);
-    let (v3, tainted) = vm.calc_value(
-        |c1, c2| {
-            (if ((*c1 == 0) && (*c2 == 0)) || ((*c1 != 0) && (*c2 != 0)) {
-                0
-            } else {
-                1
-            })
-        },
-        v1.unwrap(),
-        v2.unwrap(),
-    );
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
