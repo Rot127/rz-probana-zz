@@ -518,7 +518,7 @@ fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
 
 fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
-    let v1 = eval_pure(vm, unsafe { (*op).op.logxor.x });
+    let v1 = eval_pure(vm, unsafe { (*op).op.cast.val });
     check_pure_validity!(v1, None);
     Some(v1.unwrap().clone())
 }
