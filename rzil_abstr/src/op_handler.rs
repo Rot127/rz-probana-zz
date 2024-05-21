@@ -126,10 +126,10 @@ pub const IL_OP_REPEAT: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_REPEAT;
 pub const IL_OP_BRANCH: RzILOpEffectCode = RzILOpEffectCode_RZ_IL_OP_BRANCH;
 
 macro_rules! check_pure_validity {
-    ($pure:expr) => {
+    ($pure:expr, $return:expr) => {
         if $pure.is_none() {
             log_rz!(LOG_ERROR, None, "Pure evaluated failed".to_string());
-            return None;
+            return $return;
         }
     };
 }
@@ -251,7 +251,7 @@ fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
 fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let av = eval_pure(vm, unsafe { (*op).op.is_zero.bv });
-    check_pure_validity!(av);
+    check_pure_validity!(av, None);
     if av.unwrap().is_global_zero() {
         return Some(AbstrVal::new_true());
     }
@@ -261,9 +261,9 @@ fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.eq.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.eq.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(
         |c1, c2| (if c1 < c2 { 1 } else { 0 }),
         v1.unwrap(),
@@ -276,9 +276,9 @@ fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
 fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.ule.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.ule.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(
         |c1, c2| (if c1 <= c2 { 1 } else { 0 }),
         v1.unwrap(),
@@ -291,9 +291,9 @@ fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
 fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.sle.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.sle.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(
         |c1, c2| (if c1 <= c2 { 1 } else { 0 }),
         v1.unwrap(),
@@ -326,9 +326,9 @@ fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
 fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.booland.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.booland.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(
         |c1, c2| (if *c1 != 0 && *c2 != 0 { 1 } else { 0 }),
         v1.unwrap(),
@@ -341,9 +341,9 @@ fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
 fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.boolor.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.boolor.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(
         |c1, c2| (if *c1 != 0 || *c2 != 0 { 1 } else { 0 }),
         v1.unwrap(),
@@ -356,9 +356,9 @@ fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
 fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.boolxor.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.boolxor.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(
         |c1, c2| {
             (if ((*c1 == 0) && (*c2 == 0)) || ((*c1 != 0) && (*c2 != 0)) {
@@ -377,9 +377,9 @@ fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
 fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.add.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.add.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 + c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -388,9 +388,9 @@ fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
 fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.sub.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.sub.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 - c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -399,9 +399,9 @@ fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
 fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.mul.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.mul.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 * c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -410,9 +410,9 @@ fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
 fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.div.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.div.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 / c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -421,9 +421,9 @@ fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
 fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.sdiv.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.sdiv.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 / c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -432,9 +432,9 @@ fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
 fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.mod_.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.mod_.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 % c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -443,9 +443,9 @@ fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
 fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.smod.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.smod.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 % c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -454,9 +454,9 @@ fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
 fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.shiftl.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.shiftl.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 << c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -465,9 +465,9 @@ fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
 fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.shiftr.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.shiftr.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 >> c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -476,9 +476,9 @@ fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
 fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.logand.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.logand.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 & c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -487,9 +487,9 @@ fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
 fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.logor.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.logor.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 | c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -498,9 +498,9 @@ fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
 fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.logxor.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.logxor.y });
-    check_pure_validity!(v2);
+    check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value(|c1, c2| (c1 ^ c2), v1.unwrap(), v2.unwrap());
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -519,7 +519,7 @@ fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
 fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.logxor.x });
-    check_pure_validity!(v1);
+    check_pure_validity!(v1, None);
     Some(v1.unwrap().clone())
 }
 
@@ -536,7 +536,7 @@ fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
 fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
-    check_pure_validity!(key);
+    check_pure_validity!(key, None);
     let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
     vm.enqueue_mos(&v);
     Some(v)
@@ -545,7 +545,7 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
 fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let mut key = eval_pure(vm, unsafe { (*op).op.loadw.key });
-    check_pure_validity!(key);
+    check_pure_validity!(key, None);
     let v = vm.get_mem_val(&vm.normalize_val(key.unwrap()));
     vm.enqueue_mos(&v);
     Some(v)
