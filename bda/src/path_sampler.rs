@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::{collections::VecDeque, sync::RwLock};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::RwLock,
+};
 
 use binding::{log_rizin, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
-use rzil_abstr::interpreter::IntrpPath;
+use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
 
 use crate::{
     cfg::CFG,
@@ -15,24 +18,53 @@ use crate::{
     weight::{WeightID, WeightMap},
 };
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
+pub struct PathNodeInfo {
+    is_proc_entry: bool,
+}
+
+#[derive(Debug)]
 pub struct Path {
     path: Vec<NodeId>,
+    node_info: HashMap<NodeId, PathNodeInfo>,
+}
+
+impl std::hash::Hash for Path {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.path.hash(state);
+    }
+}
+
+impl Eq for Path {}
+
+impl PartialEq for Path {
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.path, &other.path)
+    }
 }
 
 impl Path {
     pub fn new() -> Path {
-        Path { path: Vec::new() }
+        Path {
+            path: Vec::new(),
+            node_info: HashMap::new(),
+        }
     }
 
     // Function only used in macro and is not detected as used.
     #[allow(dead_code)]
     pub fn from(path: Vec<NodeId>) -> Path {
-        Path { path }
+        Path {
+            path,
+            node_info: HashMap::new(),
+        }
     }
 
-    pub fn push(&mut self, nid: NodeId) {
+    pub fn push(&mut self, nid: NodeId, info: Option<PathNodeInfo>) {
         self.path.push(nid);
+        if info.is_some() {
+            self.node_info.insert(nid, info.unwrap());
+        }
     }
 
     /// Translates the path to an interpreter path.
@@ -40,6 +72,11 @@ impl Path {
         let mut ipath: IntrpPath = IntrpPath::new();
         for n in self.path.iter() {
             ipath.push(n.address);
+        }
+        for (n, i) in self.node_info.iter() {
+            if i.is_proc_entry {
+                ipath.push_info(n.address, AddrInfo::IsProcEntry)
+            }
         }
         ipath
     }
@@ -151,7 +188,12 @@ fn sample_cfg_path(
 ) {
     let mut cur = start;
     loop {
-        path.push(cur);
+        path.push(
+            cur,
+            Some(PathNodeInfo {
+                is_proc_entry: icfg.is_procedure(&cur),
+            }),
+        );
         log_rz!(LOG_DEBUG, None, format!("{} -> {}", " ".repeat(i), cur));
         if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
             meta.insns

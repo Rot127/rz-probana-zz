@@ -42,6 +42,23 @@ impl ICFG {
         }
     }
 
+    pub fn is_procedure(&self, node_id: &NodeId) -> bool {
+        self.procedures.contains_key(node_id)
+    }
+
+    pub fn is_malloc(&self, node_id: &NodeId) -> bool {
+        self.procedures
+            .get(node_id)
+            .is_some_and(|p| p.read().expect("").is_malloc())
+    }
+
+    pub fn is_input(&self, node_id: &NodeId) -> bool {
+        if !self.is_procedure(node_id) {
+            return false;
+        }
+        false
+    }
+
     pub fn print_stats(&self) {
         println!("iCFG stats");
         println!("\tCFGs: {}", self.graph.node_count());

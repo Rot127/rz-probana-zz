@@ -22,15 +22,32 @@ pub type Const = i128;
 
 type PC = Address;
 
+pub enum AddrInfo {
+    // Address points to the first instruction in a procedure.
+    IsProcEntry,
+    // Address points to a memory allocating function.
+    IsMalloc,
+    // Address points to a function which provides external input.
+    IsInput,
+}
+
 pub struct IntrpPath {
+    /// Execution path of instructions.
     path: VecDeque<Address>,
+    /// Function addresses which are in the path.
+    addr_info: HashMap<Address, AddrInfo>,
 }
 
 impl IntrpPath {
     pub fn new() -> IntrpPath {
         IntrpPath {
             path: VecDeque::new(),
+            addr_info: HashMap::new(),
         }
+    }
+
+    pub fn push_info(&mut self, addr: Address, info: AddrInfo) {
+        self.addr_info.insert(addr, info);
     }
 
     pub fn push(&mut self, addr: Address) {
