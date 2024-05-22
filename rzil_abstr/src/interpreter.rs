@@ -10,7 +10,7 @@ use std::{
 use binding::{
     c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
     RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure, RzRegisterId,
-    LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    RzRegisterId_RZ_REG_NAME_BP, RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 use crate::op_handler::eval_effect;
@@ -21,20 +21,6 @@ type Address = u64;
 pub type Const = i128;
 
 type PC = Address;
-
-#[derive(Clone, Eq, PartialEq, Hash)]
-struct Global {
-    /// Size in bits
-    size: usize,
-    /// The current value
-    val: AbstrVal,
-}
-
-impl Global {
-    fn new(size: usize, val: AbstrVal) -> Global {
-        Global { size, val }
-    }
-}
 
 pub struct IntrpPath {
     path: VecDeque<Address>,
@@ -73,7 +59,7 @@ pub struct ConcreteIndirectCall {
 }
 
 /// Memory region classes: Global, Stack, Heap
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum MemRegionClass {
     /// Global memory region. E.g. .data, .rodata, .bss
     Global,
@@ -84,7 +70,7 @@ enum MemRegionClass {
 }
 
 /// A memory region. Either of Global, Stack or Heap.
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
@@ -141,6 +127,19 @@ impl AbstrVal {
     pub fn new_global(c: Const, is_il_gvar: Option<String>) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
+            base: 0,
+            c: 0,
+        };
+        AbstrVal {
+            m,
+            c,
+            il_gvar: is_il_gvar,
+        }
+    }
+
+    pub fn new_stack(c: Const, is_il_gvar: Option<String>) -> AbstrVal {
+        let m = MemRegion {
+            class: MemRegionClass::Stack,
             base: 0,
             c: 0,
         };
@@ -246,7 +245,7 @@ pub struct AbstrVM {
     /// IL operation buffer
     il_op_buf: HashMap<Address, *mut RzILOpEffect>,
     /// Global variables (mostly registers)
-    gvars: HashMap<String, Global>,
+    gvars: HashMap<String, AbstrVal>,
     /// Local pure variables. Defined via LET()
     lpures: HashMap<String, AbstrVal>,
     /// Local variables, defined via SETL
@@ -290,7 +289,7 @@ impl AbstrVM {
             );
             return None;
         }
-        Some(self.gvars.get(name).unwrap().val.clone())
+        Some(self.gvars.get(name).unwrap().clone())
     }
 
     pub fn get_varl(&self, name: &str) -> Option<AbstrVal> {
@@ -331,14 +330,23 @@ impl AbstrVM {
             );
             return;
         }
+        let sp_name = self
+            .reg_roles
+            .get(&RzRegisterId_RZ_REG_NAME_SP)
+            .expect("Should have been initialized");
+        let bp_name = self
+            .reg_roles
+            .get(&RzRegisterId_RZ_REG_NAME_BP)
+            .expect("Should have been initialized");
+        if name == sp_name || name == bp_name {
+            assert_eq!(
+                av.m.class,
+                MemRegionClass::Stack,
+                "Only stack values should be written to SP and BP"
+            )
+        }
         av.il_gvar = Some(name.to_string());
-        self.gvars.insert(
-            name.to_owned(),
-            Global {
-                size: global.unwrap().size,
-                val: av,
-            },
-        );
+        self.gvars.insert(name.to_owned(), av);
     }
 
     pub fn set_varl(&mut self, name: &str, av: AbstrVal) {
@@ -385,27 +393,17 @@ impl AbstrVM {
         result
     }
 
-    fn init_register_file(&mut self, rz_core: GRzCore) {
+    /// Initializes the register profile, register alias and their initial
+    /// abstract values.
+    /// Returns false if it fails.
+    fn init_register_file(&mut self, rz_core: GRzCore) -> bool {
         log_rz!(
             LOG_DEBUG,
             None,
             "Init register file for abstract interpreter.".to_string()
         );
+
         let core = rz_core.lock().unwrap();
-        let reg_bindings = core.get_reg_bindings().expect("Could not get reg_bindings");
-        let reg_count = pderef!(reg_bindings).regs_count;
-        let regs = pderef!(reg_bindings).regs;
-        (0..reg_count).for_each(|i| {
-            let reg = unsafe { regs.offset(i as isize) };
-            let rsize = pderef!(reg).size;
-            let rname = pderef!(reg).name;
-            let name = c_to_str(rname);
-            log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
-            self.gvars.insert(
-                name.to_owned(),
-                Global::new(rsize as usize, AbstrVal::new_global(0, Some(name))),
-            );
-        });
 
         // Set the register alias
         let alias = core.get_reg_alias();
@@ -422,6 +420,37 @@ impl AbstrVM {
                 )
             }
         }
+        let sp_name = self.reg_roles.get(&RzRegisterId_RZ_REG_NAME_SP);
+        let bp_name = self.reg_roles.get(&RzRegisterId_RZ_REG_NAME_BP);
+        if sp_name.is_none() || bp_name.is_none() {
+            log_rz!(
+                LOG_ERROR,
+                None,
+                "BP and SP must be set in the register profile for this algorithm to work."
+                    .to_string()
+            );
+            return false;
+        }
+
+        // Init complete register file
+        let reg_bindings = core.get_reg_bindings().expect("Could not get reg_bindings");
+        let reg_count = pderef!(reg_bindings).regs_count;
+        let regs = pderef!(reg_bindings).regs;
+        (0..reg_count).for_each(|i| {
+            let reg = unsafe { regs.offset(i as isize) };
+            let rsize = pderef!(reg).size;
+            let rname = pderef!(reg).name;
+            let name = c_to_str(rname);
+            log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
+
+            let init_val = match &name {
+                sp_name => AbstrVal::new_stack(0, Some(name.clone())),
+                bp_name => AbstrVal::new_stack(0, Some(name.clone())),
+                _ => AbstrVal::new_global(0, Some(name.clone())),
+            };
+            self.gvars.insert(name.to_owned(), init_val);
+        });
+        true
     }
 
     /// Gives the invocation count for a given instruction address.
@@ -534,13 +563,17 @@ impl AbstrVM {
 
 /// Interprets the given path with the given interpeter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
+    // Replace with Channel and send/rcv
+    let p = IntrpByProducts {
+        resolved_icalls: Vec::new(),
+    };
+
     let mut vm = AbstrVM::new(path.get(0), path);
-    vm.init_register_file(rz_core.clone());
+    if !vm.init_register_file(rz_core.clone()) {
+        return p;
+    }
 
     while vm.step(&rz_core) {}
 
-    // Replace with Channel and send/rcv
-    IntrpByProducts {
-        resolved_icalls: Vec::new(),
-    }
+    p
 }
