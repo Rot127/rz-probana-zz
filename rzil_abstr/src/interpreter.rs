@@ -251,6 +251,9 @@ pub struct AbstrVM {
     lpures: HashMap<String, AbstrVal>,
     /// Local variables, defined via SETL
     lvars: HashMap<String, AbstrVal>,
+    /// Register roles (SP, PC, LR, ARG 1, ARG 2 etc)
+    /// Role to register name nap.
+    reg_roles: HashMap<RzRegisterId, String>,
 }
 
 impl AbstrVM {
@@ -274,6 +277,7 @@ impl AbstrVM {
             gvars: HashMap::new(),
             lvars: HashMap::new(),
             lpures: HashMap::new(),
+            reg_roles: HashMap::new(),
         }
     }
 
@@ -406,6 +410,22 @@ impl AbstrVM {
                 Global::new(rsize as usize, AbstrVal::new_global(0, Some(name))),
             );
         });
+
+        // Set the register alias
+        let alias = core.get_reg_alias();
+        for ralias in alias {
+            let ra = pderef!(ralias);
+            if let Some(p) = self.reg_roles.insert(ra.role, c_to_str(ra.reg_name)) {
+                log_rz!(
+                    LOG_WARN,
+                    None,
+                    format!(
+                        "Duplicate role of register {} detected",
+                        c_to_str(ra.reg_name)
+                    )
+                )
+            }
+        }
     }
 
     /// Gives the invocation count for a given instruction address.

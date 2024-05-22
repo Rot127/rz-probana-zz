@@ -276,6 +276,15 @@ impl RzCoreWrapper {
         pderef!(self.get_cur()).decode_iword
     }
 
+    pub fn get_reg_alias(&self) -> Vec<*mut RzRegProfileAlias> {
+        unsafe {
+            list_to_vec::<*mut RzRegProfileAlias>(
+                uderef!(uderef!(self.get_analysis()).reg).reg_profile.alias,
+                |e| e as *mut RzRegProfileAlias,
+            )
+        }
+    }
+
     pub fn get_reg_bindings(&self) -> Option<*mut RzILRegBinding> {
         let reg: *mut RzReg = unsafe { rz_reg_new() };
         if reg == std::ptr::null_mut() {
