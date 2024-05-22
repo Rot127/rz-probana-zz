@@ -39,6 +39,14 @@ macro_rules! pderef {
     }};
 }
 
+#[macro_export]
+macro_rules! uderef {
+    ($ptr:expr) => {{
+        assert_ne!($ptr, std::ptr::null_mut(), "{:?} is NULL", $ptr);
+        *$ptr
+    }};
+}
+
 pub const LOG_DEBUG: u32 = rz_log_level_RZ_LOGLVL_DEBUG;
 pub const LOG_VERBOSE: u32 = rz_log_level_RZ_LOGLVL_VERBOSE;
 pub const LOG_INFO: u32 = rz_log_level_RZ_LOGLVL_INFO;
@@ -98,6 +106,75 @@ pub struct rz_lib_struct_t {
 }
 
 pub type RzLibStruct = rz_lib_struct_t;
+
+pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
+    let mut vec: Vec<*mut T> = Vec::new();
+    if pvec == std::ptr::null_mut() {
+        println!("PVector pointer is null.");
+        return vec;
+    }
+
+    let len = pderef!(pvec).v.len;
+    if len <= 0 {
+        return vec;
+    }
+    vec.reserve(len as usize);
+    let data_arr: &mut [*mut T] =
+        unsafe { std::slice::from_raw_parts_mut(uderef!(pvec).v.a as *mut *mut T, len as usize) };
+    for i in 0..len {
+        vec.push(data_arr[i]);
+    }
+    assert_eq!(len, vec.len());
+    vec
+}
+
+pub fn cpvec_to_vec<T>(pvec: *const RzPVector) -> Vec<*mut T> {
+    let mut vec: Vec<*mut T> = Vec::new();
+    if pvec == std::ptr::null_mut() {
+        println!("PVector pointer is null.");
+        return vec;
+    }
+
+    let len = pderef!(pvec).v.len;
+    if len <= 0 {
+        return vec;
+    }
+    vec.reserve(len as usize);
+    let data_arr: &mut [*mut T] =
+        unsafe { std::slice::from_raw_parts_mut(uderef!(pvec).v.a as *mut *mut T, len as usize) };
+    for i in 0..len {
+        vec.push(data_arr[i]);
+    }
+    assert_eq!(len, vec.len());
+    vec
+}
+
+pub fn list_to_vec<T>(
+    list: *mut RzList,
+    elem_conv: fn(*mut ::std::os::raw::c_void) -> T,
+) -> Vec<T> {
+    let mut vec: Vec<T> = Vec::new();
+    if list == std::ptr::null_mut() {
+        println!("List pointer is null.");
+        return vec;
+    }
+    let len = pderef!(list).length;
+    vec.reserve(len as usize);
+    let mut iter: *mut RzListIter = pderef!(list).head;
+    if iter == std::ptr::null_mut() {
+        assert_eq!(len, vec.len() as u32);
+        return vec;
+    }
+    loop {
+        vec.push(elem_conv(pderef!(iter).elem));
+        if unsafe { *iter }.next == std::ptr::null_mut() {
+            break;
+        }
+        iter = pderef!(iter).next;
+    }
+    assert_eq!(len, vec.len() as u32);
+    vec
+}
 
 /// Wrapper struct around a *mut rz_core_t
 /// Clone and Copy should definitely not be implemented for this struct.

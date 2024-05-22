@@ -11,90 +11,22 @@ use crate::icfg::ICFG;
 use crate::state::BDAState;
 
 use binding::{
-    log_rizin, log_rz, pderef, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
-    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_cfg,
-    rz_core_graph_cfg_iwords, rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error,
-    GRzCore, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph,
-    RzGraphNode, RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef,
+    rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_bin_object_get_entries,
+    rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
+    rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error, GRzCore, RzAnalysis, RzBinAddr,
+    RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, RzGraphNodeInfo,
     RzGraphNodeInfoDataCFG, RzGraphNodeType, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, RzList,
-    RzListIter, RzPVector, LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG,
+    LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 use helper::progress::ProgressBar;
-
-pub fn mpvec_to_vec<T>(pvec: *mut RzPVector) -> Vec<*mut T> {
-    let mut vec: Vec<*mut T> = Vec::new();
-    if pvec.is_null() {
-        println!("PVector pointer is null.");
-        return vec;
-    }
-
-    let len = pderef!(pvec).v.len;
-    if len <= 0 {
-        return vec;
-    }
-    vec.reserve(len as usize);
-    let data_arr: &mut [*mut T] =
-        unsafe { std::slice::from_raw_parts_mut(pderef!(pvec).v.a as *mut *mut T, len as usize) };
-    for i in 0..len {
-        vec.push(data_arr[i]);
-    }
-    assert_eq!(len, vec.len());
-    vec
-}
-
-pub fn cpvec_to_vec<T>(pvec: *const RzPVector) -> Vec<*mut T> {
-    let mut vec: Vec<*mut T> = Vec::new();
-    if pvec.is_null() {
-        println!("PVector pointer is null.");
-        return vec;
-    }
-
-    let len = pderef!(pvec).v.len;
-    if len <= 0 {
-        return vec;
-    }
-    vec.reserve(len as usize);
-    let data_arr: &mut [*mut T] =
-        unsafe { std::slice::from_raw_parts_mut(pderef!(pvec).v.a as *mut *mut T, len as usize) };
-    for i in 0..len {
-        vec.push(data_arr[i]);
-    }
-    assert_eq!(len, vec.len());
-    vec
-}
-
-pub fn list_to_vec<T>(
-    list: *mut RzList,
-    elem_conv: fn(*mut ::std::os::raw::c_void) -> T,
-) -> Vec<T> {
-    let mut vec: Vec<T> = Vec::new();
-    if list.is_null() {
-        println!("List pointer is null.");
-        return vec;
-    }
-    let len = pderef!(list).length;
-    vec.reserve(len as usize);
-    let mut iter: *mut RzListIter = pderef!(list).head;
-    if iter.is_null() {
-        assert_eq!(len, vec.len() as u32);
-        return vec;
-    }
-    loop {
-        vec.push(elem_conv(pderef!(iter).elem));
-        if unsafe { *iter }.next == null_mut() {
-            break;
-        }
-        iter = pderef!(iter).next;
-    }
-    assert_eq!(len, vec.len() as u32);
-    vec
-}
 
 fn list_elem_to_graph_node_tuple(
     elem: *mut ::std::os::raw::c_void,
