@@ -399,11 +399,7 @@ impl AbstrVM {
             let reg = unsafe { regs.offset(i as isize) };
             let rsize = pderef!(reg).size;
             let rname = pderef!(reg).name;
-            let name = unsafe {
-                CString::from_raw(rname)
-                    .into_string()
-                    .expect("CString to String failed.")
-            };
+            let name = c_to_str(rname);
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
             self.gvars.insert(
                 name.to_owned(),
