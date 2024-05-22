@@ -390,6 +390,7 @@ impl AbstrVM {
             result = eval_effect(self, effect);
             unsafe { rz_analysis_op_free(ana_op.cast()) };
         }
+        self.lvars.clear();
         result
     }
 
