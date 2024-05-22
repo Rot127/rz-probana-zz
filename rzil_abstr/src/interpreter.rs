@@ -16,12 +16,13 @@ use binding::{
 use crate::op_handler::eval_effect;
 
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
-type Address = u64;
+pub type Address = u64;
 
 pub type Const = i128;
 
 type PC = Address;
 
+#[derive(PartialEq, Eq)]
 pub enum AddrInfo {
     // Address points to the first instruction in a procedure.
     IsProcEntry,
@@ -192,6 +193,22 @@ impl AbstrVal {
         }
         self.c == 0
     }
+
+    pub fn is_global(&self) -> bool {
+        self.m.class == MemRegionClass::Global
+    }
+
+    pub fn is_stack(&self) -> bool {
+        self.m.class == MemRegionClass::Stack
+    }
+
+    pub fn get_mem_region(&self) -> &MemRegion {
+        &self.m
+    }
+
+    pub fn get_offset(&self) -> Const {
+        self.c
+    }
 }
 
 /// An operation on the constant share of abstract values
@@ -206,11 +223,11 @@ struct MemOp {
 
 type MemOpSeq = Vec<MemOp>;
 
-struct CallFrame {
+pub struct CallFrame {
     /// The invocation site
     in_site: Address,
     /// The instance count.
-    instance: Const,
+    instance: u64,
     /// The return address
     return_addr: Address,
     /// The abstract value of the SP register
@@ -270,6 +287,8 @@ pub struct AbstrVM {
     /// Register roles (SP, PC, LR, ARG 1, ARG 2 etc)
     /// Role to register name nap.
     reg_roles: HashMap<RzRegisterId, String>,
+    /// Const value jump targets
+    jmp_targets: Vec<Address>,
 }
 
 impl AbstrVM {
@@ -294,7 +313,17 @@ impl AbstrVM {
             lvars: HashMap::new(),
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
+            jmp_targets: Vec::new(),
         }
+    }
+
+    /// Returns true if this address points to a procedure.
+    pub fn points_to_proc(&self, addr: Address) -> bool {
+        return self.pa.addr_info.contains_key(&addr);
+    }
+
+    pub fn add_jmp_target(&mut self, addr: Address) {
+        self.jmp_targets.push(addr);
     }
 
     pub fn get_varg(&self, name: &str) -> Option<AbstrVal> {
@@ -355,12 +384,16 @@ impl AbstrVM {
             .reg_roles
             .get(&RzRegisterId_RZ_REG_NAME_BP)
             .expect("Should have been initialized");
-        if name == sp_name || name == bp_name {
+        if !av.is_stack() && (name == sp_name || name == bp_name) {
             assert_eq!(
                 av.m.class,
                 MemRegionClass::Stack,
                 "Only stack values should be written to SP and BP"
             )
+        }
+        if name == bp_name {
+            // Assume for a write to the base pointer a return.
+            self.call_stack_pop();
         }
         av.il_gvar = Some(name.to_string());
         self.gvars.insert(name.to_owned(), av);
@@ -398,11 +431,13 @@ impl AbstrVM {
         let result;
         if iword_decoder.is_some() {
             let iword = rz_core.get_iword(iaddr);
+            self.is.insert(iaddr, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             result = eval_effect(self, effect);
             unsafe { rz_analysis_insn_word_free(iword) };
         } else {
             let ana_op = rz_core.get_analysis_op(iaddr);
+            self.is.insert(iaddr, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
             result = eval_effect(self, effect);
             unsafe { rz_analysis_op_free(ana_op.cast()) };
@@ -576,6 +611,30 @@ impl AbstrVM {
             addr: self.pc,
             aval: v.clone(),
         });
+    }
+
+    fn get_sp(&self) -> AbstrVal {
+        let sp_name = self
+            .reg_roles
+            .get(&RzRegisterId_RZ_REG_NAME_SP)
+            .expect("SP not set");
+        self.rs.get(sp_name).expect("Should be set").clone()
+    }
+
+    /// Pushes a call frame on the call stack.
+    pub fn call_stack_push(&mut self, proc_addr: Address) {
+        // For now we just assume that the SP was _not_ updated before the actual jump to the procedure.
+        self.cs.push(CallFrame {
+            in_site: self.pc,
+            instance: *self.ic.get(&self.pc).expect("Should have been set before."),
+            return_addr: self.pc + self.is.get(&self.pc).expect("Should have been set before."),
+            sp: self.get_sp(),
+        });
+    }
+
+    /// Pops a call frame from the call stack.
+    pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
+        self.cs.pop()
     }
 }
 

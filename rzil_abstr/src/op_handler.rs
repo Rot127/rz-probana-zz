@@ -40,7 +40,7 @@ use binding::{
     RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE, LOG_ERROR, LOG_WARN,
 };
 
-use crate::interpreter::{AbstrVM, AbstrVal, Const};
+use crate::interpreter::{AbstrVM, AbstrVal, Address, Const};
 
 pub const IL_OP_VAR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_VAR;
 pub const IL_OP_ITE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ITE;
@@ -953,7 +953,21 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // Jump is pretty much ignored (because the path was already sampled).
     // So we only check for calls to input and malloc
     // functions.
-    // TODO: Do actually the check.
+    let mut dst = eval_pure(vm, unsafe { (*op).op.jmp.dst });
+    check_pure_validity!(dst, false);
+    let jdst = &dst.unwrap();
+    if !jdst.is_global() {
+        return true;
+    }
+    // There is the possibility that a jump to this address wasn't disovered yet.
+    // Log it for later.
+    let addr = jdst.get_offset() as Address;
+    vm.add_jmp_target(addr);
+    if vm.points_to_proc(addr) {
+        // Push new stack frame.
+        vm.call_stack_push(addr);
+    }
+
     true
 }
 
