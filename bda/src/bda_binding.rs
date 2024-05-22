@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::panic;
-use std::ptr::{null, null_mut};
+use std::ptr::null;
 
 use crate::bda::run_bda;
 use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG};

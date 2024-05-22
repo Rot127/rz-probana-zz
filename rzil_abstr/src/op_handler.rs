@@ -4,10 +4,8 @@
 #![allow(unused)]
 #![allow(non_upper_case_globals)]
 
-use std::ffi::CStr;
-
 use binding::{
-    bv_to_int, log_rizin, log_rz, null_check, pderef, RzILOpEffect, RzILOpEffectCode,
+    bv_to_int, c_to_str, log_rizin, log_rz, null_check, pderef, RzILOpEffect, RzILOpEffectCode,
     RzILOpEffectCode_RZ_IL_OP_BLK, RzILOpEffectCode_RZ_IL_OP_BRANCH,
     RzILOpEffectCode_RZ_IL_OP_EFFECT_MAX, RzILOpEffectCode_RZ_IL_OP_EMPTY,
     RzILOpEffectCode_RZ_IL_OP_GOTO, RzILOpEffectCode_RZ_IL_OP_JMP, RzILOpEffectCode_RZ_IL_OP_NOP,
@@ -141,15 +139,6 @@ macro_rules! check_effect_success {
             return false;
         }
     };
-}
-
-fn c_to_str(c_str: *const i8) -> String {
-    unsafe {
-        CStr::from_ptr(c_str)
-            .to_str()
-            .expect("No UTF8 error expected")
-            .to_owned()
-    }
 }
 
 fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {

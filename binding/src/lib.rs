@@ -7,6 +7,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+use std::ffi::CStr;
+
 use core::panic;
 use std::{
     env,
@@ -174,6 +176,15 @@ pub fn list_to_vec<T>(
     }
     assert_eq!(len, vec.len() as u32);
     vec
+}
+
+pub fn c_to_str(c_str: *const i8) -> String {
+    unsafe {
+        CStr::from_ptr(c_str)
+            .to_str()
+            .expect("No UTF8 error expected")
+            .to_owned()
+    }
 }
 
 /// Wrapper struct around a *mut rz_core_t
