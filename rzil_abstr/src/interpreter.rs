@@ -170,12 +170,8 @@ impl AbstrVal {
         AbstrVal::new_global(0, None)
     }
 
-    pub fn new(m: MemRegion, c: Const, is_il_gvar: Option<String>) -> AbstrVal {
-        AbstrVal {
-            m,
-            c,
-            il_gvar: is_il_gvar,
-        }
+    pub fn new(m: MemRegion, c: Const, il_gvar: Option<String>) -> AbstrVal {
+        AbstrVal { m, c, il_gvar }
     }
 
     /// Checks if the abstract value is equal to global zero (a.k.a False).
