@@ -212,26 +212,27 @@ impl RzCoreWrapper {
         iop
     }
 
+    pub fn read_io_at(&self, addr: u64, len: usize) -> Vec<u8> {
+        let mut buf = Vec::<u8>::with_capacity(len);
+        unsafe {
+            if !rz_io_read_at_mapped(self.get_io(), addr, buf.as_mut_ptr(), len) {
+                log_rz!(
+                    LOG_ERROR,
+                    None,
+                    format!("rz_io_read_at_mapped() failed at {}", addr)
+                );
+            }
+        }
+        buf
+    }
+
     pub fn get_iword(&self, addr: u64) -> *mut RzAnalysisInsnWord {
         let iword_decoder = self.get_iword_decoder();
         unsafe {
             let leading_bytes = if addr < 8 { addr } else { 8 };
             let iword = rz_analysis_insn_word_new();
             let buf_len = 64;
-            let mut buf = Vec::<u8>::with_capacity(buf_len);
-            if !rz_io_read_at_mapped(
-                self.get_io(),
-                addr - leading_bytes,
-                buf.as_mut_ptr(),
-                buf_len,
-            ) {
-                log_rz!(
-                    LOG_ERROR,
-                    None,
-                    format!("rz_io_read_at_mapped() failed at {}", addr)
-                );
-                return std::ptr::null_mut();
-            }
+            let buf = self.read_io_at(addr - leading_bytes, buf_len);
             let success = iword_decoder.unwrap()(
                 self.get_analysis(),
                 iword,
@@ -312,7 +313,7 @@ impl RzCoreWrapper {
         if pderef!(cfg).reg_bindings != std::ptr::null_mut() {
             let mut count = 0;
             let reg_bindings = pderef!(cfg).reg_bindings;
-            while unsafe { reg_bindings.offset(count) } != std::ptr::null_mut() {
+            while unsafe { *reg_bindings.offset(count) } != std::ptr::null_mut() {
                 count += 1;
             }
             return Some(unsafe { rz_il_reg_binding_exactly(reg, count as usize, reg_bindings) });
