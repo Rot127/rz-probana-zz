@@ -77,12 +77,11 @@ pub fn log_rizin(
             filename.as_str().as_ptr().cast(),
             line,
             level,
-            match tag {
-                Some(mut t) => {
-                    t.push('\0');
-                    t.as_str().as_ptr().cast()
-                }
-                None => std::ptr::null_mut(),
+            if let Some(mut t) = tag {
+                t.push('\0');
+                t.as_str().as_ptr().cast()
+            } else {
+                std::ptr::null_mut()
             },
             msg.as_str().as_ptr().cast(),
         );

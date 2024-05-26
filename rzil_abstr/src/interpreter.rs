@@ -5,12 +5,14 @@
 use std::{
     collections::{HashMap, VecDeque},
     ffi::CString,
+    sync::MutexGuard,
 };
 
 use binding::{
-    c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
-    RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzILOpEffect, RzILOpPure, RzILTypePure, RzRegisterId,
-    RzRegisterId_RZ_REG_NAME_BP, RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
+    rz_io_read_at_mapped, GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzCoreWrapper, RzILMem,
+    RzILOpEffect, RzILOpPure, RzILTypePure, RzRegisterId, RzRegisterId_RZ_REG_NAME_BP,
+    RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 use crate::op_handler::eval_effect;
@@ -312,7 +314,12 @@ impl AbstrVM {
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
             jmp_targets: Vec::new(),
+            rz_core,
         }
+    }
+
+    pub fn get_rz_core(&self) -> &GRzCore {
+        &self.rz_core
     }
 
     /// Returns true if this address points to a procedure.
@@ -413,7 +420,7 @@ impl AbstrVM {
         todo!()
     }
 
-    fn step(&mut self, rz_core: &GRzCore) -> bool {
+    fn step(&mut self) -> bool {
         let mut iaddr: Address;
         if let Some(na) = self.pa.next() {
             iaddr = na;
@@ -423,18 +430,17 @@ impl AbstrVM {
 
         *self.ic.entry(iaddr).or_default() += 1;
 
-        let rz_core = rz_core.lock().unwrap();
-        let iword_decoder = rz_core.get_iword_decoder();
+        let iword_decoder = unlocked_core!(self).get_iword_decoder();
         let mut effect;
         let result;
         if iword_decoder.is_some() {
-            let iword = rz_core.get_iword(iaddr);
+            let iword = unlocked_core!(self).get_iword(iaddr);
             self.is.insert(iaddr, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             result = eval_effect(self, effect);
             unsafe { rz_analysis_insn_word_free(iword) };
         } else {
-            let ana_op = rz_core.get_analysis_op(iaddr);
+            let ana_op = unlocked_core!(self).get_analysis_op(iaddr);
             self.is.insert(iaddr, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
             result = eval_effect(self, effect);
@@ -454,6 +460,9 @@ impl AbstrVM {
             "Init register file for abstract interpreter.".to_string()
         );
 
+        if rz_core.is_poisoned() {
+            rz_core.clear_poison();
+        }
         let core = rz_core.lock().unwrap();
 
         // Set the register alias
@@ -468,39 +477,36 @@ impl AbstrVM {
                         "Duplicate role of register {} detected",
                         c_to_str(ra.reg_name)
                     )
-                )
+                );
             }
         }
-        let sp_name = self.reg_roles.get(&RzRegisterId_RZ_REG_NAME_SP);
-        let bp_name = self.reg_roles.get(&RzRegisterId_RZ_REG_NAME_BP);
-        if sp_name.is_none() || bp_name.is_none() {
-            log_rz!(
-                LOG_ERROR,
-                None,
-                "BP and SP must be set in the register profile for this algorithm to work."
-                    .to_string()
-            );
-            return false;
-        }
+        let sp_name = self
+            .reg_roles
+            .get(&RzRegisterId_RZ_REG_NAME_SP)
+            .expect("SP must be defined in register profile.");
+        let bp_name = self
+            .reg_roles
+            .get(&RzRegisterId_RZ_REG_NAME_BP)
+            .expect("BP must be defined in register profile.");
 
         // Init complete register file
         let reg_bindings = core.get_reg_bindings().expect("Could not get reg_bindings");
         let reg_count = pderef!(reg_bindings).regs_count;
         let regs = pderef!(reg_bindings).regs;
-        (0..reg_count).for_each(|i| {
+        for i in 0..reg_count {
             let reg = unsafe { regs.offset(i as isize) };
             let rsize = pderef!(reg).size;
             let rname = pderef!(reg).name;
             let name = c_to_str(rname);
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
 
-            let init_val = match &name {
-                sp_name => AbstrVal::new_stack(0, Some(name.clone())),
-                bp_name => AbstrVal::new_stack(0, Some(name.clone())),
-                _ => AbstrVal::new_global(0, Some(name.clone())),
+            let init_val = if &name == sp_name || &name == bp_name {
+                AbstrVal::new_stack(0, Some(name.clone()))
+            } else {
+                AbstrVal::new_global(0, Some(name.clone()))
             };
             self.gvars.insert(name.to_owned(), init_val);
-        });
+        }
         true
     }
 
@@ -580,11 +586,19 @@ impl AbstrVM {
         self.mt.insert(v3.clone(), tainted);
     }
 
-    pub fn get_mem_val(&self, key: &AbstrVal) -> AbstrVal {
+    /// Reads a memory value. It first attempts to read an abstract value from the
+    /// MS map. If this fails it panics for Heap and Stack values. But attempts to read [n_bytes]
+    /// from the memory mapped in Rizins IO.
+    /// If [n_bytes] == 0, it panics as well.
+    pub fn get_mem_val(&self, key: &AbstrVal, n_bytes: usize) -> AbstrVal {
         if let Some(v) = self.ms.get(key) {
             return v.clone();
         }
-        panic!("No value saved for: {}", key);
+        if !key.is_global() || n_bytes == 0 {
+            panic!("No value saved for: {}", key);
+        }
+        let gmem_val = self.read_io_at_u64(key.c as u64, n_bytes) as Const;
+        AbstrVal::new_global(gmem_val, None)
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
@@ -637,6 +651,24 @@ impl AbstrVM {
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
         self.cs.pop()
     }
+
+    pub fn read_io_at(&self, addr: Address, n_bytes: usize) -> Vec<u8> {
+        unlocked_core!(self).read_io_at(addr, n_bytes)
+    }
+
+    pub fn read_io_at_u64(&self, addr: Address, n_bytes: usize) -> u64 {
+        let mut n = 0;
+        let data = self.read_io_at(addr, n_bytes);
+        // For now only little endian
+        for i in (0..n_bytes) {
+            n |= (*data.get(i).unwrap() as u64) << i;
+        }
+        n
+    }
+
+    pub fn read_mem(&self, addr: Address, n_bytes: usize) -> Vec<u8> {
+        unlocked_core!(self).read_io_at(addr, n_bytes)
+    }
 }
 
 /// Interprets the given path with the given interpeter VM.
@@ -646,12 +678,12 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
         resolved_icalls: Vec::new(),
     };
 
-    let mut vm = AbstrVM::new(path.get(0), path);
-    if !vm.init_register_file(rz_core.clone()) {
+    let mut vm = AbstrVM::new(rz_core, path.get(0), path);
+    if !vm.init_register_file(vm.get_rz_core().clone()) {
         return p;
     }
 
-    while vm.step(&rz_core) {}
+    while vm.step() {}
 
     p
 }
