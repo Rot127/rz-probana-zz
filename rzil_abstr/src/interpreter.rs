@@ -377,25 +377,6 @@ impl AbstrVM {
             );
             return;
         }
-        let sp_name = self
-            .reg_roles
-            .get(&RzRegisterId_RZ_REG_NAME_SP)
-            .expect("Should have been initialized");
-        let bp_name = self
-            .reg_roles
-            .get(&RzRegisterId_RZ_REG_NAME_BP)
-            .expect("Should have been initialized");
-        if !av.is_stack() && (name == sp_name || name == bp_name) {
-            assert_eq!(
-                av.m.class,
-                MemRegionClass::Stack,
-                "Only stack values should be written to SP and BP"
-            )
-        }
-        if name == bp_name {
-            // Assume for a write to the base pointer a return.
-            self.call_stack_pop();
-        }
         av.il_gvar = Some(name.to_string());
         self.gvars.insert(name.to_owned(), av);
     }
@@ -496,11 +477,7 @@ impl AbstrVM {
             let name = c_to_str(rname);
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
 
-            let init_val = if &name == sp_name || &name == bp_name {
-                AbstrVal::new_stack(0, Some(name.clone()))
-            } else {
-                AbstrVal::new_global(0, Some(name.clone()))
-            };
+            let init_val = AbstrVal::new_global(0, Some(name.clone()));
             self.gvars.insert(name.to_owned(), init_val);
         }
         true
