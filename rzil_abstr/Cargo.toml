@@ -10,3 +10,5 @@ edition = "2021"
 
 [dependencies]
 binding = { path = "../binding", version = "0.1.0" }
+rand = "0.8.5"
+rand_distr = "0.4.3"

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
+use rand_distr::{Distribution, Normal};
 use std::{
     collections::{HashMap, VecDeque},
     ffi::CString,
@@ -280,6 +281,8 @@ pub struct AbstrVM {
     jmp_targets: Vec<Address>,
     /// Rizin Core
     rz_core: GRzCore,
+    /// Normal distribution
+    dist: Normal<f64>,
 }
 
 macro_rules! unlocked_core {
@@ -311,6 +314,7 @@ impl AbstrVM {
             reg_roles: HashMap::new(),
             jmp_targets: Vec::new(),
             rz_core,
+            dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
         }
     }
 
@@ -394,7 +398,7 @@ impl AbstrVM {
     /// It takes the address of an input-functions at [address] and the current
     /// [invocation] of the function.
     fn rv(&self, address: Address, invocation: u64) -> Const {
-        todo!()
+        self.dist.sample(&mut rand::thread_rng()) as Const
     }
 
     fn step(&mut self) -> bool {
