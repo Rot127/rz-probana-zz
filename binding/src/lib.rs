@@ -215,12 +215,9 @@ impl RzCoreWrapper {
         let mut buf = Vec::<u8>::with_capacity(len);
         unsafe {
             if !rz_io_read_at_mapped(self.get_io(), addr, buf.as_mut_ptr(), len) {
-                log_rz!(
-                    LOG_ERROR,
-                    None,
-                    format!("rz_io_read_at_mapped() failed at {}", addr)
-                );
+                panic!("rz_io_read_at_mapped() failed at {}", addr);
             }
+            buf.set_len(len);
         }
         buf
     }

@@ -636,10 +636,7 @@ impl AbstrVM {
     pub fn read_io_at_u64(&self, addr: Address, n_bytes: usize) -> u64 {
         let mut n = 0;
         let data = self.read_io_at(addr, n_bytes);
-        if data.len() != n_bytes {
-            log_rz!(LOG_ERROR, None, "Reading of memory failed.".to_string());
-            return 0;
-        }
+
         // For now only little endian
         for i in (0..n_bytes) {
             n |= (*data.get(i).expect("read not enough bytes.") as u64) << i;
