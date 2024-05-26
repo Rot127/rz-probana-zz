@@ -108,7 +108,10 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
         for tid in 0..state.num_threads {
             if !threads.get(&tid).is_none() && threads.get(&tid).as_ref().unwrap().is_finished() {
                 let thread = threads.remove(&tid).unwrap();
-                products.push(thread.join().unwrap());
+                match thread.join() {
+                    Err(_) => panic!("Thread failed."),
+                    Ok(r) => products.push(r),
+                };
             }
         }
         for _product in products.iter() {
