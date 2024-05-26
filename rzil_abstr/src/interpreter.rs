@@ -278,7 +278,7 @@ pub struct AbstrVM {
     /// Role to register name nap.
     reg_roles: HashMap<RzRegisterId, String>,
     /// Const value jump targets
-    jmp_targets: Vec<Address>,
+    jmp_targets: Vec<ConcreteIndirectCall>,
     /// Rizin Core
     rz_core: GRzCore,
     /// Normal distribution
@@ -327,8 +327,9 @@ impl AbstrVM {
         return self.pa.addr_info.contains_key(&addr);
     }
 
-    pub fn add_jmp_target(&mut self, addr: Address) {
-        self.jmp_targets.push(addr);
+    pub fn add_jmp_target(&mut self, to: Address) {
+        self.jmp_targets
+            .push(ConcreteIndirectCall { from: self.pc, to });
     }
 
     pub fn get_varg(&self, name: &str) -> Option<AbstrVal> {
@@ -651,17 +652,17 @@ impl AbstrVM {
 
 /// Interprets the given path with the given interpeter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
-    // Replace with Channel and send/rcv
-    let p = IntrpByProducts {
-        resolved_icalls: Vec::new(),
-    };
-
     let mut vm = AbstrVM::new(rz_core, path.get(0), path);
     if !vm.init_register_file(vm.get_rz_core().clone()) {
-        return p;
+        return IntrpByProducts {
+            resolved_icalls: Vec::new(),
+        };
     }
 
     while vm.step() {}
 
-    p
+    // Replace with Channel and send/rcv
+    IntrpByProducts {
+        resolved_icalls: vm.jmp_targets.into(),
+    }
 }
