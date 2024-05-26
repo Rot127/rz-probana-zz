@@ -26,13 +26,31 @@ pub type Const = i128;
 type PC = Address;
 
 #[derive(PartialEq, Eq)]
-pub enum AddrInfo {
-    // Address points to the first instruction in a procedure.
-    IsProcEntry,
-    // Address points to a memory allocating function.
-    IsMalloc,
-    // Address points to a function which provides external input.
-    IsInput,
+pub struct AddrInfo {
+    /// IWord calls a procedure.
+    is_call: bool,
+    /// IWord calls an allocating function.
+    calls_malloc: bool,
+    /// IWord calls an input function.
+    calls_input: bool,
+    /// IWord is executed on return of a procedure.
+    is_return_point: bool,
+}
+
+impl AddrInfo {
+    pub fn new(
+        is_call: bool,
+        calls_malloc: bool,
+        calls_input: bool,
+        is_return_point: bool,
+    ) -> AddrInfo {
+        AddrInfo {
+            is_call,
+            calls_malloc,
+            calls_input,
+            is_return_point,
+        }
+    }
 }
 
 pub struct IntrpPath {

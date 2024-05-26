@@ -20,7 +20,14 @@ use crate::{
 
 #[derive(Debug)]
 pub struct PathNodeInfo {
-    is_proc_entry: bool,
+    /// True if the iword calls another procedure.
+    is_call: bool,
+    /// True if the iword calls malloc.
+    calls_malloc: bool,
+    /// True if the iword calls an input function.
+    calls_input: bool,
+    /// True if the iword is executed after a call.
+    is_return_point: bool,
 }
 
 #[derive(Debug)]
@@ -60,11 +67,12 @@ impl Path {
         }
     }
 
-    pub fn push(&mut self, nid: NodeId, info: Option<PathNodeInfo>) {
+    pub fn push(&mut self, nid: NodeId) {
         self.path.push(nid);
-        if info.is_some() {
-            self.node_info.insert(nid, info.unwrap());
-        }
+    }
+
+    pub fn add_info(&mut self, nid: NodeId, info: PathNodeInfo) {
+        self.node_info.insert(nid, info);
     }
 
     /// Translates the path to an interpreter path.
@@ -74,9 +82,10 @@ impl Path {
             ipath.push(n.address);
         }
         for (n, i) in self.node_info.iter() {
-            if i.is_proc_entry {
-                ipath.push_info(n.address, AddrInfo::IsProcEntry)
-            }
+            ipath.push_info(
+                n.address,
+                AddrInfo::new(i.is_call, i.calls_malloc, i.calls_input, i.is_return_point),
+            )
         }
         ipath
     }
@@ -186,20 +195,28 @@ fn sample_cfg_path(
     i: usize,
     wmap: &RwLock<WeightMap>,
 ) {
+    let mut prev_was_call = false;
     let mut cur = start;
     loop {
-        path.push(
-            cur,
-            Some(PathNodeInfo {
-                is_proc_entry: icfg.is_procedure(&cur),
-            }),
-        );
+        let mut ninfo = PathNodeInfo {
+            is_call: false,
+            calls_malloc: false,
+            calls_input: false,
+            is_return_point: prev_was_call,
+        };
+        if prev_was_call {
+            prev_was_call = false;
+        }
+
+        path.push(cur);
         log_rz!(LOG_DEBUG, None, format!("{} -> {}", " ".repeat(i), cur));
         if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
             meta.insns
                 .iter()
                 .any(|i| !i.call_target.is_invalid_call_target())
         }) {
+            ninfo.is_call = true;
+            prev_was_call = true;
             // The instr. word has a call.
             // First visit this procedure and add it to the path
             let call_targets = cfg
@@ -216,6 +233,12 @@ fn sample_cfg_path(
                     }
                 });
             call_targets.for_each(|ct| {
+                if icfg.is_malloc(&ct) {
+                    ninfo.calls_malloc = true;
+                }
+                if icfg.is_input(&ct) {
+                    ninfo.calls_input = true;
+                }
                 let entry = icfg
                     .get_procedure(&ct)
                     .read()
@@ -232,6 +255,7 @@ fn sample_cfg_path(
                 )
             });
         }
+        path.add_info(cur, ninfo);
 
         // Visit all neighbors and decide which one to add to the path
         let mut neigh_ids: Vec<NodeId> = Vec::new();
