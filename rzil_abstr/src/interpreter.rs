@@ -142,30 +142,22 @@ impl std::fmt::Display for AbstrVal {
 }
 
 impl AbstrVal {
-    pub fn new_global(c: Const, is_il_gvar: Option<String>) -> AbstrVal {
+    pub fn new_global(c: Const, il_gvar: Option<String>) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
             base: 0,
             c: 0,
         };
-        AbstrVal {
-            m,
-            c,
-            il_gvar: is_il_gvar,
-        }
+        AbstrVal { m, c, il_gvar }
     }
 
-    pub fn new_stack(c: Const, is_il_gvar: Option<String>) -> AbstrVal {
+    pub fn new_stack(c: Const, il_gvar: Option<String>) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Stack,
             base: 0,
             c: 0,
         };
-        AbstrVal {
-            m,
-            c,
-            il_gvar: is_il_gvar,
-        }
+        AbstrVal { m, c, il_gvar }
     }
 
     pub fn new_true() -> AbstrVal {
