@@ -5,14 +5,18 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
+use helper::rz::parse_bda_range_conf_val;
+use std::ffi::CString;
 use std::ptr::null;
 
 use bda::bda_binding::rz_analysis_bda_handler;
 use binding::{
-    rz_cmd_desc_arg_t__bindgen_ty_1, rz_cmd_desc_arg_t__bindgen_ty_1__bindgen_ty_1,
-    rz_cmd_desc_argv_new, rz_cmd_desc_group_new, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK,
-    rz_core_cmd_help, RzCmdDesc, RzCmdDescArg, RzCmdDescHelp, RzCmdStatus, RzCore, RzCorePlugin,
-    RzLibStruct, RzLibType_RZ_LIB_TYPE_CORE, RZ_VERSION,
+    c_to_str, pderef, rz_cmd_desc_arg_t__bindgen_ty_1,
+    rz_cmd_desc_arg_t__bindgen_ty_1__bindgen_ty_1, rz_cmd_desc_argv_new, rz_cmd_desc_group_new,
+    rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_config_lock, rz_config_node_desc,
+    rz_config_set_cb, rz_core_cmd_help, str_to_c, RzCmdDesc, RzCmdDescArg, RzCmdDescHelp,
+    RzCmdStatus, RzConfigNode, RzCore, RzCorePlugin, RzLibStruct, RzLibType_RZ_LIB_TYPE_CORE,
+    RZ_VERSION,
 };
 use cty::c_void;
 
@@ -122,8 +126,19 @@ pub const analysis_bda_help: RzCmdDescHelp = RzCmdDescHelp {
     args: &analysis_bda_help_args,
 };
 
+pub extern "C" fn rz_set_bda_range(core: *mut c_void, node: *mut c_void) -> bool {
+    let _ = core as *mut RzCore;
+    let rz_node = node as *mut RzConfigNode;
+    // Just perform a check on the given value.
+    if parse_bda_range_conf_val(c_to_str(pderef!(rz_node).value)).is_none() {
+        return false;
+    }
+    true
+}
+
 pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
     unsafe {
+        // Add bda commands
         let binding_cd: *mut RzCmdDesc = get_probana_cmd_desc(core);
         rz_cmd_desc_argv_new(
             (*core).rcmd,
@@ -132,6 +147,18 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
             Some(rz_analysis_bda_handler),
             &analysis_bda_help,
         );
+        rz_config_lock(pderef!(core).config, 0);
+        // Add settings for BDA
+        rz_config_node_desc(
+            rz_config_set_cb(
+                pderef!(core).config,
+                str_to_c!("plugins.bda.range"),
+                str_to_c!("0x0-0xffffffffffffffff"),
+                Some(rz_set_bda_range),
+            ),
+            str_to_c!("Comma separated list of address ranges to analyse."),
+        );
+        rz_config_lock(pderef!(core).config, 1);
     };
     true
 }

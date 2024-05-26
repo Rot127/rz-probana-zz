@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 cty = "0.2.2"
 binding = { path = "../binding", version = "0.1.0" }
+helper = { path = "../helper", version = "0.1.0" }
 bda = { path = "../bda", version = "0.1.0" }
 osprey = { path = "../osprey", version = "0.1.0" }
 

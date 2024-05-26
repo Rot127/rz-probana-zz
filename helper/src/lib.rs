@@ -3,5 +3,6 @@
 
 pub mod expression;
 pub mod progress;
+pub mod rz;
 pub mod spinner;
 pub mod user;

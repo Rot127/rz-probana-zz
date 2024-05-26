@@ -178,12 +178,15 @@ pub fn list_to_vec<T>(
 }
 
 pub fn c_to_str(c_str: *const i8) -> String {
-    unsafe {
-        CStr::from_ptr(c_str)
-            .to_str()
-            .expect("No UTF8 error expected")
-            .to_owned()
-    }
+    let cstr = unsafe { CStr::from_ptr(c_str) };
+    String::from_utf8_lossy(cstr.to_bytes()).to_string()
+}
+
+#[macro_export]
+macro_rules! str_to_c {
+    ($str:expr) => {
+        CString::new($str).expect("Conversion failed.").as_ptr()
+    };
 }
 
 /// Wrapper struct around a *mut rz_core_t
