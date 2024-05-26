@@ -955,6 +955,13 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // Jump is pretty much ignored (because the path was already sampled).
     // So we only check for calls to input and malloc
     // functions.
+    if vm.cur_is_call() {
+        vm.call_stack_push(
+            *vm.peak_next()
+                .expect("There whould always be a next instruction after a call"),
+        );
+    }
+
     let mut dst = eval_pure(vm, unsafe { (*op).op.jmp.dst });
     check_pure_validity!(dst, false);
     let jdst = &dst.unwrap();

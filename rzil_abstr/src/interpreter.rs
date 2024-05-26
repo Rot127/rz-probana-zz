@@ -80,6 +80,10 @@ impl IntrpPath {
         self.path.pop_front()
     }
 
+    pub fn peak_next(&self) -> Option<&Address> {
+        self.path.get(0)
+    }
+
     pub fn get(&self, i: usize) -> Address {
         self.path
             .get(i)
@@ -421,27 +425,30 @@ impl AbstrVM {
     }
 
     fn step(&mut self) -> bool {
-        let mut iaddr: Address;
-        if let Some(na) = self.pa.next() {
-            iaddr = na;
+        if let Some(pc) = self.pa.next() {
+            self.pc = pc;
         } else {
             return false;
         }
 
-        *self.ic.entry(iaddr).or_default() += 1;
+        if self.is_return_point() {
+            self.call_stack_pop();
+        }
+
+        *self.ic.entry(self.pc).or_default() += 1;
 
         let iword_decoder = unlocked_core!(self).get_iword_decoder();
         let mut effect;
         let result;
         if iword_decoder.is_some() {
-            let iword = unlocked_core!(self).get_iword(iaddr);
-            self.is.insert(iaddr, pderef!(iword).size_bytes as u64);
+            let iword = unlocked_core!(self).get_iword(self.pc);
+            self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             result = eval_effect(self, effect);
             unsafe { rz_analysis_insn_word_free(iword) };
         } else {
-            let ana_op = unlocked_core!(self).get_analysis_op(iaddr);
-            self.is.insert(iaddr, pderef!(ana_op).size as u64);
+            let ana_op = unlocked_core!(self).get_analysis_op(self.pc);
+            self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
             result = eval_effect(self, effect);
             unsafe { rz_analysis_op_free(ana_op.cast()) };
@@ -665,6 +672,21 @@ impl AbstrVM {
 
     pub fn read_mem(&self, addr: Address, n_bytes: usize) -> Vec<u8> {
         unlocked_core!(self).read_io_at(addr, n_bytes)
+    }
+
+    pub(crate) fn cur_is_call(&self) -> bool {
+        self.pa.addr_info.get(&self.pc).is_some_and(|i| i.is_call)
+    }
+
+    pub(crate) fn peak_next(&self) -> Option<&Address> {
+        self.pa.peak_next()
+    }
+
+    fn is_return_point(&self) -> bool {
+        self.pa
+            .addr_info
+            .get(&self.pc)
+            .is_some_and(|i| i.is_return_point)
     }
 }
 
