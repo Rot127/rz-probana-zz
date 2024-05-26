@@ -256,8 +256,6 @@ pub struct AbstrVM {
     lp: HashMap<Address, bool>,
     /// MemStore map
     ms: HashMap<AbstrVal, AbstrVal>,
-    /// RegStore map/Global variable store map
-    rs: HashMap<String, AbstrVal>,
     /// MemTaint map
     mt: HashMap<AbstrVal, bool>,
     /// RegTaint map
@@ -271,6 +269,7 @@ pub struct AbstrVM {
     /// IL operation buffer
     il_op_buf: HashMap<Address, *mut RzILOpEffect>,
     /// Global variables (mostly registers)
+    /// This is equivalent to the RS map described in the paper.
     gvars: HashMap<String, AbstrVal>,
     /// Local pure variables. Defined via LET()
     lpures: HashMap<String, AbstrVal>,
@@ -281,20 +280,27 @@ pub struct AbstrVM {
     reg_roles: HashMap<RzRegisterId, String>,
     /// Const value jump targets
     jmp_targets: Vec<Address>,
+    /// Rizin Core
+    rz_core: GRzCore,
+}
+
+macro_rules! unlocked_core {
+    ($self:expr) => {
+        $self.get_rz_core().clone().lock().unwrap()
+    };
 }
 
 impl AbstrVM {
     /// Creates a new abstract interpreter VM.
     /// It takes the initial programm counter [pc], the [path] to walk
     /// and the sampling function for generating random values for input values.
-    pub fn new(pc: PC, path: IntrpPath) -> AbstrVM {
+    pub fn new(rz_core: GRzCore, pc: PC, path: IntrpPath) -> AbstrVM {
         AbstrVM {
             pc,
             is: HashMap::new(),
             ic: HashMap::new(),
             lp: HashMap::new(),
             ms: HashMap::new(),
-            rs: HashMap::new(),
             mt: HashMap::new(),
             rt: HashMap::new(),
             pa: path,
@@ -587,7 +593,7 @@ impl AbstrVM {
 
     pub fn get_reg_val(&self, key: &AbstrVal) -> AbstrVal {
         if let Some(rname) = &key.il_gvar {
-            self.rs
+            self.gvars
                 .get(rname)
                 .expect(&format!("Global var {} not set.", &rname));
         }
@@ -610,7 +616,10 @@ impl AbstrVM {
             .reg_roles
             .get(&RzRegisterId_RZ_REG_NAME_SP)
             .expect("SP not set");
-        self.rs.get(sp_name).expect("Should be set").clone()
+        self.gvars
+            .get(sp_name)
+            .expect("RS abstract value was not initialized.")
+            .clone()
     }
 
     /// Pushes a call frame on the call stack.
