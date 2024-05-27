@@ -243,11 +243,7 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) 
     let core = RzCoreWrapper::new(rz_core);
     let rz_icfg = guarded_rz_core_graph_icfg(core.clone());
     if rz_icfg.is_null() {
-        log_rz!(
-            LOG_ERROR,
-            Some("BDA".to_string()),
-            "No iCFG present.".to_string()
-        );
+        log_rz!(LOG_ERROR, Some("BDA"), "No iCFG present.".to_string());
         rz_notify_error(core, "BDA analysis failed with an error".to_owned());
         return;
     }

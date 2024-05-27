@@ -33,7 +33,7 @@ fn malloc_present(icfg: &ICFG) -> bool {
     if !icfg.has_malloc() {
         log_rz!(
             LOG_WARN,
-            Some("BDA".to_string()),
+            Some("BDA"),
             "\nThe binary has no memory allocating function symbol.\n\
             This means BDA will NOT be able to deduct values on the heap.\n\
             It is highly advisable to identify and name malloc() functions first in the binary.\n"
@@ -80,7 +80,7 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
             if !icfg.has_procedure(&NodeId::new_original(*entry)) {
                 log_rz!(
                     LOG_WARN,
-                    Some("BDA".to_string()),
+                    Some("BDA"),
                     format!(
                         "User defined entry point {:#x} doesn't point to a procedure.",
                         entry
@@ -95,7 +95,7 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
     if bin_entries.len() == 0 {
         log_rz!(
             LOG_WARN,
-            Some("BDA".to_string()),
+            Some("BDA"),
             "Binary file has no entry point set. You can set custom ones with 'e plugin.bda.entries'"
                 .to_string()
         );

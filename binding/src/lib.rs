@@ -20,9 +20,16 @@ use std::{
 
 #[macro_export]
 macro_rules! log_rz {
-    ($level:ident, $tag:expr, $msg:expr) => {
-        log_rizin($level, $tag, $msg, line!(), file!().to_string())
-    };
+    ($level:ident, $tag:expr, $msg:expr) => {{
+        let file = std::ffi::CString::new(file!().to_string()).expect("CString::new() failed");
+        let mut m = $msg;
+        m.push('\n');
+        let cmsg = std::ffi::CString::new(m).expect("CString::new() failed");
+        let t: Option<&str> = $tag;
+        let ctag = std::ffi::CString::new(if t == None { "" } else { t.unwrap() })
+            .expect("CString::new() failed");
+        log_rizin($level, ctag, cmsg, line!(), file);
+    }};
 }
 
 #[macro_export]
@@ -62,25 +69,19 @@ pub fn get_rz_loglevel() -> u32 {
 }
 
 /// Write a log message in Rizin style.
-pub fn log_rizin(
-    level: rz_log_level,
-    tag: Option<String>,
-    mut msg: String,
-    line: u32,
-    filename: String,
-) {
-    msg.push('\n');
+pub fn log_rizin(level: rz_log_level, tag: CString, msg: CString, line: u32, filename: CString) {
     unsafe {
         rz_log_str(
             std::ptr::null_mut(),
-            str_to_c!(filename),
+            filename.as_ptr(),
             line,
             level,
-            match tag {
-                Some(t) => str_to_c!(t),
-                None => std::ptr::null_mut(),
+            if tag.is_empty() {
+                std::ptr::null_mut()
+            } else {
+                tag.as_ptr()
             },
-            str_to_c!(msg),
+            msg.as_ptr(),
         );
     }
 }
