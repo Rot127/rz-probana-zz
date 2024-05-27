@@ -22,7 +22,7 @@ use std::{
 macro_rules! log_rz {
     ($level:ident, $tag:expr, $msg:expr) => {{
         let file = std::ffi::CString::new(file!().to_string()).expect("CString::new() failed");
-        let mut m = $msg;
+        let mut m = $msg.to_string();
         m.push('\n');
         let cmsg = std::ffi::CString::new(m).expect("CString::new() failed");
         let t: Option<&str> = $tag;
@@ -211,6 +211,12 @@ impl RzCoreWrapper {
         let n = CString::new("plugins.bda.entries").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
         parse_bda_entry_list(c_to_str(c))
+    }
+
+    pub fn get_bda_max_iterations(&self) -> u64 {
+        let n = CString::new("plugins.bda.repeat_iterations").expect("Conversion failed.");
+        let c = unsafe { rz_config_get_i(uderef!(self.ptr).config, n.as_ptr()) };
+        c
     }
 
     pub fn get_analysis_op(&self, addr: u64) -> *mut RzAnalysisOp {

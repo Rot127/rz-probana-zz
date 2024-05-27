@@ -11,12 +11,12 @@ use std::ptr::null;
 
 use bda::bda_binding::rz_analysis_bda_handler;
 use binding::{
-    c_to_str, pderef, rz_cmd_desc_arg_t__bindgen_ty_1,
+    c_to_str, log_rizin, log_rz, pderef, rz_cmd_desc_arg_t__bindgen_ty_1,
     rz_cmd_desc_arg_t__bindgen_ty_1__bindgen_ty_1, rz_cmd_desc_argv_new, rz_cmd_desc_group_new,
     rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_config_lock, rz_config_node_desc,
-    rz_config_set_cb, rz_core_cmd_help, str_to_c, RzCmdDesc, RzCmdDescArg, RzCmdDescHelp,
-    RzCmdStatus, RzConfigNode, RzCore, RzCorePlugin, RzLibStruct, RzLibType_RZ_LIB_TYPE_CORE,
-    RZ_VERSION,
+    rz_config_set_cb, rz_config_set_i_cb, rz_core_cmd_help, str_to_c, RzCmdDesc, RzCmdDescArg,
+    RzCmdDescHelp, RzCmdStatus, RzConfigNode, RzCore, RzCorePlugin, RzLibStruct,
+    RzLibType_RZ_LIB_TYPE_CORE, LOG_ERROR, RZ_VERSION,
 };
 use cty::c_void;
 
@@ -146,6 +146,21 @@ pub extern "C" fn rz_set_bda_entry(core: *mut c_void, node: *mut c_void) -> bool
     true
 }
 
+pub extern "C" fn rz_set_bda_iterations(core: *mut c_void, node: *mut c_void) -> bool {
+    let _ = core as *mut RzCore;
+    let rz_node = node as *mut RzConfigNode;
+    // Just perform a check on the given value.
+    if pderef!(rz_node).i_value > 64 {
+        log_rz!(
+            LOG_ERROR,
+            None,
+            "Maximum number of iterations capped at 64."
+        );
+        return false;
+    }
+    true
+}
+
 pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
     unsafe {
         // Add bda commands
@@ -178,6 +193,15 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
             str_to_c!(
                 "Comma separated list of address to start path sampling from. Addresses must point to a function start. If empty, the binary entry points are used."
             ),
+        );
+        rz_config_node_desc(
+            rz_config_set_i_cb(
+                pderef!(core).config,
+                str_to_c!("plugins.bda.repeat_iterations"),
+                32,
+                Some(rz_set_bda_iterations),
+            ),
+            str_to_c!("Maximum number of iterations for non-static RzIL REPEAT operations."),
         );
         rz_config_lock(pderef!(core).config, 1);
     };
