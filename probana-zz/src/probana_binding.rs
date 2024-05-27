@@ -150,11 +150,26 @@ pub extern "C" fn rz_set_bda_iterations(core: *mut c_void, node: *mut c_void) ->
     let _ = core as *mut RzCore;
     let rz_node = node as *mut RzConfigNode;
     // Just perform a check on the given value.
-    if pderef!(rz_node).i_value > 64 {
+    if !(0..=64).contains(&pderef!(rz_node).i_value) {
         log_rz!(
             LOG_ERROR,
             None,
             "Maximum number of iterations capped at 64."
+        );
+        return false;
+    }
+    true
+}
+
+pub extern "C" fn rz_set_bda_node_dups(core: *mut c_void, node: *mut c_void) -> bool {
+    let _ = core as *mut RzCore;
+    let rz_node = node as *mut RzConfigNode;
+    // Just perform a check on the given value.
+    if !(0..=64).contains(&pderef!(rz_node).i_value) {
+        log_rz!(
+            LOG_ERROR,
+            None,
+            "Maximum number of node duplicates capped at 64."
         );
         return false;
     }
@@ -202,6 +217,17 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
                 Some(rz_set_bda_iterations),
             ),
             str_to_c!("Maximum number of iterations for non-static RzIL REPEAT operations."),
+        );
+        rz_config_node_desc(
+            rz_config_set_i_cb(
+                pderef!(core).config,
+                str_to_c!("plugins.bda.node_duplicates"),
+                3,
+                Some(rz_set_bda_node_dups),
+            ),
+            str_to_c!(
+                "Number of node duplications, when loops with unknown iterations are resolved within CFGs and iCFGs."
+            ),
         );
         rz_config_lock(pderef!(core).config, 1);
     };
