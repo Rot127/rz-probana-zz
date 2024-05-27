@@ -74,6 +74,12 @@ impl ProcedureMap {
         self.map.iter()
     }
 
+    pub fn iter_mut(
+        &mut self,
+    ) -> std::collections::hash_map::IterMut<'_, NodeId, RwLock<Procedure>> {
+        self.map.iter_mut()
+    }
+
     pub fn values(&self) -> std::collections::hash_map::Values<'_, NodeId, RwLock<Procedure>> {
         self.map.values()
     }
@@ -185,10 +191,6 @@ impl std::cmp::PartialEq<u128> for NodeId {
     }
 }
 
-/// Minimum times nodes of a loop get duplicated in a graph
-/// to make it loop free.
-pub const MIN_DUPLICATE_BOUND: u32 = 3;
-
 /// Categories of edges for cycle removement by cloning
 /// strongly connected components.
 #[derive(PartialEq, Eq)]
@@ -203,6 +205,12 @@ pub enum EdgeFlow {
 
 /// Traits of the CFG and iCFG.
 pub trait FlowGraphOperations {
+    /// Set the number of duplications for none static loops.
+    fn set_node_dup_count(&mut self, dup_cnt: usize);
+
+    /// Get the number of duplications for none static loops.
+    fn get_node_dup_count(&self) -> usize;
+
     /// Checks if the flow graph is acyclic.
     fn is_acyclic(&self) -> bool {
         !is_cyclic_directed(self.get_graph())
@@ -323,7 +331,7 @@ pub trait FlowGraphOperations {
                     &to,
                     &from,
                     EdgeFlow::Outsider,
-                    MIN_DUPLICATE_BOUND,
+                    self.get_node_dup_count() as u32,
                     wmap,
                 );
             } else if !scc.contains(&to) {
@@ -333,7 +341,7 @@ pub trait FlowGraphOperations {
                     &to,
                     &to,
                     EdgeFlow::Outsider,
-                    MIN_DUPLICATE_BOUND,
+                    self.get_node_dup_count() as u32,
                     wmap,
                 );
             } else if self.is_back_edge(&from, &to) {
@@ -343,7 +351,7 @@ pub trait FlowGraphOperations {
                     &to,
                     &INVALID_NODE_ID,
                     EdgeFlow::BackEdge,
-                    MIN_DUPLICATE_BOUND,
+                    self.get_node_dup_count() as u32,
                     wmap,
                 );
                 self.remove_edge(from, to);
@@ -356,7 +364,7 @@ pub trait FlowGraphOperations {
                     &to,
                     &INVALID_NODE_ID,
                     EdgeFlow::ForwardEdge,
-                    MIN_DUPLICATE_BOUND,
+                    self.get_node_dup_count() as u32,
                     wmap,
                 );
             }

@@ -23,6 +23,8 @@ pub struct ICFG {
     pub procedures: ProcedureMap,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
+    /// Number of node duplications for loop resolvement
+    dup_cnt: usize,
 }
 
 impl ICFG {
@@ -31,6 +33,7 @@ impl ICFG {
             graph: FlowGraph::new(),
             procedures: ProcedureMap::new(),
             rev_topograph: Vec::new(),
+            dup_cnt: 3,
         }
     }
 
@@ -39,6 +42,7 @@ impl ICFG {
             graph,
             procedures: ProcedureMap::new(),
             rev_topograph: Vec::new(),
+            dup_cnt: 3,
         }
     }
 
@@ -182,6 +186,14 @@ impl ICFG {
 }
 
 impl FlowGraphOperations for ICFG {
+    fn set_node_dup_count(&mut self, dup_cnt: usize) {
+        self.dup_cnt = dup_cnt;
+    }
+
+    fn get_node_dup_count(&self) -> usize {
+        self.dup_cnt
+    }
+
     fn get_graph_mut(&mut self) -> &mut FlowGraph {
         &mut self.graph
     }

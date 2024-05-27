@@ -341,6 +341,8 @@ pub struct CFG {
     rev_topograph: Vec<NodeId>,
     /// The node id of the entry node
     entry: NodeId,
+    /// Number of node duplications for loop resolvement
+    dup_cnt: usize,
 }
 
 impl std::fmt::Display for CFG {
@@ -362,6 +364,7 @@ impl CFG {
             rev_topograph: Vec::new(),
             discovered_exits: HashSet::new(),
             entry: INVALID_NODE_ID,
+            dup_cnt: 3,
         }
     }
 
@@ -372,6 +375,7 @@ impl CFG {
             rev_topograph: Vec::new(),
             discovered_exits: HashSet::new(),
             entry: INVALID_NODE_ID,
+            dup_cnt: 3,
         }
     }
 
@@ -582,6 +586,14 @@ impl CFG {
 }
 
 impl FlowGraphOperations for CFG {
+    fn set_node_dup_count(&mut self, dup_cnt: usize) {
+        self.dup_cnt = dup_cnt;
+    }
+
+    fn get_node_dup_count(&self) -> usize {
+        self.dup_cnt
+    }
+
     fn get_graph_mut(&mut self) -> &mut FlowGraph {
         &mut self.graph
     }

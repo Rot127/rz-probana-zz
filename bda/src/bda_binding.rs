@@ -289,6 +289,11 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) 
         done += 1;
         progress_bar.update_print(done, None);
     }
+    let dup_cnt = core.lock().unwrap().get_bda_node_duplicates();
+    icfg.set_node_dup_count(dup_cnt);
+    for (_, p) in icfg.procedures.iter_mut() {
+        p.write().unwrap().get_cfg_mut().set_node_dup_count(dup_cnt);
+    }
     run_bda(core, &mut icfg, &state);
     // Run analysis
 }

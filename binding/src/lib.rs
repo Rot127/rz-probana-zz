@@ -219,10 +219,10 @@ impl RzCoreWrapper {
         c
     }
 
-    pub fn get_bda_node_duplicates(&self) -> u64 {
+    pub fn get_bda_node_duplicates(&self) -> usize {
         let n = CString::new("plugins.bda.node_duplicates").expect("Conversion failed.");
         let c = unsafe { rz_config_get_i(uderef!(self.ptr).config, n.as_ptr()) };
-        c
+        c as usize
     }
 
     pub fn get_analysis_op(&self, addr: u64) -> *mut RzAnalysisOp {

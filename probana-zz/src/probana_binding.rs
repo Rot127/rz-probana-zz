@@ -150,7 +150,7 @@ pub extern "C" fn rz_set_bda_iterations(core: *mut c_void, node: *mut c_void) ->
     let _ = core as *mut RzCore;
     let rz_node = node as *mut RzConfigNode;
     // Just perform a check on the given value.
-    if !(0..=64).contains(&pderef!(rz_node).i_value) {
+    if pderef!(rz_node).i_value > 64 {
         log_rz!(
             LOG_ERROR,
             None,
@@ -165,7 +165,7 @@ pub extern "C" fn rz_set_bda_node_dups(core: *mut c_void, node: *mut c_void) -> 
     let _ = core as *mut RzCore;
     let rz_node = node as *mut RzConfigNode;
     // Just perform a check on the given value.
-    if !(0..=64).contains(&pderef!(rz_node).i_value) {
+    if pderef!(rz_node).i_value > 64 {
         log_rz!(
             LOG_ERROR,
             None,
