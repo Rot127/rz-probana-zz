@@ -315,6 +315,8 @@ pub struct AbstrVM {
     rz_core: GRzCore,
     /// Normal distribution
     dist: Normal<f64>,
+    /// Maximum number of REPEAT iteraitions, if they are not static
+    limit_repeat: usize,
 }
 
 macro_rules! unlocked_core {
@@ -328,6 +330,7 @@ impl AbstrVM {
     /// It takes the initial programm counter [pc], the [path] to walk
     /// and the sampling function for generating random values for input values.
     pub fn new(rz_core: GRzCore, pc: PC, path: IntrpPath) -> AbstrVM {
+        let limit_repeat = rz_core.lock().unwrap().get_bda_max_iterations() as usize;
         AbstrVM {
             pc,
             is: HashMap::new(),
@@ -347,7 +350,12 @@ impl AbstrVM {
             jmp_targets: Vec::new(),
             rz_core,
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
+            limit_repeat,
         }
+    }
+
+    pub fn get_limit_repeat(&self) -> usize {
+        self.limit_repeat
     }
 
     pub fn get_rz_core(&self) -> &GRzCore {

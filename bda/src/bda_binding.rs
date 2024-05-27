@@ -295,7 +295,6 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) 
         p.write().unwrap().get_cfg_mut().set_node_dup_count(dup_cnt);
     }
     run_bda(core, &mut icfg, &state);
-    // Run analysis
 }
 
 pub extern "C" fn rz_analysis_bda_handler(

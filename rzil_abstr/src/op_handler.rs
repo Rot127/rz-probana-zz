@@ -1011,12 +1011,12 @@ fn rz_il_handler_blk(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_repeat not yet implemented".to_string()
-    );
-    false
+    // We are for now, don't check the condition for a static limit.
+    for _ in (0..vm.get_limit_repeat()) {
+        let body_success = eval_effect(vm, unsafe { (*op).op.repeat.data_eff });
+        check_effect_success!(body_success);
+    }
+    true
 }
 
 fn rz_il_handler_branch(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
