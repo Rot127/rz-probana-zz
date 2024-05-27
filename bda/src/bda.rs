@@ -16,13 +16,14 @@ use std::{
     time::Instant,
 };
 
-use binding::{log_rizin, log_rz, rz_notify_done, GRzCore, LOG_WARN};
+use binding::{log_rizin, log_rz, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, IntrpByProducts};
 
 use crate::{
     bda_binding::get_bin_entries,
+    flow_graphs::{Address, NodeId},
     icfg::ICFG,
     path_sampler::sample_path,
     state::{run_condition_fulfilled, BDAState},
@@ -68,19 +69,61 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
     )
 }
 
+fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
+    let user_defined_entries = core
+        .lock()
+        .expect("Should not be locked")
+        .get_bda_analysis_entries()
+        .expect("Failed to get user defined entries.");
+    if !user_defined_entries.is_empty() {
+        for entry in user_defined_entries.iter() {
+            if !icfg.has_procedure(&NodeId::new_original(*entry)) {
+                log_rz!(
+                    LOG_WARN,
+                    Some("BDA".to_string()),
+                    format!(
+                        "User defined entry point {:#x} doesn't point to a procedure.",
+                        entry
+                    )
+                );
+                return None;
+            }
+        }
+        return Some(user_defined_entries);
+    }
+    let bin_entries = get_bin_entries(core.clone());
+    if bin_entries.len() == 0 {
+        log_rz!(
+            LOG_WARN,
+            Some("BDA".to_string()),
+            "Binary file has no entry point set. You can set custom ones with 'e plugin.bda.entries'"
+                .to_string()
+        );
+        return None;
+    }
+    Some(bin_entries)
+}
+
 /// Runs the BDA analysis by sampleing paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
 pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
-    let bin_entries = get_bin_entries(core.clone());
-    if !malloc_present(icfg) {
-        return;
-    }
     let ranges = core
         .lock()
         .expect("Should not be locked")
         .get_bda_analysis_range()
         .expect("Failed to get analysis ranges.");
+    let entry_points = match get_entry_point_list(&core, icfg) {
+        Some(ep) => ep,
+        None => {
+            rz_notify_error(core.clone(), "BDA analysis failed with an error".to_owned());
+            return;
+        }
+    };
+
+    if !malloc_present(icfg) {
+        return;
+    }
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
 
     // Run abstract interpretation
@@ -96,8 +139,8 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
             let path = sample_path(
                 icfg,
                 // Choose a random entry point.
-                *bin_entries
-                    .get(rng.gen_range(0..bin_entries.len()))
+                *entry_points
+                    .get(rng.gen_range(0..entry_points.len()))
                     .unwrap(),
                 state.get_weight_map(),
                 &ranges,

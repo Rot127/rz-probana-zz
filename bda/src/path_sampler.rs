@@ -6,7 +6,7 @@ use std::{
     sync::RwLock,
 };
 
-use binding::{log_rizin, log_rz, LOG_DEBUG, LOG_ERROR};
+use binding::{log_rizin, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
@@ -298,31 +298,11 @@ pub fn sample_path(
     let entry_node: NodeId;
     let mut path = Path::new();
     let mut entry_proc: std::sync::RwLockWriteGuard<'_, crate::cfg::Procedure>;
-    if !addr_ranges.is_empty()
-        && addr_ranges
-            .iter()
-            .all(|r| entry_point < r.0 || r.1 < entry_point)
-    {
-        // The entry point is not included in the ranges.
-        // Just select a random start address of one.
-        entry_node = NodeId::from(addr_ranges.get(0).unwrap().0);
-        if !icfg.has_procedure(&entry_node) {
-            log_rz!(
-                LOG_ERROR,
-                None,
-                "The range beginning {:#x} does not point to a known procedure entry point. Range ignored"
-                    .to_string()
-            );
-            return path;
-        }
-        entry_proc = icfg.get_procedure(&entry_node).write().unwrap();
-    } else {
-        entry_proc = icfg
-            .get_procedure(&NodeId::new_original(entry_point))
-            .write()
-            .unwrap();
-        entry_node = entry_proc.get_cfg().get_entry();
-    }
+    entry_proc = icfg
+        .get_procedure(&NodeId::new_original(entry_point))
+        .write()
+        .unwrap();
+    entry_node = entry_proc.get_cfg().get_entry();
     sample_cfg_path(
         icfg,
         entry_proc.get_cfg_mut(),

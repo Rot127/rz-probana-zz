@@ -7,7 +7,7 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use helper::rz::parse_bda_range_conf_val;
+use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val};
 use std::ffi::{CStr, CString};
 
 use core::panic;
@@ -67,24 +67,20 @@ pub fn log_rizin(
     tag: Option<String>,
     mut msg: String,
     line: u32,
-    mut filename: String,
+    filename: String,
 ) {
     msg.push('\n');
-    msg.push('\0');
-    filename.push('\0');
     unsafe {
         rz_log_str(
-            "\0".as_ptr().cast(),
-            filename.as_str().as_ptr().cast(),
+            std::ptr::null_mut(),
+            str_to_c!(filename),
             line,
             level,
-            if let Some(mut t) = tag {
-                t.push('\0');
-                t.as_str().as_ptr().cast()
-            } else {
-                std::ptr::null_mut()
+            match tag {
+                Some(t) => str_to_c!(t),
+                None => std::ptr::null_mut(),
             },
-            msg.as_str().as_ptr().cast(),
+            str_to_c!(msg),
         );
     }
 }
@@ -208,6 +204,12 @@ impl RzCoreWrapper {
         let n = CString::new("plugins.bda.range").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
         parse_bda_range_conf_val(c_to_str(c))
+    }
+
+    pub fn get_bda_analysis_entries(&self) -> Option<Vec<u64>> {
+        let n = CString::new("plugins.bda.entries").expect("Conversion failed.");
+        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        parse_bda_entry_list(c_to_str(c))
     }
 
     pub fn get_analysis_op(&self, addr: u64) -> *mut RzAnalysisOp {

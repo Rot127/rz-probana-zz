@@ -234,19 +234,6 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
     }
 }
 
-fn bin_entry_present(bin_entries: &Vec<Address>) -> bool {
-    if bin_entries.len() == 0 {
-        log_rz!(
-            LOG_WARN,
-            Some("BDA".to_string()),
-            "Binary file has no entry point set. Set it in Rizin and run the analysis again."
-                .to_string()
-        );
-        return false;
-    }
-    true
-}
-
 fn guarded_rz_core_graph_icfg(core: GRzCore) -> *mut RzGraph {
     let c = core.lock().unwrap();
     unsafe { rz_core_graph_icfg(c.ptr) }
@@ -254,11 +241,6 @@ fn guarded_rz_core_graph_icfg(core: GRzCore) -> *mut RzGraph {
 
 pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) {
     let core = RzCoreWrapper::new(rz_core);
-    if !bin_entry_present(&get_bin_entries(core.clone())) {
-        rz_notify_error(core.clone(), "BDA analysis failed with an error".to_owned());
-        return;
-    }
-    // get iCFG
     let rz_icfg = guarded_rz_core_graph_icfg(core.clone());
     if rz_icfg.is_null() {
         log_rz!(

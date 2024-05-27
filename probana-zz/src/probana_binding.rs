@@ -5,7 +5,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-use helper::rz::parse_bda_range_conf_val;
+use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val};
 use std::ffi::CString;
 use std::ptr::null;
 
@@ -136,6 +136,16 @@ pub extern "C" fn rz_set_bda_range(core: *mut c_void, node: *mut c_void) -> bool
     true
 }
 
+pub extern "C" fn rz_set_bda_entry(core: *mut c_void, node: *mut c_void) -> bool {
+    let _ = core as *mut RzCore;
+    let rz_node = node as *mut RzConfigNode;
+    // Just perform a check on the given value.
+    if parse_bda_entry_list(c_to_str(pderef!(rz_node).value)).is_none() {
+        return false;
+    }
+    true
+}
+
 pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
     unsafe {
         // Add bda commands
@@ -156,8 +166,18 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
                 str_to_c!("0x0-0xffffffffffffffff"),
                 Some(rz_set_bda_range),
             ),
-            str_to_c!("Comma separated list of address ranges to analyse.\n
-                If the ranges exclude all entry points, the beginning of the first range must point to a symbol."),
+            str_to_c!("Comma separated list of address ranges to analyse."),
+        );
+        rz_config_node_desc(
+            rz_config_set_cb(
+                pderef!(core).config,
+                str_to_c!("plugins.bda.entries"),
+                str_to_c!(""),
+                Some(rz_set_bda_entry),
+            ),
+            str_to_c!(
+                "Comma separated list of address to start path sampling from. Addresses must point to a function start. If empty, the binary entry points are used."
+            ),
         );
         rz_config_lock(pderef!(core).config, 1);
     };
