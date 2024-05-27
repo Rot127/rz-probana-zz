@@ -251,7 +251,7 @@ impl std::fmt::Display for CallFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "CF(@{}, ic: {}, sp: {}, ret: {})",
+            "CF(@{:#x}, ic: {}, sp: {}, ret: {:#x})",
             self.in_site, self.instance, self.sp, self.return_addr
         )
     }
