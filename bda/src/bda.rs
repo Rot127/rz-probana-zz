@@ -34,7 +34,7 @@ fn malloc_present(icfg: &ICFG) -> bool {
         log_rz!(
             LOG_WARN,
             Some("BDA"),
-            "\nThe binary has no memory allocating function symbol.\n\
+            "The binary has no memory allocating function symbol.\n\
             This means BDA will NOT be able to deduct values on the heap.\n\
             It is highly advisable to identify and name malloc() functions first in the binary.\n"
                 .to_string()
