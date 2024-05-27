@@ -247,6 +247,16 @@ pub struct CallFrame {
     sp: AbstrVal,
 }
 
+impl std::fmt::Display for CallFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "CF(@{}, ic: {}, sp: {}, ret: {})",
+            self.in_site, self.instance, self.sp, self.return_addr
+        )
+    }
+}
+
 /// The call stack. With every Call to a procedure another CallFrame is pushed.
 /// With every return, a CallFrame is popped.
 type CallStack = Vec<CallFrame>;
@@ -642,17 +652,23 @@ impl AbstrVM {
     /// Pushes a call frame on the call stack.
     pub fn call_stack_push(&mut self, proc_addr: Address) {
         // For now we just assume that the SP was _not_ updated before the actual jump to the procedure.
-        self.cs.push(CallFrame {
+        let cf = CallFrame {
             in_site: self.pc,
             instance: *self.ic.get(&self.pc).expect("Should have been set before."),
             return_addr: self.pc + self.is.get(&self.pc).expect("Should have been set before."),
             sp: self.get_sp(),
-        });
+        };
+        print!("Push: {}", cf);
+        self.cs.push(cf);
     }
 
     /// Pops a call frame from the call stack.
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
-        self.cs.pop()
+        let cf = self.cs.pop();
+        if cf.is_some() {
+            print!("Pop: {}", cf.as_ref().unwrap());
+        }
+        cf
     }
 
     pub fn read_io_at(&self, addr: Address, n_bytes: usize) -> Vec<u8> {

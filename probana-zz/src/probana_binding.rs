@@ -156,7 +156,8 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
                 str_to_c!("0x0-0xffffffffffffffff"),
                 Some(rz_set_bda_range),
             ),
-            str_to_c!("Comma separated list of address ranges to analyse."),
+            str_to_c!("Comma separated list of address ranges to analyse.\n
+                If the ranges exclude all entry points, the beginning of the first range must point to a symbol."),
         );
         rz_config_lock(pderef!(core).config, 1);
     };

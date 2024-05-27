@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 cty = "0.2.2"
 rug = "1.24.1"
+helper = { path = "../helper", version = "0.1.0" }
 
 [build-dependencies]
 bindgen = "0.69.1"

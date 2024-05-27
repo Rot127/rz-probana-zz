@@ -6,7 +6,7 @@ use std::{
     sync::RwLock,
 };
 
-use binding::{log_rizin, log_rz, LOG_DEBUG};
+use binding::{log_rizin, log_rz, LOG_DEBUG, LOG_ERROR};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
@@ -194,10 +194,18 @@ fn sample_cfg_path(
     path: &mut Path,
     i: usize,
     wmap: &RwLock<WeightMap>,
+    addr_ranges: &Vec<(Address, Address)>,
 ) {
     let mut prev_was_call = false;
     let mut cur = start;
     loop {
+        if !addr_ranges.is_empty()
+            && addr_ranges
+                .iter()
+                .all(|r| cur.address < r.0 || r.1 < cur.address)
+        {
+            return;
+        }
         let mut ninfo = PathNodeInfo {
             is_call: false,
             calls_malloc: false,
@@ -252,6 +260,7 @@ fn sample_cfg_path(
                     path,
                     i + 1,
                     wmap,
+                    addr_ranges,
                 )
             });
         }
@@ -280,13 +289,40 @@ fn sample_cfg_path(
 }
 
 /// Sample a path from the given [icfg] and return it as vector.
-pub fn sample_path(icfg: &ICFG, entry_point: Address, wmap: &RwLock<WeightMap>) -> Path {
-    let mut entry_proc = icfg
-        .get_procedure(&NodeId::new_original(entry_point))
-        .write()
-        .unwrap();
+pub fn sample_path(
+    icfg: &ICFG,
+    entry_point: Address,
+    wmap: &RwLock<WeightMap>,
+    addr_ranges: &Vec<(Address, Address)>,
+) -> Path {
+    let entry_node: NodeId;
     let mut path = Path::new();
-    let entry_node = entry_proc.get_cfg().get_entry();
+    let mut entry_proc: std::sync::RwLockWriteGuard<'_, crate::cfg::Procedure>;
+    if !addr_ranges.is_empty()
+        && addr_ranges
+            .iter()
+            .all(|r| entry_point < r.0 || r.1 < entry_point)
+    {
+        // The entry point is not included in the ranges.
+        // Just select a random start address of one.
+        entry_node = NodeId::from(addr_ranges.get(0).unwrap().0);
+        if !icfg.has_procedure(&entry_node) {
+            log_rz!(
+                LOG_ERROR,
+                None,
+                "The range beginning {:#x} does not point to a known procedure entry point. Range ignored"
+                    .to_string()
+            );
+            return path;
+        }
+        entry_proc = icfg.get_procedure(&entry_node).write().unwrap();
+    } else {
+        entry_proc = icfg
+            .get_procedure(&NodeId::new_original(entry_point))
+            .write()
+            .unwrap();
+        entry_node = entry_proc.get_cfg().get_entry();
+    }
     sample_cfg_path(
         icfg,
         entry_proc.get_cfg_mut(),
@@ -294,6 +330,7 @@ pub fn sample_path(icfg: &ICFG, entry_point: Address, wmap: &RwLock<WeightMap>) 
         &mut path,
         0,
         wmap,
+        addr_ranges,
     );
     path
 }

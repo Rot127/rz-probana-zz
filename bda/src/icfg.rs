@@ -74,6 +74,10 @@ impl ICFG {
         false
     }
 
+    pub fn has_procedure(&self, pid: &NodeId) -> bool {
+        self.procedures.contains_key(pid)
+    }
+
     pub fn get_procedure(&self, pid: &NodeId) -> &RwLock<Procedure> {
         let p = match self.procedures.get(pid) {
             Some(p) => p,

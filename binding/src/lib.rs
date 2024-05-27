@@ -7,7 +7,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use std::ffi::CStr;
+use helper::rz::parse_bda_range_conf_val;
+use std::ffi::{CStr, CString};
 
 use core::panic;
 use std::{
@@ -201,6 +202,12 @@ pub type GRzCore = Arc<Mutex<RzCoreWrapper>>;
 impl RzCoreWrapper {
     pub fn new(core: *mut rz_core_t) -> GRzCore {
         Arc::new(Mutex::new(RzCoreWrapper { ptr: core }))
+    }
+
+    pub fn get_bda_analysis_range(&self) -> Option<Vec<(u64, u64)>> {
+        let n = CString::new("plugins.bda.range").expect("Conversion failed.");
+        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        parse_bda_range_conf_val(c_to_str(c))
     }
 
     pub fn get_analysis_op(&self, addr: u64) -> *mut RzAnalysisOp {

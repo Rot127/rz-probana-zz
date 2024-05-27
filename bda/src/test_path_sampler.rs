@@ -63,7 +63,7 @@ mod tests {
     ) -> HashMap<Path, usize> {
         let mut path_stats = HashMap::<Path, usize>::new();
         for _ in 0..TEST_SAMPLE_SIZE {
-            let path = sample_path(&icfg, entry, &wmap);
+            let path = sample_path(&icfg, entry, &wmap, &Vec::new());
             let cnt = path_stats.get(&path);
             path_stats.insert(path, if cnt.is_none() { 1 } else { *cnt.unwrap() + 1 });
         }
@@ -94,7 +94,7 @@ mod tests {
         let mut path_stats = HashMap::<Path, usize>::new();
         // Over TEST_SAMPLE_SIZE iterations we should get the same path with a probability of 1.
         for _ in 0..TEST_SAMPLE_SIZE {
-            let path = sample_path(&icfg, LINEAR_CFG_ENTRY, &wmap);
+            let path = sample_path(&icfg, LINEAR_CFG_ENTRY, &wmap, &Vec::new());
             let cnt = path_stats.get(&path);
             path_stats.insert(path, if cnt.is_none() { 1 } else { *cnt.unwrap() + 1 });
         }

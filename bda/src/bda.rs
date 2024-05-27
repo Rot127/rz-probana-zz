@@ -76,6 +76,11 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
     if !malloc_present(icfg) {
         return;
     }
+    let ranges = core
+        .lock()
+        .expect("Should not be locked")
+        .get_bda_analysis_range()
+        .expect("Failed to get analysis ranges.");
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
 
     // Run abstract interpretation
@@ -95,6 +100,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
                     .get(rng.gen_range(0..bin_entries.len()))
                     .unwrap(),
                 state.get_weight_map(),
+                &ranges,
             );
             if threads.get(&tid).is_none() {
                 let core_ref = core.clone();
