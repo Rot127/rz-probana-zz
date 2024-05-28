@@ -142,17 +142,23 @@ macro_rules! check_effect_success {
 }
 
 fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    Some(AbstrVal::new_global(0, None))
+    let v = AbstrVal::new_global(0, None);
+    vm.set_taint_flag(&v, false);
+    Some(v)
 }
 
 fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    Some(AbstrVal::new_global(1, None))
+    let v = AbstrVal::new_global(1, None);
+    vm.set_taint_flag(&v, false);
+    Some(v)
 }
 
 fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let bv = unsafe { pderef!(op).op.bitv.value };
-    Some(AbstrVal::new_global(bv_to_int(bv), None))
+    let v = AbstrVal::new_global(bv_to_int(bv), None);
+    vm.set_taint_flag(&v, false);
+    Some(v)
 }
 
 fn rz_il_handler_var(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
@@ -977,8 +983,12 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // There is the possibility that a jump to this address wasn't disovered yet.
     // Log it for later.
     let addr = jdst.get_offset() as Address;
+    if vm.get_taint_flag(jdst) {
+        // Tainted addresses rely on sampled values and are useless to us.
+        return true;
+    }
     vm.add_jmp_target(addr);
-    if vm.points_to_proc(addr) {
+    if vm.is_call(addr) {
         // Push new stack frame.
         vm.call_stack_push(addr);
     }

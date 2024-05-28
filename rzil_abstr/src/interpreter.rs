@@ -365,8 +365,11 @@ impl AbstrVM {
     }
 
     /// Returns true if this address points to a procedure.
-    pub fn points_to_proc(&self, addr: Address) -> bool {
-        return self.pa.addr_info.contains_key(&addr);
+    pub fn is_call(&self, addr: Address) -> bool {
+        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
+            return ainfo.is_call;
+        }
+        false
     }
 
     pub fn add_jmp_target(&mut self, to: Address) {
