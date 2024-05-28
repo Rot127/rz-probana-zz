@@ -57,3 +57,46 @@ pub fn parse_bda_entry_list(val: String) -> Option<Vec<u64>> {
 
     Some(vec)
 }
+
+macro_rules! nope {
+    () => {
+        println!("Sure mate, I'd be delighted to welcome you back in a few billion years.");
+        return None;
+    };
+}
+
+pub fn parse_bda_timeout(val: String) -> Option<u64> {
+    if val.is_empty() {
+        println!("Format must follow: DD:HH:MM:SS, HH:MM:SS, MM:SS, SS");
+        return None;
+    }
+    let mut timeout_sec: u64 = 0;
+    let factors = vec![1, 60, 60 * 60, 24 * 60 * 60];
+    let mut fi = 0;
+    let mut factor = factors[fi];
+    for p in val.rsplit(":") {
+        if let Ok(n) = p.parse::<u64>() {
+            let n = n.checked_mul(factor);
+            if n.is_none() {
+                nope!();
+            };
+            if let Some(t) = timeout_sec.checked_add(n.unwrap()) {
+                timeout_sec += t;
+                fi += 1;
+                if fi >= factors.len() {
+                    break;
+                }
+                factor = factors[fi];
+                continue;
+            }
+            nope!();
+        }
+        println!("Could not parse '{}'", p);
+        return None;
+    }
+    if timeout_sec == 0 {
+        println!("timeout must be greater than 0");
+        return None;
+    }
+    Some(timeout_sec)
+}

@@ -5,7 +5,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val};
+use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val, parse_bda_timeout};
 use std::ffi::CString;
 use std::ptr::null;
 
@@ -176,6 +176,16 @@ pub extern "C" fn rz_set_bda_node_dups(core: *mut c_void, node: *mut c_void) -> 
     true
 }
 
+pub extern "C" fn rz_set_bda_timeout(core: *mut c_void, node: *mut c_void) -> bool {
+    let _ = core as *mut RzCore;
+    let rz_node = node as *mut RzConfigNode;
+    // Just perform a check on the given value.
+    if parse_bda_timeout(c_to_str(pderef!(rz_node).value)).is_none() {
+        return false;
+    }
+    true
+}
+
 pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
     unsafe {
         // Add bda commands
@@ -208,6 +218,15 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
             str_to_c!(
                 "Comma separated list of address to start path sampling from. Addresses must point to a function start. If empty, the binary entry points are used."
             ),
+        );
+        rz_config_node_desc(
+            rz_config_set_cb(
+                pderef!(core).config,
+                str_to_c!("plugins.bda.timeout"),
+                str_to_c!("10:00:00"),
+                Some(rz_set_bda_timeout),
+            ),
+            str_to_c!("Maximum runtime. Allowed formats: DD:HH:MM:SS, HH:MM:SS, MM:SS, SS"),
         );
         rz_config_node_desc(
             rz_config_set_i_cb(

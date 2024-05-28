@@ -7,7 +7,7 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val};
+use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val, parse_bda_timeout};
 use std::ffi::{CStr, CString};
 
 use core::panic;
@@ -211,6 +211,12 @@ impl RzCoreWrapper {
         let n = CString::new("plugins.bda.entries").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
         parse_bda_entry_list(c_to_str(c))
+    }
+
+    pub fn get_bda_runtime(&self) -> Option<u64> {
+        let n = CString::new("plugins.bda.timeout").expect("Conversion failed.");
+        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        parse_bda_timeout(c_to_str(c))
     }
 
     pub fn get_bda_max_iterations(&self) -> u64 {
