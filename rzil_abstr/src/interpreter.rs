@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
+use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
     collections::{HashMap, VecDeque},
@@ -225,7 +226,8 @@ impl AbstrVal {
 }
 
 /// An operation on the constant share of abstract values
-type AbstrOp = fn(v1: &Const, v2: &Const) -> Const;
+type AbstrOp2 = fn(v1: &Const, v2: &Const) -> Const;
+type AbstrOp1 = fn(v1: &Const) -> Const;
 
 struct MemOp {
     /// Address of the memory instruction
@@ -442,6 +444,15 @@ impl AbstrVM {
         self.dist.sample(&mut rand::thread_rng()) as Const
     }
 
+    /// Samples with a 0.5 chance a true (1) or false (0) value.
+    pub fn rvb(&self) -> Const {
+        if rand::thread_rng().gen_bool(0.5) {
+            1
+        } else {
+            0
+        }
+    }
+
     fn step(&mut self) -> bool {
         if let Some(pc) = self.pa.next() {
             self.pc = pc;
@@ -537,10 +548,34 @@ impl AbstrVM {
         self.ic.entry(iaddr).or_default().clone()
     }
 
+    /// Calculates the result of an operation on one abstract value and the taint flag [^1]
+    /// Returns the calculated result as abstract value and the taint flag.
+    /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
+    pub fn calc_value_1(&mut self, op: AbstrOp1, v1: AbstrVal) -> (AbstrVal, bool) {
+        let mut tainted: bool;
+        let mut v3: AbstrVal;
+        if v1.m.class == MemRegionClass::Global {
+            v3 = AbstrVal::new(v1.m.clone(), op(&v1.c), None);
+            tainted = false;
+        } else {
+            let pc = self.pc;
+            let ic_pc = self.get_ic(pc);
+            v3 = AbstrVal::new_global(self.rv(pc, ic_pc), None);
+            tainted = true;
+        }
+        (v3, tainted)
+    }
+
     /// Calculates the result of an operation on two abstract values and their taint flags [^1]
     /// Returns the calculated result as abstract value and the taint flag.
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
-    pub fn calc_value(&mut self, op: AbstrOp, v1: AbstrVal, v2: AbstrVal) -> (AbstrVal, bool) {
+    pub fn calc_value_2(
+        &mut self,
+        op: AbstrOp2,
+        v1: AbstrVal,
+        v2: AbstrVal,
+        sample_bool: bool,
+    ) -> (AbstrVal, bool) {
         let mut tainted: bool;
         let mut v3: AbstrVal;
         if v1.m.class == MemRegionClass::Global {
@@ -552,7 +587,14 @@ impl AbstrVM {
         } else {
             let pc = self.pc;
             let ic_pc = self.get_ic(pc);
-            v3 = AbstrVal::new_global(self.rv(pc, ic_pc), None);
+            v3 = AbstrVal::new_global(
+                if sample_bool {
+                    self.rvb()
+                } else {
+                    self.rv(pc, ic_pc)
+                },
+                None,
+            );
             tainted = true;
         }
         (v3, tainted)
