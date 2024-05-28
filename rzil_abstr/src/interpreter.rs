@@ -473,13 +473,23 @@ impl AbstrVM {
             let iword = unlocked_core!(self).get_iword(self.pc);
             self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
-            result = eval_effect(self, effect);
+            if effect != std::ptr::null_mut() {
+                // Otherwise not implemented
+                result = eval_effect(self, effect);
+            } else {
+                result = true;
+            }
             unsafe { rz_analysis_insn_word_free(iword) };
         } else {
             let ana_op = unlocked_core!(self).get_analysis_op(self.pc);
             self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
-            result = eval_effect(self, effect);
+            if effect != std::ptr::null_mut() {
+                // Otherwise not implemented
+                result = eval_effect(self, effect);
+            } else {
+                result = true;
+            }
             unsafe { rz_analysis_op_free(ana_op.cast()) };
         }
         self.lvars.clear();
