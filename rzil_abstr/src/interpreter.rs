@@ -717,16 +717,12 @@ impl AbstrVM {
             return_addr: self.pc + self.is.get(&self.pc).expect("Should have been set before."),
             sp: self.get_sp(),
         };
-        print!("Push: {}", cf);
         self.cs.push(cf);
     }
 
     /// Pops a call frame from the call stack.
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
         let cf = self.cs.pop();
-        if cf.is_some() {
-            print!("Pop: {}", cf.as_ref().unwrap());
-        }
         cf
     }
 
