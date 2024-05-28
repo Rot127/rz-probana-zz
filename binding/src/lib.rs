@@ -245,8 +245,11 @@ impl RzCoreWrapper {
     pub fn read_io_at(&self, addr: u64, len: usize) -> Vec<u8> {
         let mut buf = Vec::<u8>::with_capacity(len);
         unsafe {
-            if !rz_io_read_at_mapped(self.get_io(), addr, buf.as_mut_ptr(), len) {
-                panic!("rz_io_read_at_mapped() failed at {}", addr);
+            if rz_io_nread_at(self.get_io(), addr, buf.as_mut_ptr(), len) < 0 {
+                panic!(
+                    "rz_io_nread_at() failed reading at address: {:#x}",
+                    addr
+                );
             }
             buf.set_len(len);
         }
