@@ -276,7 +276,7 @@ fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
         |c1, c2| (if c1 <= c2 { 1 } else { 0 }),
         v1.unwrap(),
         v2.unwrap(),
-        false,
+        true,
     );
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -294,24 +294,6 @@ fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
         v2.unwrap(),
         true,
     );
-    vm.set_taint_flag(&v3, tainted);
-    Some(v3)
-}
-
-fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    null_check!(op);
-    let v1 = eval_pure(vm, unsafe { (*op).op.neg.bv });
-    check_pure_validity!(v1, None);
-    let (v3, tainted) = vm.calc_value_1(|c1| (-c1), v1.unwrap(), false);
-    vm.set_taint_flag(&v3, tainted);
-    Some(v3)
-}
-
-fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    null_check!(op);
-    let v1 = eval_pure(vm, unsafe { (*op).op.lognot.bv });
-    check_pure_validity!(v1, None);
-    let (v3, tainted) = vm.calc_value_1(|c1| (!c1), v1.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -366,6 +348,33 @@ fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
         v2.unwrap(),
         true,
     );
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
+}
+
+fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    null_check!(op);
+    let v1 = eval_pure(vm, unsafe { (*op).op.boolinv.x });
+    check_pure_validity!(v1, None);
+    let (v3, tainted) = vm.calc_value_1(|c1| (!c1), v1.unwrap(), true);
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
+}
+
+fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    null_check!(op);
+    let v1 = eval_pure(vm, unsafe { (*op).op.neg.bv });
+    check_pure_validity!(v1, None);
+    let (v3, tainted) = vm.calc_value_1(|c1| (-c1), v1.unwrap(), false);
+    vm.set_taint_flag(&v3, tainted);
+    Some(v3)
+}
+
+fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    null_check!(op);
+    let v1 = eval_pure(vm, unsafe { (*op).op.lognot.bv });
+    check_pure_validity!(v1, None);
+    let (v3, tainted) = vm.calc_value_1(|c1| (!c1), v1.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -502,15 +511,6 @@ fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     Some(v3)
 }
 
-fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    null_check!(op);
-    let v1 = eval_pure(vm, unsafe { (*op).op.boolinv.x });
-    check_pure_validity!(v1, None);
-    let (v3, tainted) = vm.calc_value_1(|c1| (!c1), v1.unwrap(), true);
-    vm.set_taint_flag(&v3, tainted);
-    Some(v3)
-}
-
 fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.cast.val });
@@ -526,36 +526,6 @@ fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
         "rz_il_handler_append not yet implemented.".to_string()
     );
     None
-}
-
-fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    null_check!(op);
-    let k = eval_pure(vm, unsafe { (*op).op.load.key });
-    check_pure_validity!(k, None);
-    let key = k.unwrap();
-    let key_t = vm.get_taint_flag(&key);
-    let norm_k = vm.normalize_val(key);
-    // We assume for now a size of 8 bytes. Just as rz_il_mem_value_len() does.
-    let v = vm.get_mem_val(&norm_k, 8);
-    let norm_t = key_t || vm.get_taint_flag(&norm_k);
-    vm.set_taint_flag(&norm_k, norm_t);
-    vm.enqueue_mos(&v);
-    Some(v)
-}
-
-fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
-    null_check!(op);
-    let k = eval_pure(vm, unsafe { (*op).op.loadw.key });
-    let n_bytes = unsafe { (*op).op.loadw.n_bits } / 8;
-    check_pure_validity!(k, None);
-    let key = k.unwrap();
-    let key_t = vm.get_taint_flag(&key);
-    let norm_k = vm.normalize_val(key);
-    let v = vm.get_mem_val(&norm_k, n_bytes as usize);
-    let norm_t = key_t || vm.get_taint_flag(&norm_k);
-    vm.set_taint_flag(&norm_k, norm_t);
-    vm.enqueue_mos(&v);
-    Some(v)
 }
 
 fn rz_il_handler_float(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
@@ -886,6 +856,36 @@ fn rz_il_handler_fcompound(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abst
         "rz_il_handler_fcompound not yet implemented.".to_string()
     );
     None
+}
+
+fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    null_check!(op);
+    let k = eval_pure(vm, unsafe { (*op).op.load.key });
+    check_pure_validity!(k, None);
+    let key = k.unwrap();
+    let key_t = vm.get_taint_flag(&key);
+    let norm_k = vm.normalize_val(key);
+    // We assume for now a size of 8 bytes. Just as rz_il_mem_value_len() does.
+    let v = vm.get_mem_val(&norm_k, 8);
+    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    vm.set_taint_flag(&norm_k, norm_t);
+    vm.enqueue_mos(&v);
+    Some(v)
+}
+
+fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
+    null_check!(op);
+    let k = eval_pure(vm, unsafe { (*op).op.loadw.key });
+    let n_bytes = unsafe { (*op).op.loadw.n_bits } / 8;
+    check_pure_validity!(k, None);
+    let key = k.unwrap();
+    let key_t = vm.get_taint_flag(&key);
+    let norm_k = vm.normalize_val(key);
+    let v = vm.get_mem_val(&norm_k, n_bytes as usize);
+    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    vm.set_taint_flag(&norm_k, norm_t);
+    vm.enqueue_mos(&v);
+    Some(v)
 }
 
 fn rz_il_handler_pure_unimplemented(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
