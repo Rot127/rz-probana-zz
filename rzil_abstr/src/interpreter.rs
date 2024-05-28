@@ -551,7 +551,12 @@ impl AbstrVM {
     /// Calculates the result of an operation on one abstract value and the taint flag [^1]
     /// Returns the calculated result as abstract value and the taint flag.
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
-    pub fn calc_value_1(&mut self, op: AbstrOp1, v1: AbstrVal) -> (AbstrVal, bool) {
+    pub fn calc_value_1(
+        &mut self,
+        op: AbstrOp1,
+        v1: AbstrVal,
+        sample_bool: bool,
+    ) -> (AbstrVal, bool) {
         let mut tainted: bool;
         let mut v3: AbstrVal;
         if v1.m.class == MemRegionClass::Global {
