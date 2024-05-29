@@ -1025,7 +1025,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
         // Tainted addresses rely on sampled values and are useless to us.
         return true;
     }
-    vm.add_icall_xref(addr);
+    vm.add_call_xref(addr);
     if vm.is_call(addr) {
         // Push new stack frame.
         vm.call_stack_push(addr);

@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rzil_abstr::interpreter::ConcreteIndirectCall;
+use rzil_abstr::interpreter::ConcreteCall;
 
 use crate::weight::WeightMap;
 
@@ -25,7 +25,7 @@ pub struct BDAState {
     /// The weight map for every node in all graphs.
     weight_map: RwLock<WeightMap>,
     /// Discovered icalls
-    pub icalls: HashSet<ConcreteIndirectCall>,
+    pub icalls: HashSet<ConcreteCall>,
 }
 
 impl BDAState {
@@ -51,7 +51,7 @@ impl BDAState {
         &self.weight_map
     }
 
-    pub fn update_icalls(&mut self, icalls: &Vec<ConcreteIndirectCall>) {
+    pub fn update_icalls(&mut self, icalls: &Vec<ConcreteCall>) {
         icalls.iter().for_each(|c| {
             self.icalls.insert(c.clone());
         });

@@ -97,14 +97,14 @@ impl IntrpPath {
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
 #[derive(Eq, PartialEq, Hash, Clone)]
-pub struct ConcreteIndirectCall {
+pub struct ConcreteCall {
     /// The caller
     from: Address,
     /// The callee
     to: Address,
 }
 
-impl std::fmt::Display for ConcreteIndirectCall {
+impl std::fmt::Display for ConcreteCall {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "icall {:#x} -> {:#x}", self.from, self.to)
     }
@@ -296,7 +296,7 @@ type CallStack = Vec<CallFrame>;
 /// Resulting by-products of the abstract interpretation.
 pub struct IntrpByProducts {
     /// Indirect calls resolved during interpretation
-    pub resolved_icalls: Vec<ConcreteIndirectCall>,
+    pub resolved_icalls: Vec<ConcreteCall>,
 }
 
 impl IntrpByProducts {
@@ -342,7 +342,7 @@ pub struct AbstrVM {
     /// Role to register name nap.
     reg_roles: HashMap<RzRegisterId, String>,
     /// Const value jump targets
-    icalls_xref: Vec<ConcreteIndirectCall>,
+    calls_xref: Vec<ConcreteCall>,
     /// Const value memory values loaded or stored.
     mem_xref: Vec<MemXref>,
     /// Rizin Core
@@ -381,7 +381,7 @@ impl AbstrVM {
             lvars: HashMap::new(),
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
-            icalls_xref: Vec::new(),
+            calls_xref: Vec::new(),
             mem_xref: Vec::new(),
             rz_core,
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
@@ -405,9 +405,8 @@ impl AbstrVM {
         false
     }
 
-    pub fn add_icall_xref(&mut self, to: Address) {
-        self.icalls_xref
-            .push(ConcreteIndirectCall { from: self.pc, to });
+    pub fn add_call_xref(&mut self, to: Address) {
+        self.calls_xref.push(ConcreteCall { from: self.pc, to });
     }
 
     pub fn add_mem_xref(&mut self, to: Address, size: u64) {
@@ -824,6 +823,6 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
 
     // Replace with Channel and send/rcv
     IntrpByProducts {
-        resolved_icalls: vm.icalls_xref.into(),
+        resolved_icalls: vm.calls_xref.into(),
     }
 }
