@@ -382,6 +382,25 @@ pub fn get_rz_test_bin_path() -> PathBuf {
     }
 }
 
+pub fn get_test_bin_path() -> PathBuf {
+    get_repo_path().join("test_bins")
+}
+
+pub fn get_repo_path() -> PathBuf {
+    let repo_dir: String = match env::var("CARGO_MANIFEST_DIR") {
+        Ok(v) => v,
+        Err(_e) => {
+            println!("CARGO_MANIFEST_DIR must be set.");
+            std::process::exit(1)
+        }
+    };
+    let path = PathBuf::from_str(repo_dir.as_str());
+    match path {
+        Ok(p) => p,
+        Err(_p) => panic!("Could not build path to test bins"),
+    }
+}
+
 pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
     let core: *mut RzCore;
     unsafe {
