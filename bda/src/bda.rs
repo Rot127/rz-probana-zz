@@ -64,8 +64,13 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
         .join(",");
 
     format!(
-        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interpreted: {}",
-        state.num_threads, hours, minutes, passed, formatted_path_num
+        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interpreted: {} Discovered icalls: {}",
+        state.num_threads,
+        hours,
+        minutes,
+        passed,
+        formatted_path_num,
+        state.icalls.len()
     )
 }
 
@@ -96,7 +101,7 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
         log_rz!(
             LOG_WARN,
             Some("BDA"),
-            "Binary file has no entry point set. You can set custom ones with 'e plugin.bda.entries'"
+            "Binary file has no entry point set. You can set custom ones with 'e plugins.bda.entries'"
                 .to_string()
         );
         return None;
@@ -107,7 +112,7 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
 /// Runs the BDA analysis by sampleing paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
-pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
+pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     let ranges = core
         .lock()
         .expect("Should not be locked")
@@ -126,6 +131,8 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
     }
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
 
+    let mut nothing_happened = 0;
+    let mut handled_thread = 0;
     // Run abstract interpretation
     let mut spinner = Spinner::new("".to_string());
     let mut paths_walked = 0;
@@ -154,8 +161,11 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
             }
         }
 
+        let mut nothing = true;
         for tid in 0..state.num_threads {
             if !threads.get(&tid).is_none() && threads.get(&tid).as_ref().unwrap().is_finished() {
+                nothing = false;
+                handled_thread += 1;
                 let thread = threads.remove(&tid).unwrap();
                 match thread.join() {
                     Err(_) => panic!("Thread failed."),
@@ -163,8 +173,12 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
                 };
             }
         }
-        for _product in products.iter() {
+        if nothing {
+            nothing_happened += 1;
+        }
+        for product in products.iter() {
             paths_walked += 1;
+            state.update_icalls(&product.resolved_icalls);
             // Update iCFG with resolved calls
             // Recalculate weight.
             // Report mem vals
@@ -172,6 +186,15 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &BDAState) {
         products.clear();
     }
     spinner.done(get_bda_status(state, paths_walked));
+    println!(
+        "Lazy factor: {}/{} = {}",
+        nothing_happened,
+        handled_thread,
+        nothing_happened as f64 / handled_thread as f64
+    );
+    for ic in state.icalls.iter() {
+        println!("{}", ic);
+    }
     let mut term_reason = "";
     if state.bda_timed_out() {
         term_reason = "timeout";

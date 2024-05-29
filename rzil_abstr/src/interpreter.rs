@@ -7,6 +7,7 @@ use rand_distr::{Distribution, Normal};
 use std::{
     collections::{HashMap, VecDeque},
     ffi::CString,
+    io::Read,
     sync::MutexGuard,
 };
 
@@ -95,11 +96,18 @@ impl IntrpPath {
 
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
+#[derive(Eq, PartialEq, Hash, Clone)]
 pub struct ConcreteIndirectCall {
     /// The caller
     from: Address,
     /// The callee
     to: Address,
+}
+
+impl std::fmt::Display for ConcreteIndirectCall {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "icall {:#x} -> {:#x}", self.from, self.to)
+    }
 }
 
 /// Memory region classes: Global, Stack, Heap
@@ -744,14 +752,10 @@ impl AbstrVM {
     }
 
     pub fn read_io_at_u64(&self, addr: Address, n_bytes: usize) -> u64 {
-        let mut n = 0;
         let data = self.read_io_at(addr, n_bytes);
-
-        // For now only little endian
-        for i in (0..n_bytes) {
-            n |= (*data.get(i).expect("read not enough bytes.") as u64) << i;
-        }
-        n
+        let mut buf: [u8; 8] = [0; 8];
+        data.as_slice().read_exact(&mut buf[..n_bytes]);
+        u64::from_le_bytes(buf)
     }
 
     pub fn read_mem(&self, addr: Address, n_bytes: usize) -> Vec<u8> {

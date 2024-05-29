@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::{
+    collections::HashSet,
     sync::RwLock,
     time::{Duration, Instant},
 };
+
+use rzil_abstr::interpreter::ConcreteIndirectCall;
 
 use crate::weight::WeightMap;
 
@@ -21,6 +24,8 @@ pub struct BDAState {
     pub num_threads: usize,
     /// The weight map for every node in all graphs.
     weight_map: RwLock<WeightMap>,
+    /// Discovered icalls
+    pub icalls: HashSet<ConcreteIndirectCall>,
 }
 
 impl BDAState {
@@ -30,6 +35,7 @@ impl BDAState {
             timeout: Duration::new(timeout, 0),
             num_threads,
             weight_map: WeightMap::new(),
+            icalls: HashSet::new(),
         }
     }
 
@@ -43,5 +49,11 @@ impl BDAState {
 
     pub fn get_weight_map(&self) -> &RwLock<WeightMap> {
         &self.weight_map
+    }
+
+    pub fn update_icalls(&mut self, icalls: &Vec<ConcreteIndirectCall>) {
+        icalls.iter().for_each(|c| {
+            self.icalls.insert(c.clone());
+        });
     }
 }
