@@ -51,7 +51,7 @@ impl BDAState {
         &self.weight_map
     }
 
-    pub fn update_icalls(&mut self, icalls: &Vec<ConcreteCall>) {
+    pub fn update_icalls(&mut self, icalls: &HashSet<ConcreteCall>) {
         icalls.iter().for_each(|c| {
             self.icalls.insert(c.clone());
         });

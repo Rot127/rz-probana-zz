@@ -3,3 +3,4 @@
 
 pub mod interpreter;
 mod op_handler;
+mod test_interpreter;

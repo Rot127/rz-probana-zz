@@ -5,7 +5,7 @@
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     ffi::CString,
     io::Read,
     sync::MutexGuard,
@@ -53,6 +53,42 @@ impl AddrInfo {
             is_return_point,
         }
     }
+
+    pub fn new_call() -> AddrInfo {
+        AddrInfo {
+            is_call: true,
+            calls_malloc: false,
+            calls_input: false,
+            is_return_point: false,
+        }
+    }
+
+    pub fn new_malloc() -> AddrInfo {
+        AddrInfo {
+            is_call: true,
+            calls_malloc: true,
+            calls_input: false,
+            is_return_point: false,
+        }
+    }
+
+    pub fn new_input() -> AddrInfo {
+        AddrInfo {
+            is_call: true,
+            calls_malloc: false,
+            calls_input: true,
+            is_return_point: false,
+        }
+    }
+
+    pub fn new_return() -> AddrInfo {
+        AddrInfo {
+            is_call: false,
+            calls_malloc: false,
+            calls_input: false,
+            is_return_point: true,
+        }
+    }
 }
 
 pub struct IntrpPath {
@@ -66,6 +102,13 @@ impl IntrpPath {
     pub fn new() -> IntrpPath {
         IntrpPath {
             path: VecDeque::new(),
+            addr_info: HashMap::new(),
+        }
+    }
+
+    pub fn from(vec: VecDeque<Address>) -> IntrpPath {
+        IntrpPath {
+            path: vec,
             addr_info: HashMap::new(),
         }
     }
@@ -102,6 +145,12 @@ pub struct ConcreteCall {
     from: Address,
     /// The callee
     to: Address,
+}
+
+impl ConcreteCall {
+    pub fn new(from: Address, to: Address) -> Self {
+        Self { from, to }
+    }
 }
 
 impl std::fmt::Display for ConcreteCall {
@@ -296,13 +345,13 @@ type CallStack = Vec<CallFrame>;
 /// Resulting by-products of the abstract interpretation.
 pub struct IntrpByProducts {
     /// Indirect calls resolved during interpretation
-    pub resolved_icalls: Vec<ConcreteCall>,
+    pub resolved_icalls: HashSet<ConcreteCall>,
 }
 
 impl IntrpByProducts {
     pub fn new() -> IntrpByProducts {
         IntrpByProducts {
-            resolved_icalls: Vec::new(),
+            resolved_icalls: HashSet::new(),
         }
     }
 }
@@ -342,7 +391,7 @@ pub struct AbstrVM {
     /// Role to register name nap.
     reg_roles: HashMap<RzRegisterId, String>,
     /// Const value jump targets
-    calls_xref: Vec<ConcreteCall>,
+    calls_xref: HashSet<ConcreteCall>,
     /// Const value memory values loaded or stored.
     mem_xref: Vec<MemXref>,
     /// Rizin Core
@@ -381,7 +430,7 @@ impl AbstrVM {
             lvars: HashMap::new(),
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
-            calls_xref: Vec::new(),
+            calls_xref: HashSet::new(),
             mem_xref: Vec::new(),
             rz_core,
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
@@ -406,7 +455,7 @@ impl AbstrVM {
     }
 
     pub fn add_call_xref(&mut self, to: Address) {
-        self.calls_xref.push(ConcreteCall { from: self.pc, to });
+        self.calls_xref.insert(ConcreteCall { from: self.pc, to });
     }
 
     pub fn add_mem_xref(&mut self, to: Address, size: u64) {
@@ -815,7 +864,7 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
     let mut vm = AbstrVM::new(rz_core, path.get(0), path);
     if !vm.init_register_file(vm.get_rz_core().clone()) {
         return IntrpByProducts {
-            resolved_icalls: Vec::new(),
+            resolved_icalls: HashSet::new(),
         };
     }
 

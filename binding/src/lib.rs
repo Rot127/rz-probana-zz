@@ -36,7 +36,7 @@ macro_rules! log_rz {
 macro_rules! null_check {
     ( $($ptr:expr),* ) => {
         $(
-            assert_ne!($ptr, std::ptr::null_mut(), "{:?} is NULL", $ptr);
+            assert_ne!($ptr, std::ptr::null_mut(), "ptr {:?} == NULL", $ptr);
         )*
     };
 }
@@ -44,7 +44,7 @@ macro_rules! null_check {
 #[macro_export]
 macro_rules! pderef {
     ($ptr:expr) => {{
-        assert_ne!($ptr, std::ptr::null_mut(), "{:?} is NULL", $ptr);
+        assert_ne!($ptr, std::ptr::null_mut(), "{} is NULL", stringify!($ptr));
         unsafe { *$ptr }
     }};
 }
@@ -199,6 +199,12 @@ pub type GRzCore = Arc<Mutex<RzCoreWrapper>>;
 impl RzCoreWrapper {
     pub fn new(core: *mut rz_core_t) -> GRzCore {
         Arc::new(Mutex::new(RzCoreWrapper { ptr: core }))
+    }
+
+    pub fn set_conf_val(&self, key: &str, val: &str) {
+        let k = CString::new(key).expect("Conversion failed.");
+        let v = CString::new(val).expect("Conversion failed.");
+        unsafe { rz_config_set(uderef!(self.ptr).config, k.as_ptr(), v.as_ptr()) };
     }
 
     pub fn get_bda_analysis_range(&self) -> Option<Vec<(u64, u64)>> {
@@ -383,10 +389,17 @@ pub fn get_rz_test_bin_path() -> PathBuf {
 }
 
 pub fn get_test_bin_path() -> PathBuf {
-    get_repo_path().join("test_bins")
+    get_pkg_path().join("test_bins")
 }
 
-pub fn get_repo_path() -> PathBuf {
+pub fn get_probana_lib() -> PathBuf {
+    get_pkg_path()
+        .parent()
+        .unwrap()
+        .join("target/lib_out/debug/libprobana_zz.so")
+}
+
+pub fn get_pkg_path() -> PathBuf {
     let repo_dir: String = match env::var("CARGO_MANIFEST_DIR") {
         Ok(v) => v,
         Err(_e) => {
@@ -404,19 +417,26 @@ pub fn get_repo_path() -> PathBuf {
 pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
     let core: *mut RzCore;
     unsafe {
-        println!("init");
+        println!("Core init");
         core = rz_core_new();
         if core == std::ptr::null_mut() {
             panic!("Could not init RzCore.");
         }
-        println!("Core init");
-        let cf: *const RzCoreFile =
-            rz_core_file_open(core, binary.as_ptr().cast(), RZ_PERM_R as i32, 0);
-        if cf == std::ptr::null_mut() {
+        println!("Open file");
+        if !rz_core_file_open_load(core, binary.as_ptr().cast(), 0, RZ_PERM_R as i32, false) {
             panic!("Could not open file {}", binary);
         }
-        println!("Opened file");
-        rz_core_bin_load(core, std::ptr::null(), 0);
+
+        println!("Open plugin");
+        let lib_path = CString::new(
+            get_probana_lib()
+                .as_os_str()
+                .to_str()
+                .expect("Path creation failure."),
+        )
+        .expect("CString failure");
+        rz_lib_open((*core).lib, lib_path.as_ptr());
+        println!("Run aaa");
         rz_core_perform_auto_analysis(core, RzCoreAnalysisType_RZ_CORE_ANALYSIS_DEEP);
     };
     core
