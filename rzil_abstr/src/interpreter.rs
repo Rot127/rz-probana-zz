@@ -110,6 +110,28 @@ impl std::fmt::Display for ConcreteIndirectCall {
     }
 }
 
+/// A concretely resolved indirect call.
+/// Those can be discovered, if only constant value were used to define the call target.
+#[derive(Eq, PartialEq, Hash, Clone)]
+pub struct MemXref {
+    /// The load/store instruction address
+    from: Address,
+    /// The address referenced
+    to: Address,
+    /// Number of bytes loaded
+    size: u64,
+}
+
+impl std::fmt::Display for MemXref {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "mem_xref {:#x} -- {} byte --> {:#x}",
+            self.from, self.size, self.to
+        )
+    }
+}
+
 /// Memory region classes: Global, Stack, Heap
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum MemRegionClass {
@@ -320,7 +342,9 @@ pub struct AbstrVM {
     /// Role to register name nap.
     reg_roles: HashMap<RzRegisterId, String>,
     /// Const value jump targets
-    jmp_targets: Vec<ConcreteIndirectCall>,
+    icalls_xref: Vec<ConcreteIndirectCall>,
+    /// Const value memory values loaded or stored.
+    mem_xref: Vec<MemXref>,
     /// Rizin Core
     rz_core: GRzCore,
     /// Normal distribution
@@ -357,7 +381,8 @@ impl AbstrVM {
             lvars: HashMap::new(),
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
-            jmp_targets: Vec::new(),
+            icalls_xref: Vec::new(),
+            mem_xref: Vec::new(),
             rz_core,
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
             limit_repeat,
@@ -380,9 +405,17 @@ impl AbstrVM {
         false
     }
 
-    pub fn add_jmp_target(&mut self, to: Address) {
-        self.jmp_targets
+    pub fn add_icall_xref(&mut self, to: Address) {
+        self.icalls_xref
             .push(ConcreteIndirectCall { from: self.pc, to });
+    }
+
+    pub fn add_mem_xref(&mut self, to: Address, size: u64) {
+        self.mem_xref.push(MemXref {
+            from: self.pc,
+            to,
+            size,
+        });
     }
 
     pub fn get_varg(&self, name: &str) -> Option<AbstrVal> {
@@ -791,6 +824,6 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
 
     // Replace with Channel and send/rcv
     IntrpByProducts {
-        resolved_icalls: vm.jmp_targets.into(),
+        resolved_icalls: vm.icalls_xref.into(),
     }
 }

@@ -872,10 +872,14 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     let key_t = vm.get_taint_flag(&key);
     let norm_k = vm.normalize_val(key);
     // We assume for now a size of 8 bytes. Just as rz_il_mem_value_len() does.
-    let v = vm.get_mem_val(&norm_k, 8);
+    let size = 8;
+    let v = vm.get_mem_val(&norm_k, size);
     let norm_t = key_t || vm.get_taint_flag(&norm_k);
     vm.set_taint_flag(&norm_k, norm_t);
     vm.enqueue_mos(&v);
+    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+        vm.add_mem_xref(norm_k.get_offset() as Address, size as u64);
+    }
     Some(v)
 }
 
@@ -891,6 +895,9 @@ fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal
     let norm_t = key_t || vm.get_taint_flag(&norm_k);
     vm.set_taint_flag(&norm_k, norm_t);
     vm.enqueue_mos(&v);
+    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+        vm.add_mem_xref(norm_k.get_offset() as Address, n_bytes as u64);
+    }
     Some(v)
 }
 
@@ -918,10 +925,13 @@ fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     check_pure_validity!(value, false);
     let v = value.unwrap();
     let norm_t = vm.get_taint_flag(&key) || vm.get_taint_flag(&v);
-    let norm_v = &vm.normalize_val(key);
-    vm.set_mem_val(norm_v, v.clone());
-    vm.set_taint_flag(&norm_v, norm_t);
-    vm.enqueue_mos(&norm_v);
+    let norm_k = &vm.normalize_val(key);
+    vm.set_mem_val(norm_k, v.clone());
+    vm.set_taint_flag(&norm_k, norm_t);
+    vm.enqueue_mos(&norm_k);
+    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+        vm.add_mem_xref(norm_k.get_offset() as Address, 8 as u64);
+    }
     true
 }
 
@@ -934,10 +944,13 @@ fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     check_pure_validity!(value, false);
     let v = value.unwrap();
     let norm_t = vm.get_taint_flag(&key) || vm.get_taint_flag(&v);
-    let norm_v = &vm.normalize_val(key);
-    vm.set_mem_val(norm_v, v.clone());
-    vm.set_taint_flag(&norm_v, norm_t);
-    vm.enqueue_mos(&norm_v);
+    let norm_k = &vm.normalize_val(key);
+    vm.set_mem_val(norm_k, v.clone());
+    vm.set_taint_flag(&norm_k, norm_t);
+    vm.enqueue_mos(&norm_k);
+    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+        vm.add_mem_xref(norm_k.get_offset() as Address, 8 as u64);
+    }
     true
 }
 
@@ -987,7 +1000,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
         // Tainted addresses rely on sampled values and are useless to us.
         return true;
     }
-    vm.add_jmp_target(addr);
+    vm.add_icall_xref(addr);
     if vm.is_call(addr) {
         // Push new stack frame.
         vm.call_stack_push(addr);
