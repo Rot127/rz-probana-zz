@@ -45,6 +45,6 @@ mod tests {
         expected.insert(ConcreteCall::new(0x0800007a, 0x080000c0));
         expected.insert(ConcreteCall::new(0x08000097, 0x080000d0));
         expected.insert(ConcreteCall::new(0x080000ac, 0xffffffffffffffff));
-        assert!(products.resolved_icalls.eq(&expected));
+        assert!(products.concrete_calls.eq(&expected));
     }
 }

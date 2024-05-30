@@ -361,7 +361,7 @@ type CallStack = Vec<CallFrame>;
 /// Resulting by-products of the abstract interpretation.
 pub struct IntrpByProducts {
     /// Indirect calls resolved during interpretation
-    pub resolved_icalls: HashSet<ConcreteCall>,
+    pub concrete_calls: HashSet<ConcreteCall>,
     pub mem_xrefs: HashSet<MemXref>,
     pub stack_xrefs: HashSet<StackXref>,
 }
@@ -369,7 +369,7 @@ pub struct IntrpByProducts {
 impl IntrpByProducts {
     pub fn new() -> IntrpByProducts {
         IntrpByProducts {
-            resolved_icalls: HashSet::new(),
+            concrete_calls: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
         }
@@ -893,7 +893,7 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
     let mut vm = AbstrVM::new(rz_core, path.get(0), path);
     if !vm.init_register_file(vm.get_rz_core().clone()) {
         return IntrpByProducts {
-            resolved_icalls: HashSet::new(),
+            concrete_calls: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
         };
@@ -903,7 +903,7 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
 
     // Replace with Channel and send/rcv
     IntrpByProducts {
-        resolved_icalls: vm.calls_xref.into(),
+        concrete_calls: vm.calls_xref.into(),
         mem_xrefs: vm.mem_xrefs.into(),
         stack_xrefs: vm.stack_xrefs.into(),
     }

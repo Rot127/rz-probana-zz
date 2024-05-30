@@ -70,7 +70,7 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
         minutes,
         passed,
         formatted_path_num,
-        state.icalls.len()
+        state.calls.len()
     )
 }
 
@@ -178,7 +178,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         }
         for product in products.iter() {
             paths_walked += 1;
-            state.update_icalls(&product.resolved_icalls);
+            state.update_calls(&product.concrete_calls);
             state.update_mem_xrefs(&product.mem_xrefs);
             state.update_stack_xrefs(&product.stack_xrefs);
             // Update iCFG with resolved calls
@@ -195,7 +195,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         nothing_happened as f64 / handled_thread as f64
     );
     println!("Calls");
-    for ic in state.icalls.iter() {
+    for ic in state.calls.iter() {
         println!("{}", ic);
     }
     println!("Mem xrefs");

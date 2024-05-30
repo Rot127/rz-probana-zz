@@ -25,7 +25,7 @@ pub struct BDAState {
     /// The weight map for every node in all graphs.
     weight_map: RwLock<WeightMap>,
     /// Discovered icalls
-    pub icalls: HashSet<ConcreteCall>,
+    pub calls: HashSet<ConcreteCall>,
     /// Discovered mem_xrefs
     pub mem_xrefs: HashSet<MemXref>,
     /// Discovered stacK_xrefs
@@ -39,7 +39,7 @@ impl BDAState {
             timeout: Duration::new(timeout, 0),
             num_threads,
             weight_map: WeightMap::new(),
-            icalls: HashSet::new(),
+            calls: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
         }
@@ -57,9 +57,9 @@ impl BDAState {
         &self.weight_map
     }
 
-    pub fn update_icalls(&mut self, icalls: &HashSet<ConcreteCall>) {
+    pub fn update_calls(&mut self, icalls: &HashSet<ConcreteCall>) {
         icalls.iter().for_each(|c| {
-            self.icalls.insert(c.clone());
+            self.calls.insert(c.clone());
         });
     }
 
