@@ -4,7 +4,7 @@
 #![allow(non_snake_case)]
 
 use bda::bda_binding::rz_analysis_bda_handler;
-use binding::{get_rz_test_bin_path, init_rizin_instance};
+use binding::{get_rz_test_bin_path, init_rizin_instance, RzCoreWrapper};
 
 #[test]
 fn test_aaaaPb_x86_cfg_test() {
@@ -13,6 +13,11 @@ fn test_aaaaPb_x86_cfg_test() {
         .join("analysis")
         .join("x86_cfg_test");
     let core = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
+    let rz_core = RzCoreWrapper::new(core);
+    rz_core
+        .lock()
+        .unwrap()
+        .set_conf_val("plugins.bda.timeout", "10");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
@@ -24,6 +29,11 @@ fn test_aaaaPb_hexagon_test_jmp() {
         .join("rzil")
         .join("test_jmp");
     let core = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
+    let rz_core = RzCoreWrapper::new(core);
+    rz_core
+        .lock()
+        .unwrap()
+        .set_conf_val("plugins.bda.timeout", "10");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
@@ -34,5 +44,10 @@ fn test_aaaaPb_hexagon_hello_loop() {
         .join("analysis")
         .join("hexagon-hello-loop");
     let core = init_rizin_instance(test_bin.into_os_string().to_str().unwrap());
+    let rz_core = RzCoreWrapper::new(core);
+    rz_core
+        .lock()
+        .unwrap()
+        .set_conf_val("plugins.bda.timeout", "10");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }

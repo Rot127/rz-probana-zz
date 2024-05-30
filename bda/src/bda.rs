@@ -179,6 +179,8 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         for product in products.iter() {
             paths_walked += 1;
             state.update_icalls(&product.resolved_icalls);
+            state.update_mem_xrefs(&product.mem_xrefs);
+            state.update_stack_xrefs(&product.stack_xrefs);
             // Update iCFG with resolved calls
             // Recalculate weight.
             // Report mem vals
@@ -192,7 +194,16 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         handled_thread,
         nothing_happened as f64 / handled_thread as f64
     );
+    println!("Calls");
     for ic in state.icalls.iter() {
+        println!("{}", ic);
+    }
+    println!("Mem xrefs");
+    for ic in state.mem_xrefs.iter() {
+        println!("{}", ic);
+    }
+    println!("Stack xrefs");
+    for ic in state.stack_xrefs.iter() {
         println!("{}", ic);
     }
     let mut term_reason = "";

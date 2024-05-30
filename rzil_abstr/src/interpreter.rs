@@ -181,6 +181,22 @@ impl std::fmt::Display for MemXref {
     }
 }
 
+/// A concretely resolved indirect call.
+/// Those can be discovered, if only constant value were used to define the call target.
+#[derive(Eq, PartialEq, Hash, Clone)]
+pub struct StackXref {
+    /// The instruction address
+    at: Address,
+    /// Abstract value of the stack variable/argument
+    var: AbstrVal,
+}
+
+impl std::fmt::Display for StackXref {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {:#x} ", self.var, self.at,)
+    }
+}
+
 /// Memory region classes: Global, Stack, Heap
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum MemRegionClass {
@@ -346,12 +362,16 @@ type CallStack = Vec<CallFrame>;
 pub struct IntrpByProducts {
     /// Indirect calls resolved during interpretation
     pub resolved_icalls: HashSet<ConcreteCall>,
+    pub mem_xrefs: HashSet<MemXref>,
+    pub stack_xrefs: HashSet<StackXref>,
 }
 
 impl IntrpByProducts {
     pub fn new() -> IntrpByProducts {
         IntrpByProducts {
             resolved_icalls: HashSet::new(),
+            mem_xrefs: HashSet::new(),
+            stack_xrefs: HashSet::new(),
         }
     }
 }
@@ -393,7 +413,9 @@ pub struct AbstrVM {
     /// Const value jump targets
     calls_xref: HashSet<ConcreteCall>,
     /// Const value memory values loaded or stored.
-    mem_xref: Vec<MemXref>,
+    mem_xrefs: HashSet<MemXref>,
+    /// Stack references
+    stack_xrefs: HashSet<StackXref>,
     /// Rizin Core
     rz_core: GRzCore,
     /// Normal distribution
@@ -431,7 +453,8 @@ impl AbstrVM {
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
             calls_xref: HashSet::new(),
-            mem_xref: Vec::new(),
+            mem_xrefs: HashSet::new(),
+            stack_xrefs: HashSet::new(),
             rz_core,
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
             limit_repeat,
@@ -459,11 +482,17 @@ impl AbstrVM {
     }
 
     pub fn add_mem_xref(&mut self, to: Address, size: u64) {
-        self.mem_xref.push(MemXref {
+        self.mem_xrefs.insert(MemXref {
             from: self.pc,
             to,
             size,
         });
+    }
+
+    /// Logs the usage of a stack variable [var] at the current PC.
+    pub fn add_stack_xref(&mut self, var: AbstrVal) {
+        assert!(var.is_stack());
+        self.stack_xrefs.insert(StackXref { at: self.pc, var });
     }
 
     pub fn get_varg(&self, name: &str) -> Option<AbstrVal> {
@@ -865,6 +894,8 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
     if !vm.init_register_file(vm.get_rz_core().clone()) {
         return IntrpByProducts {
             resolved_icalls: HashSet::new(),
+            mem_xrefs: HashSet::new(),
+            stack_xrefs: HashSet::new(),
         };
     }
 
@@ -873,5 +904,7 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
     // Replace with Channel and send/rcv
     IntrpByProducts {
         resolved_icalls: vm.calls_xref.into(),
+        mem_xrefs: vm.mem_xrefs.into(),
+        stack_xrefs: vm.stack_xrefs.into(),
     }
 }

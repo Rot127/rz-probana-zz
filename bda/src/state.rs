@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rzil_abstr::interpreter::ConcreteCall;
+use rzil_abstr::interpreter::{ConcreteCall, MemXref, StackXref};
 
 use crate::weight::WeightMap;
 
@@ -26,6 +26,10 @@ pub struct BDAState {
     weight_map: RwLock<WeightMap>,
     /// Discovered icalls
     pub icalls: HashSet<ConcreteCall>,
+    /// Discovered mem_xrefs
+    pub mem_xrefs: HashSet<MemXref>,
+    /// Discovered stacK_xrefs
+    pub stack_xrefs: HashSet<StackXref>,
 }
 
 impl BDAState {
@@ -36,6 +40,8 @@ impl BDAState {
             num_threads,
             weight_map: WeightMap::new(),
             icalls: HashSet::new(),
+            mem_xrefs: HashSet::new(),
+            stack_xrefs: HashSet::new(),
         }
     }
 
@@ -54,6 +60,18 @@ impl BDAState {
     pub fn update_icalls(&mut self, icalls: &HashSet<ConcreteCall>) {
         icalls.iter().for_each(|c| {
             self.icalls.insert(c.clone());
+        });
+    }
+
+    pub fn update_mem_xrefs(&mut self, xrefs: &HashSet<MemXref>) {
+        xrefs.iter().for_each(|c| {
+            self.mem_xrefs.insert((*c).clone());
+        });
+    }
+
+    pub fn update_stack_xrefs(&mut self, xrefs: &HashSet<StackXref>) {
+        xrefs.iter().for_each(|c| {
+            self.stack_xrefs.insert((*c).clone());
         });
     }
 }

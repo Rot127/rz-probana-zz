@@ -905,6 +905,9 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
         vm.add_mem_xref(norm_k.get_offset() as Address, size as u64);
     }
+    if norm_k.is_stack() {
+        vm.add_stack_xref(norm_k);
+    }
     Some(v)
 }
 
