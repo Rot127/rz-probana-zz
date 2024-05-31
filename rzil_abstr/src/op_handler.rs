@@ -1183,10 +1183,27 @@ fn rz_il_handler_blk(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    // We are for now, don't check the condition for a static limit.
-    for _ in (0..vm.get_limit_repeat()) {
-        let body_success = eval_effect(vm, unsafe { (*op).op.repeat.data_eff });
-        check_effect_success!(body_success);
+    let mut cond = eval_pure(vm, unsafe { (*op).op.repeat.condition });
+    check_pure_validity!(cond, false);
+    if vm.get_taint_flag(cond.as_ref().unwrap()) {
+        // Condition depends on some sampled value, so we iterate until the limit.
+        for _ in (0..vm.get_limit_repeat()) {
+            let body_success = eval_effect(vm, unsafe { (*op).op.repeat.data_eff });
+            check_effect_success!(body_success);
+        }
+    } else {
+        // Run the loop as long as the condition is a global bool value AND it is false.
+        // Whenever it becomes a non-global value or is tainted we stop.
+        while cond.as_ref().unwrap().is_false()
+            && cond
+                .as_ref()
+                .is_some_and(|c| c.is_global() && vm.get_taint_flag(c))
+        {
+            let body_success = eval_effect(vm, unsafe { (*op).op.repeat.data_eff });
+            check_effect_success!(body_success);
+            cond = eval_pure(vm, unsafe { (*op).op.repeat.condition });
+            check_pure_validity!(cond, false);
+        }
     }
     true
 }
