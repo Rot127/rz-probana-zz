@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
+use helper::num::subscript;
 use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
 use rand::Rng;
 use rand_distr::{num_traits::ConstZero, Distribution, Normal};
@@ -35,7 +36,7 @@ pub struct Const {
 
 impl LowerHex for Const {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#x}", self.v)
+        write!(f, "{:#x}{}", self.v, subscript(self.width))
     }
 }
 
