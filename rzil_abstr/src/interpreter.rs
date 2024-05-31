@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
+use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
 use rand::Rng;
-use rand_distr::{Distribution, Normal};
+use rand_distr::{num_traits::ConstZero, Distribution, Normal};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     ffi::CString,
+    fmt::LowerHex,
     io::Read,
+    ops::Deref,
     sync::MutexGuard,
 };
 
@@ -23,7 +26,139 @@ use crate::op_handler::eval_effect;
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 pub type Address = u64;
 
-pub type Const = i128;
+#[derive(Clone, Debug, Hash)]
+pub struct Const {
+    v: BigInt,
+    /// Width of constant in bits
+    width: u64,
+}
+
+impl LowerHex for Const {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#x}", self.v)
+    }
+}
+
+impl Eq for Const {}
+impl PartialEq for Const {
+    fn eq(&self, other: &Self) -> bool {
+        self.v == other.v
+    }
+}
+
+impl Const {
+    /// Creates a new Const from an BigInt.
+    /// Any bits of [v] at [width] onwards are dropped.
+    pub fn new(v: BigInt, width: u64) -> Const {
+        Const {
+            v: v % (1.to_bigint().expect("to_bigint failed") << width),
+            width,
+        }
+    }
+
+    /// Returns the BigInt of this constant
+    pub fn v(&self) -> &BigInt {
+        &self.v
+    }
+
+    /// Returns the BigUint representation of this constant
+    pub fn vu(&self) -> BigUint {
+        self.v.to_biguint().expect("Int -> Uint unsuccessful")
+    }
+
+    pub fn set(&mut self, v: BigInt) {
+        self.v = v;
+    }
+
+    pub fn msb(&self) -> bool {
+        self.v.bit(self.width - 1)
+    }
+
+    pub fn lsb(&self) -> bool {
+        self.v.bit(0)
+    }
+
+    pub fn get_true() -> Const {
+        Const {
+            v: 1.to_bigint().unwrap(),
+            width: 1,
+        }
+    }
+
+    pub fn get_false() -> Const {
+        Const {
+            v: 0.to_bigint().unwrap(),
+            width: 1,
+        }
+    }
+
+    pub fn get_zero(width: u64) -> Const {
+        Const {
+            v: 0.to_bigint().unwrap(),
+            width,
+        }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.v == BigInt::ZERO
+    }
+
+    /// Returns a constant of [width] bits with all bits set to true.
+    pub fn get_umax(width: u64) -> Const {
+        let mut v = BigInt::from(0);
+        for i in (0..width) {
+            v.set_bit(i as u64, true);
+        }
+        Const { v, width }
+    }
+
+    pub fn new_u64(v: u64, width: u64) -> Const {
+        Const {
+            v: v.to_bigint().unwrap(),
+            width,
+        }
+    }
+
+    /// Returns the number of bits actually required to depict the value.
+    pub fn required_bits(&self) -> u64 {
+        self.v.bits()
+    }
+
+    pub fn as_u64(&self) -> u64 {
+        println!("{}", self.v);
+        if self.v == BigInt::ZERO {
+            return 0;
+        }
+        *self.v.to_u64_digits().1.get(0).expect("Invalid value")
+    }
+
+    pub fn width(&self) -> u64 {
+        self.width
+    }
+
+    /// Returns the a casted value according to [len] and [fill].
+    /// Additionally, it returns the taint bit. The taint bit is set, if:
+    /// - The [fill] bit was used
+    /// AND
+    /// - [fill] is not a global true or false value, and has been sampled.
+    pub fn cast(&self, len: u64, fill: AbstrVal) -> (Const, bool) {
+        if self.width() <= len {
+            return (Const::new(self.v.clone(), len), false);
+        }
+        let (fill_bit, tainted) = if fill.is_true() {
+            (true, false)
+        } else if fill.is_false() {
+            (false, false)
+        } else {
+            (rand::thread_rng().gen_bool(0.5), true)
+        };
+        let mut v = self.v.clone();
+        for i in (len..self.width()) {
+            v.set_bit(i, fill_bit);
+        }
+        (Const::new(v, len), tainted)
+    }
+}
 
 type PC = Address;
 
@@ -243,7 +378,7 @@ impl std::fmt::Display for MemRegion {
 /// An abstract value.
 /// Constant values are represented a value of the Global memory region
 /// and the constant value set in [offset].
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
@@ -258,7 +393,7 @@ pub struct AbstrVal {
 
 impl std::fmt::Display for AbstrVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "〈{}, {}〉", self.m, self.c)
+        write!(f, "〈{}, {:#x}〉", self.m, self.c)
     }
 }
 
@@ -272,21 +407,29 @@ impl AbstrVal {
         AbstrVal { m, c, il_gvar }
     }
 
-    pub fn new_stack(c: Const, il_gvar: Option<String>) -> AbstrVal {
+    pub fn new_stack(c: Const) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Stack,
             base: 0,
             c: 0,
         };
-        AbstrVal { m, c, il_gvar }
+        AbstrVal {
+            m,
+            c,
+            il_gvar: None,
+        }
+    }
+
+    pub fn get_width(&self) -> u64 {
+        self.c.width()
     }
 
     pub fn new_true() -> AbstrVal {
-        AbstrVal::new_global(1, None)
+        AbstrVal::new_global(Const::get_true(), None)
     }
 
     pub fn new_false() -> AbstrVal {
-        AbstrVal::new_global(0, None)
+        AbstrVal::new_global(Const::get_false(), None)
     }
 
     pub fn new(m: MemRegion, c: Const, il_gvar: Option<String>) -> AbstrVal {
@@ -300,7 +443,25 @@ impl AbstrVal {
         if self.m.class != MemRegionClass::Global {
             return false;
         }
-        self.c == 0
+        self.c.is_zero()
+    }
+
+    /// True, if this is a global non-zero value.
+    /// False otherwise
+    pub fn is_true(&self) -> bool {
+        if self.m.class != MemRegionClass::Global {
+            return false;
+        }
+        !self.c.is_zero()
+    }
+
+    /// True, if this is a global zero value.
+    /// False otherwise
+    pub fn is_false(&self) -> bool {
+        if self.m.class != MemRegionClass::Global {
+            return false;
+        }
+        self.c.is_zero()
     }
 
     pub fn is_global(&self) -> bool {
@@ -315,8 +476,13 @@ impl AbstrVal {
         &self.m
     }
 
-    pub fn get_offset(&self) -> Const {
-        self.c
+    pub fn get_as_addr(&self) -> Address {
+        assert!(self.c.required_bits() <= 64);
+        self.c.as_u64()
+    }
+
+    pub fn get_const(&self) -> &Const {
+        &self.c
     }
 }
 
@@ -561,16 +727,21 @@ impl AbstrVM {
     /// simulate input for the program.
     /// It takes the address of an input-functions at [address] and the current
     /// [invocation] of the function.
-    fn rv(&self, address: Address, invocation: u64) -> Const {
-        self.dist.sample(&mut rand::thread_rng()) as Const
+    pub fn rv(&self, address: Address, invocation: u64, width: u64) -> Const {
+        Const {
+            v: (self.dist.sample(&mut rand::thread_rng()) as u128)
+                .to_bigint()
+                .unwrap(),
+            width,
+        }
     }
 
     /// Samples with a 0.5 chance a true (1) or false (0) value.
     pub fn rvb(&self) -> Const {
         if rand::thread_rng().gen_bool(0.5) {
-            1
+            Const::get_true()
         } else {
-            0
+            Const::get_false()
         }
     }
 
@@ -650,11 +821,13 @@ impl AbstrVM {
         let sp_name = self
             .reg_roles
             .get(&RzRegisterId_RZ_REG_NAME_SP)
-            .expect("SP must be defined in register profile.");
+            .expect("SP must be defined in register profile.")
+            .clone();
         let bp_name = self
             .reg_roles
             .get(&RzRegisterId_RZ_REG_NAME_BP)
-            .expect("BP must be defined in register profile.");
+            .expect("BP must be defined in register profile.")
+            .clone();
 
         // Init complete register file
         let reg_bindings = core.get_reg_bindings().expect("Could not get reg_bindings");
@@ -667,15 +840,26 @@ impl AbstrVM {
             let name = c_to_str(rname);
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
 
-            let init_val = AbstrVal::new_global(0, Some(name.clone()));
-            self.gvars.insert(name.to_owned(), init_val);
+            let init_val = match name == *bp_name || name == *sp_name {
+                true => {
+                    let svar = AbstrVal::new_stack(Const::get_zero(rsize as u64));
+                    self.set_mem_val(
+                        &svar,
+                        AbstrVal::new_global(Const::get_umax(rsize as u64), None),
+                    );
+                    self.set_taint_flag(&svar, false);
+                    svar
+                }
+                false => AbstrVal::new_global(Const::get_zero(rsize as u64), Some(name.clone())),
+            };
+            self.gvars.insert(name.clone(), init_val);
             self.rt.insert(name.to_owned(), false);
         }
         true
     }
 
     /// Gives the invocation count for a given instruction address.
-    fn get_ic(&mut self, iaddr: Address) -> u64 {
+    pub fn get_ic(&mut self, iaddr: Address) -> u64 {
         self.ic.entry(iaddr).or_default().clone()
     }
 
@@ -696,7 +880,7 @@ impl AbstrVM {
         } else {
             let pc = self.pc;
             let ic_pc = self.get_ic(pc);
-            v3 = AbstrVal::new_global(self.rv(pc, ic_pc), None);
+            v3 = AbstrVal::new_global(self.rv(pc, ic_pc, v1.get_width()), None);
             tainted = true;
         }
         (v3, tainted)
@@ -704,6 +888,8 @@ impl AbstrVM {
 
     /// Calculates the result of an operation on two abstract values and their taint flags [^1]
     /// Returns the calculated result as abstract value and the taint flag.
+    /// It assumes that [v1] and [v2] are of the same bit width and [op] produces a
+    /// value of the same bit width.
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
     pub fn calc_value_2(
         &mut self,
@@ -727,7 +913,7 @@ impl AbstrVM {
                 if sample_bool {
                     self.rvb()
                 } else {
-                    self.rv(pc, ic_pc)
+                    self.rv(pc, ic_pc, v1.get_width())
                 },
                 None,
             );
@@ -746,11 +932,12 @@ impl AbstrVM {
             return v;
         }
         for vt in self.cs.iter().rev() {
-            if v.c < 0 {
+            if v.c.v() < &BigInt::ZERO {
                 break;
             }
             v.m = vt.sp.m.clone();
-            v.c += vt.sp.c.clone();
+            let r = v.c.v() + vt.sp.c.v();
+            v.c.set(r);
         }
         v
     }
@@ -800,7 +987,10 @@ impl AbstrVM {
         if !key.is_global() || n_bytes == 0 {
             panic!("No value saved for: {}", key);
         }
-        let gmem_val = self.read_io_at_u64(key.c as u64, n_bytes) as Const;
+        let gmem_val = Const::new_u64(
+            self.read_io_at_u64(key.get_as_addr(), n_bytes),
+            (n_bytes * 8) as u64,
+        );
         AbstrVal::new_global(gmem_val, None)
     }
 
@@ -885,6 +1075,10 @@ impl AbstrVM {
             .addr_info
             .get(&self.pc)
             .is_some_and(|i| i.is_return_point)
+    }
+
+    pub(crate) fn get_pc(&self) -> Address {
+        self.pc
     }
 }
 

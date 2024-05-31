@@ -10,6 +10,7 @@ edition = "2021"
 cty = "0.2.2"
 rug = "1.24.1"
 helper = { path = "../helper", version = "0.1.0" }
+num-bigint = "0.4.5"
 
 [build-dependencies]
 bindgen = "0.69.1"
