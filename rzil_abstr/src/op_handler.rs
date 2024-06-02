@@ -645,15 +645,12 @@ fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     let mut v3_const: Const;
     let v3: AbstrVal;
     let mut tainted = false;
-    if v1.as_ref().unwrap().is_global() {
-        (v3_const, tainted) = v1.unwrap().get_const().cast(len as u64, fill.unwrap());
-        v3 = AbstrVal::new_global(v3_const, None);
-    } else {
-        let pc = vm.get_pc();
-        let ic_pc = vm.get_ic(pc);
-        v3 = AbstrVal::new_global(vm.rv(pc, ic_pc, v1.unwrap().get_width()), None);
-        tainted = true;
-    }
+    (v3_const, tainted) = v1
+        .as_ref()
+        .unwrap()
+        .get_const()
+        .cast(len as u64, fill.unwrap());
+    v3 = AbstrVal::new_from(v1.unwrap(), v3_const);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -1120,18 +1117,9 @@ fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    // Jump is pretty much ignored (because the path was already sampled).
-    // So we only check for calls to input and malloc
-    // functions.
-    if vm.cur_is_call() {
-        vm.call_stack_push(
-            *vm.peak_next()
-                .expect("There whould always be a next instruction after a call"),
-        );
-    }
-
     let mut dst = eval_pure(vm, unsafe { (*op).op.jmp.dst });
     check_pure_validity!(dst, false);
+
     let jdst = &dst.unwrap();
     if !jdst.is_global() {
         return true;
@@ -1143,10 +1131,15 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
         // Tainted addresses rely on sampled values and are useless to us.
         return true;
     }
-    vm.add_call_xref(addr);
-    if vm.is_call(addr) {
-        // Push new stack frame.
-        vm.call_stack_push(addr);
+    // Jump is pretty much ignored (because the path was already sampled).
+    // So we only check for calls to input and malloc
+    // functions.
+    if vm.cur_is_call() {
+        vm.add_call_xref(addr);
+        vm.call_stack_push(
+            *vm.peak_next()
+                .expect("There whould always be a next instruction after a call"),
+        );
     }
 
     true

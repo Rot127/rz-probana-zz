@@ -3,7 +3,7 @@
 #![allow(unused)]
 
 use helper::num::subscript;
-use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
+use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
 use rand_distr::{num_traits::ConstZero, Distribution, Normal};
 use std::{
@@ -64,7 +64,12 @@ impl Const {
 
     /// Returns the BigUint representation of this constant
     pub fn vu(&self) -> BigUint {
-        self.v.to_biguint().expect("Int -> Uint unsuccessful")
+        if self.v.sign() == Sign::Minus {
+            return (self.v.clone() * -1.to_bigint().expect("Conversion failed"))
+                .to_biguint()
+                .expect("Conversion failed");
+        }
+        self.v.to_biguint().expect("Conversion failed.")
     }
 
     pub fn set(&mut self, v: BigInt) {
@@ -126,7 +131,6 @@ impl Const {
     }
 
     pub fn as_u64(&self) -> u64 {
-        println!("{}", self.v);
         if self.v == BigInt::ZERO {
             return 0;
         }
@@ -275,7 +279,7 @@ impl IntrpPath {
 
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Eq, PartialEq, Hash, Clone, Debug)]
 pub struct ConcreteCall {
     /// The caller
     from: Address,
@@ -297,7 +301,7 @@ impl std::fmt::Display for ConcreteCall {
 
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Eq, PartialEq, Hash, Clone, Debug)]
 pub struct MemXref {
     /// The load/store instruction address
     from: Address,
@@ -319,7 +323,7 @@ impl std::fmt::Display for MemXref {
 
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Eq, PartialEq, Hash, Clone, Debug)]
 pub struct StackXref {
     /// The instruction address
     at: Address,
@@ -485,6 +489,16 @@ impl AbstrVal {
     pub fn get_const(&self) -> &Const {
         &self.c
     }
+
+    /// Consumes the given abstract value [av] and returns a new one of the same type,
+    /// but with the constant set to [c].
+    pub fn new_from(av: AbstrVal, c: Const) -> AbstrVal {
+        AbstrVal {
+            m: av.m.clone(),
+            c,
+            il_gvar: av.il_gvar.clone(),
+        }
+    }
 }
 
 /// An operation on the constant share of abstract values
@@ -526,6 +540,7 @@ impl std::fmt::Display for CallFrame {
 type CallStack = Vec<CallFrame>;
 
 /// Resulting by-products of the abstract interpretation.
+#[derive(Debug)]
 pub struct IntrpByProducts {
     /// Indirect calls resolved during interpretation
     pub concrete_calls: HashSet<ConcreteCall>,
