@@ -1078,7 +1078,7 @@ impl AbstrVM {
         unlocked_core!(self).read_io_at(addr, n_bytes)
     }
 
-    pub(crate) fn cur_is_call(&self) -> bool {
+    pub(crate) fn pc_is_call(&self) -> bool {
         self.pa.addr_info.get(&self.pc).is_some_and(|i| i.is_call)
     }
 
