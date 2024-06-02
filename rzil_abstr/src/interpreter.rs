@@ -48,11 +48,21 @@ impl PartialEq for Const {
 }
 
 impl Const {
-    /// Creates a new Const from an BigInt.
+    /// Creates a new Const from an BigInt with a bit width of [width]
     /// Any bits of [v] at [width] onwards are dropped.
     pub fn new(v: BigInt, width: u64) -> Const {
         Const {
             v: v % (1.to_bigint().expect("to_bigint failed") << width),
+            width,
+        }
+    }
+
+    /// Creates a new Const from an BigInt with a bit width of [width]
+    /// Any bits of [v] at [width] onwards are dropped.
+    pub fn new_i64(v: i64, width: u64) -> Const {
+        Const {
+            v: v.to_bigint().expect("to_bigint() failed")
+                % (1.to_bigint().expect("to_bigint failed") << width),
             width,
         }
     }
@@ -311,6 +321,12 @@ pub struct MemXref {
     size: u64,
 }
 
+impl MemXref {
+    pub fn new(from: Address, to: Address, size: u64) -> MemXref {
+        MemXref { from, to, size }
+    }
+}
+
 impl std::fmt::Display for MemXref {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -331,9 +347,18 @@ pub struct StackXref {
     var: AbstrVal,
 }
 
+impl StackXref {
+    pub fn new(at: Address, offset: Const, base: Address) -> StackXref {
+        StackXref {
+            at,
+            var: AbstrVal::new_stack(offset, base),
+        }
+    }
+}
+
 impl std::fmt::Display for StackXref {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:#x} ", self.var, self.at,)
+        write!(f, "{:#x} -> {} ", self.at, self.var)
     }
 }
 
@@ -376,7 +401,7 @@ impl std::fmt::Display for MemRegion {
             MemRegionClass::Stack => "S",
             _ => panic!("Handled mem class."),
         };
-        write!(f, "{}({:#x})", letter, self.base)
+        write!(f, "{}{}[{:#x}]", subscript(self.c), letter, self.base)
     }
 }
 
@@ -412,15 +437,15 @@ impl AbstrVal {
         AbstrVal { m, c, il_gvar }
     }
 
-    pub fn new_stack(c: Const) -> AbstrVal {
+    pub fn new_stack(offset: Const, base: Address) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Stack,
-            base: 0,
+            base,
             c: 0,
         };
         AbstrVal {
             m,
-            c,
+            c: offset,
             il_gvar: None,
         }
     }
@@ -499,6 +524,11 @@ impl AbstrVal {
             il_gvar: av.il_gvar.clone(),
         }
     }
+
+    pub fn set_stack_base(&mut self, new_base: Address) {
+        assert_eq!(self.m.class, MemRegionClass::Stack);
+        self.m.base = new_base;
+    }
 }
 
 /// An operation on the constant share of abstract values
@@ -521,7 +551,8 @@ pub struct CallFrame {
     instance: u64,
     /// The return address
     return_addr: Address,
-    /// The abstract value of the SP register
+    /// The abstract value of the SP register. It can point behind the base pointer, if
+    /// after a call the new stac frame wasn't set up yet (new stack base wasn't set).
     sp: AbstrVal,
 }
 
@@ -728,6 +759,7 @@ impl AbstrVM {
             return;
         }
         av.il_gvar = Some(name.to_string());
+        println!("SET: {} -> {}", name, av);
         self.gvars.insert(name.to_owned(), av);
     }
 
@@ -767,6 +799,7 @@ impl AbstrVM {
         } else {
             return false;
         }
+        println!("pc = {:#x}", self.pc);
 
         if self.is_return_point() {
             self.call_stack_pop();
@@ -858,7 +891,7 @@ impl AbstrVM {
 
             let init_val = match name == *bp_name || name == *sp_name {
                 true => {
-                    let svar = AbstrVal::new_stack(Const::get_zero(rsize as u64));
+                    let svar = AbstrVal::new_stack(Const::get_zero(rsize as u64), self.get_pc());
                     self.set_mem_val(
                         &svar,
                         AbstrVal::new_global(Const::get_umax(rsize as u64), None),
@@ -998,6 +1031,7 @@ impl AbstrVM {
     /// If [n_bytes] == 0, it panics as well.
     pub fn get_mem_val(&self, key: &AbstrVal, n_bytes: usize) -> AbstrVal {
         if let Some(v) = self.ms.get(key) {
+            println!("LOAD: {}@{}", v, key);
             return v.clone();
         }
         if !key.is_global() || n_bytes == 0 {
@@ -1011,6 +1045,7 @@ impl AbstrVM {
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
+        println!("STORE: {}@{} ", val, key);
         self.ms.insert(key.clone(), val);
     }
 
@@ -1045,7 +1080,7 @@ impl AbstrVM {
             .clone()
     }
 
-    /// Pushes a call frame on the call stack.
+    /// Pushes a a functions call frame on the call stack, before it jumps to [proc_addr].
     pub fn call_stack_push(&mut self, proc_addr: Address) {
         // For now we just assume that the SP was _not_ updated before the actual jump to the procedure.
         let cf = CallFrame {
@@ -1054,12 +1089,18 @@ impl AbstrVM {
             return_addr: self.pc + self.is.get(&self.pc).expect("Should have been set before."),
             sp: self.get_sp(),
         };
+        self.rebase_sp(proc_addr);
+        println!("PUSH: {}", cf);
         self.cs.push(cf);
     }
 
     /// Pops a call frame from the call stack.
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
         let cf = self.cs.pop();
+        if cf.is_some() {
+            println!("POP: {}", cf.as_ref().unwrap());
+            self.set_sp(cf.as_ref().unwrap().sp.clone());
+        }
         cf
     }
 
@@ -1095,6 +1136,32 @@ impl AbstrVM {
 
     pub(crate) fn get_pc(&self) -> Address {
         self.pc
+    }
+
+    /// Checks if the given register name is the register name of
+    /// the stack base pointer.
+    fn is_bp(&self, reg_name: &str) -> bool {
+        reg_name
+            == self
+                .reg_roles
+                .get(&RzRegisterId_RZ_REG_NAME_BP)
+                .expect("BP must be defined in register profile.")
+    }
+
+    fn set_sp(&mut self, av: AbstrVal) {
+        let sp_name = self
+            .reg_roles
+            .get(&RzRegisterId_RZ_REG_NAME_SP)
+            .expect("SP must be defined in register profile.")
+            .clone();
+        self.set_varg(&sp_name, av);
+    }
+
+    /// Resets the stack pointer to a new base.
+    fn rebase_sp(&mut self, base: Address) {
+        let invoc_count = self.get_ic(self.get_pc());
+        let sp = self.get_sp();
+        self.set_sp(AbstrVal::new_stack(Const::get_zero(sp.get_width()), base));
     }
 }
 

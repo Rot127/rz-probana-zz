@@ -10,7 +10,9 @@ mod tests {
 
     use binding::{get_test_bin_path, init_rizin_instance, RzCoreWrapper};
 
-    use crate::interpreter::{interpret, AddrInfo, ConcreteCall, IntrpPath};
+    use crate::interpreter::{
+        interpret, AddrInfo, ConcreteCall, Const, IntrpPath, MemXref, StackXref,
+    };
 
     fn get_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
         let icall_o = get_test_bin_path().join("icall.o");
@@ -45,10 +47,60 @@ mod tests {
     fn test_icall_discover() {
         let (core, path) = get_icall_test();
         let products = interpret(core, path);
-        let mut expected = HashSet::new();
-        expected.insert(ConcreteCall::new(0x0800005d, 0x080000b0));
-        expected.insert(ConcreteCall::new(0x0800007a, 0x080000c0));
-        expected.insert(ConcreteCall::new(0x08000097, 0x080000d0));
-        assert!(products.concrete_calls.eq(&expected));
+        let mut call_expected = HashSet::new();
+        call_expected.insert(ConcreteCall::new(0x0800005d, 0x080000b0));
+        call_expected.insert(ConcreteCall::new(0x0800007a, 0x080000c0));
+        call_expected.insert(ConcreteCall::new(0x08000097, 0x080000d0));
+        assert!(products.concrete_calls.eq(&call_expected));
+        println!("Stack xrefs");
+        for sxref in products.stack_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        let mut stack_expected = HashSet::new();
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        stack_expected.insert(StackXref::new(0x8000040, Const::new_i64(-0x8, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000048, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800004f, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000056, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800005d, Const::new_i64(-0x20, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000067, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800006a, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000070, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000073, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800007a, Const::new_i64(-0x20, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000081, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000084, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000087, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800008d, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000090, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000097, Const::new_i64(-0x20, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800009e, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000a1, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000a4, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000ab, Const::new_i64(-0x8, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000ac, Const::new_i64(0x0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000b0, Const::new_i64(-0x8, 64), 0x80000b0));
+        stack_expected.insert(StackXref::new(0x80000b6, Const::new_i64(-0x8, 64), 0x80000b0));
+        stack_expected.insert(StackXref::new(0x80000b7, Const::new_i64(-0x20, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000c0, Const::new_i64(-0x8, 64), 0x80000c0));
+        stack_expected.insert(StackXref::new(0x80000c9, Const::new_i64(-0x8, 64), 0x80000c0));
+        stack_expected.insert(StackXref::new(0x80000ca, Const::new_i64(-0x20, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000d0, Const::new_i64(-0x8, 64), 0x80000d0));
+        stack_expected.insert(StackXref::new(0x80000d9, Const::new_i64(-0x8, 64), 0x80000d0));
+        stack_expected.insert(StackXref::new(0x80000da, Const::new_i64(-0x20, 64), 0x8000040));
+        }
+        assert!(products.stack_xrefs.eq(&stack_expected));
+
+        println!("Mem xrefs");
+        for sxref in products.mem_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        let mut mem_expected = HashSet::new();
+        mem_expected.insert(MemXref::new(0x0800005d, 0x080000e0, 8));
+        mem_expected.insert(MemXref::new(0x0800007a, 0x080000e8, 8));
+        mem_expected.insert(MemXref::new(0x08000097, 0x080000f0, 8));
+        assert!(products.mem_xrefs.eq(&mem_expected));
     }
 }

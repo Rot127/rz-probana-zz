@@ -530,7 +530,7 @@ fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     let v2 = eval_pure(vm, unsafe { (*op).op.mod_.y });
     check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new(c1.v().modpow(&BigInt::from(1), c2.v()), c1.width())),
+        |c1, c2| (Const::new(c1.v().modpow(&BigInt::from(1), &c2.v()), c1.width())),
         v1.unwrap(),
         v2.unwrap(),
         false,
@@ -1038,6 +1038,9 @@ fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal
     if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, n_bytes as u64);
     }
+    if norm_k.is_stack() {
+        vm.add_stack_xref(norm_k);
+    }
     Some(v)
 }
 
@@ -1072,6 +1075,9 @@ fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, 8 as u64);
     }
+    if norm_k.is_stack() {
+        vm.add_stack_xref(norm_k.clone());
+    }
     true
 }
 
@@ -1091,6 +1097,9 @@ fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, 8 as u64);
     }
+    if norm_k.is_stack() {
+        vm.add_stack_xref(norm_k.clone());
+    }
     true
 }
 
@@ -1104,7 +1113,7 @@ fn rz_il_handler_set(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     let pure = unsafe { (*op).op.set.x };
     let av = eval_pure(vm, pure);
     if av.is_none() {
-        log_rz!(LOG_ERROR, None, "Error in pure evalutation.".to_string());
+        log_rz!(LOG_ERROR, None, "Error in pure evaluation.".to_string());
         return false;
     }
     if unsafe { (*op).op.set.is_local } {
