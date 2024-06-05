@@ -939,11 +939,19 @@ impl AbstrVM {
             .get(&RzRegisterId_RZ_REG_NAME_BP)
             .expect("BP must be defined in register profile.")
             .clone();
+        // Temp registers for Hexagon. Should be moved to a separated function
+        // where other cases are handled as well.
+        // Also should be the stack setup properly, depending on the ABI
+        let mut sp_name_tmp = sp_name.clone();
+        sp_name_tmp.push_str("_tmp");
+        let mut bp_name_tmp = bp_name.clone();
+        bp_name_tmp.push_str("_tmp");
 
         // Init complete register file
         let reg_bindings = core.get_reg_bindings().expect("Could not get reg_bindings");
         let reg_count = pderef!(reg_bindings).regs_count;
         let regs = pderef!(reg_bindings).regs;
+        let mut stack_access_size = 0;
         for i in 0..reg_count {
             let reg = unsafe { regs.offset(i as isize) };
             let rsize = pderef!(reg).size;
@@ -951,13 +959,14 @@ impl AbstrVM {
             let name = c_to_str(rname);
             log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
 
-            let init_val = match name == *bp_name || name == *sp_name {
+            let init_val = match name == *bp_name
+                || name == *sp_name
+                || name == sp_name_tmp
+                || name == bp_name_tmp
+            {
                 true => {
+                    stack_access_size = rsize;
                     let svar = AbstrVal::new_stack(Const::get_zero(rsize as u64), self.get_pc());
-                    self.set_mem_val(
-                        &svar,
-                        AbstrVal::new_global(Const::get_umax(rsize as u64), None, 0),
-                    );
                     self.set_taint_flag(&svar, false);
                     svar
                 }
@@ -966,6 +975,7 @@ impl AbstrVM {
             self.gvars.insert(name.clone(), init_val);
             self.rt.insert(name.to_owned(), false);
         }
+        self.setup_initial_stack(stack_access_size as u64);
         true
     }
 
@@ -1108,7 +1118,7 @@ impl AbstrVM {
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
-        println!("STORE: {}@{} ", val, key);
+        println!("STORE: AT {} => {} ", key, val);
         self.ms.insert(key.clone(), val);
     }
 
@@ -1225,6 +1235,26 @@ impl AbstrVM {
         let invoc_count = self.get_ic(self.get_pc());
         let sp = self.get_sp();
         self.set_sp(AbstrVal::new_stack(Const::get_zero(sp.get_width()), base));
+    }
+
+    /// Initializes the stack for the first two cells of size [stack_cell_size].
+    fn setup_initial_stack(&mut self, stack_cell_size: u64) {
+        let byte_width = ((stack_cell_size + 7) >> 3);
+        let zero = Const::get_zero(stack_cell_size);
+
+        let cell0 = Const::get_umax(stack_cell_size);
+        self.set_mem_val(
+            &AbstrVal::new_stack(cell0, self.get_pc()),
+            AbstrVal::new_global(zero.clone(), None, 0),
+        );
+        let cell1 = Const::new(
+            Const::get_umax(stack_cell_size).vu() - byte_width.to_biguint().unwrap(),
+            stack_cell_size,
+        );
+        self.set_mem_val(
+            &AbstrVal::new_stack(cell1, self.get_pc()),
+            AbstrVal::new_global(zero.clone(), None, 0),
+        );
     }
 }
 
