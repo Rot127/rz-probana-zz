@@ -98,6 +98,13 @@ impl Const {
         }
     }
 
+    pub fn new_i32(v: i32, width: u64) -> Const {
+        Const {
+            v: Const::bigint_to_biguint(v.to_bigint().expect("to_bigint() failed"), width),
+            width,
+        }
+    }
+
     /// Returns the BigInt of this constant
     pub fn v(&self) -> BigInt {
         let target_byte_w: usize = ((self.width() + 7) >> 3) as usize;

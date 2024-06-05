@@ -147,11 +147,13 @@ mod tests {
             println!("{}", sxref);
         }
         let mut stack_expected = HashSet::new();
-        stack_expected.insert(StackXref::new(
-            0x8000040,
-            Const::new_u64(0xfffffff0, 32),
-            0x8000040,
-        ));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        stack_expected.insert(StackXref::new(0x8000040, Const::new_i32(-0x8, 32), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000040, Const::new_i32(-0x10, 32), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, Const::new_i32(-0x8, 32), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, Const::new_i32(-0x10, 32), 0x8000040));
+        }
         assert!(products.stack_xrefs.eq(&stack_expected));
 
         println!("Mem xrefs");
