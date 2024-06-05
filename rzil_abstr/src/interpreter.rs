@@ -9,6 +9,7 @@ use rand_distr::{
     num_traits::{ConstOne, ConstZero},
     Distribution, Normal,
 };
+use std::hash::{Hash, Hasher};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     ffi::CString,
@@ -46,7 +47,7 @@ impl LowerHex for Const {
 impl Eq for Const {}
 impl PartialEq for Const {
     fn eq(&self, other: &Self) -> bool {
-        self.vu() == other.vu()
+        self.v == other.v && self.width() == other.width()
     }
 }
 
@@ -448,7 +449,7 @@ impl std::fmt::Display for MemRegion {
 /// An abstract value.
 /// Constant values are represented a value of the Global memory region
 /// and the constant value set in [offset].
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Debug)]
 pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
@@ -459,6 +460,23 @@ pub struct AbstrVal {
     /// If None, it is a memory value.
     /// This is used to decide which taint map to use.
     il_gvar: Option<String>,
+}
+
+impl Eq for AbstrVal {}
+impl PartialEq for AbstrVal {
+    fn eq(&self, other: &Self) -> bool {
+        self.m == other.m && self.c == other.c
+    }
+}
+
+impl Hash for AbstrVal {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.m.hash(state);
+        self.c.hash(state);
+    }
 }
 
 impl std::fmt::Display for AbstrVal {
