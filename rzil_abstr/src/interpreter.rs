@@ -5,7 +5,10 @@
 use helper::num::subscript;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
-use rand_distr::{num_traits::ConstZero, Distribution, Normal};
+use rand_distr::{
+    num_traits::{ConstOne, ConstZero},
+    Distribution, Normal,
+};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     ffi::CString,
@@ -29,30 +32,58 @@ pub type Address = u64;
 
 #[derive(Clone, Debug, Hash)]
 pub struct Const {
-    v: BigInt,
+    v: BigUint,
     /// Width of constant in bits
     width: u64,
 }
 
 impl LowerHex for Const {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#x}{}", self.v, subscript(self.width))
+        write!(f, "{:#x}{}", self.vu(), subscript(self.width))
     }
 }
 
 impl Eq for Const {}
 impl PartialEq for Const {
     fn eq(&self, other: &Self) -> bool {
-        self.v == other.v
+        self.vu() == other.vu()
     }
 }
 
 impl Const {
+    /// Returns a bit mask with all bits set.
+    /// The bitmask has a length is always aligned to the next byte.
+    pub fn get_maski(width: u64) -> BigInt {
+        let v = vec![0xffu8; ((width + 7) >> 3) as usize];
+        BigInt::from_bytes_be(Sign::Plus, v.as_slice())
+    }
+
+    /// Returns a bit mask with all bits set.
+    /// The bitmask has a length is always aligned to the next byte.
+    pub fn get_masku(width: u64) -> BigUint {
+        let v = vec![0xffu8; ((width + 7) >> 3) as usize];
+        BigUint::from_bytes_be(v.as_slice())
+    }
+
+    pub fn bigint_to_biguint(v: BigInt, width: u64) -> BigUint {
+        if v.sign() == Sign::Minus {
+            return (v.into_parts().1 ^ Const::get_masku(width)) + 1.to_biguint().unwrap();
+        }
+        v.to_biguint().unwrap()
+    }
+
     /// Creates a new Const from an BigInt with a bit width of [width]
     /// Any bits of [v] at [width] onwards are dropped.
-    pub fn new(v: BigInt, width: u64) -> Const {
+    pub fn new(v: BigUint, width: u64) -> Const {
         Const {
-            v: v % (1.to_bigint().expect("to_bigint failed") << width),
+            v: v & Const::get_masku(width),
+            width,
+        }
+    }
+
+    pub fn newi(v: BigInt, width: u64) -> Const {
+        Const {
+            v: Const::bigint_to_biguint(v, width) & Const::get_masku(width),
             width,
         }
     }
@@ -61,29 +92,36 @@ impl Const {
     /// Any bits of [v] at [width] onwards are dropped.
     pub fn new_i64(v: i64, width: u64) -> Const {
         Const {
-            v: v.to_bigint().expect("to_bigint() failed")
-                % (1.to_bigint().expect("to_bigint failed") << width),
+            v: Const::bigint_to_biguint(v.to_bigint().expect("to_bigint() failed"), width),
             width,
         }
     }
 
     /// Returns the BigInt of this constant
-    pub fn v(&self) -> &BigInt {
-        &self.v
+    pub fn v(&self) -> BigInt {
+        let target_byte_w: usize = ((self.width() + 7) >> 3) as usize;
+
+        let v = self.v.to_bytes_be();
+        let mut be_bytes = vec![
+            if self.v.bit(self.width() - 1) {
+                0xffu8
+            } else {
+                0x00u8
+            };
+            target_byte_w - v.len()
+        ];
+        be_bytes.extend_from_slice(v.as_slice());
+        let result = BigInt::from_signed_bytes_be(be_bytes.as_slice());
+        result
     }
 
     /// Returns the BigUint representation of this constant
     pub fn vu(&self) -> BigUint {
-        if self.v.sign() == Sign::Minus {
-            return (self.v.clone() * -1.to_bigint().expect("Conversion failed"))
-                .to_biguint()
-                .expect("Conversion failed");
-        }
-        self.v.to_biguint().expect("Conversion failed.")
+        self.v.clone()
     }
 
-    pub fn set(&mut self, v: BigInt) {
-        self.v = v;
+    pub fn seti(&mut self, v: BigInt) {
+        self.v = Const::bigint_to_biguint(v, self.width());
     }
 
     pub fn msb(&self) -> bool {
@@ -96,32 +134,32 @@ impl Const {
 
     pub fn get_true() -> Const {
         Const {
-            v: 1.to_bigint().unwrap(),
+            v: 1.to_biguint().unwrap(),
             width: 1,
         }
     }
 
     pub fn get_false() -> Const {
         Const {
-            v: 0.to_bigint().unwrap(),
+            v: 0.to_biguint().unwrap(),
             width: 1,
         }
     }
 
     pub fn get_zero(width: u64) -> Const {
         Const {
-            v: 0.to_bigint().unwrap(),
+            v: 0.to_biguint().unwrap(),
             width,
         }
     }
 
     pub fn is_zero(&self) -> bool {
-        self.v == BigInt::ZERO
+        self.v == BigUint::ZERO
     }
 
     /// Returns a constant of [width] bits with all bits set to true.
     pub fn get_umax(width: u64) -> Const {
-        let mut v = BigInt::from(0);
+        let mut v = 0.to_biguint().unwrap();
         for i in (0..width) {
             v.set_bit(i as u64, true);
         }
@@ -130,21 +168,16 @@ impl Const {
 
     pub fn new_u64(v: u64, width: u64) -> Const {
         Const {
-            v: v.to_bigint().unwrap(),
+            v: v.to_biguint().unwrap(),
             width,
         }
     }
 
-    /// Returns the number of bits actually required to depict the value.
-    pub fn required_bits(&self) -> u64 {
-        self.v.bits()
-    }
-
     pub fn as_u64(&self) -> u64 {
-        if self.v == BigInt::ZERO {
+        if self.is_zero() {
             return 0;
         }
-        *self.v.to_u64_digits().1.get(0).expect("Invalid value")
+        *self.v.to_u64_digits().get(0).expect("Invalid value")
     }
 
     pub fn width(&self) -> u64 {
@@ -157,7 +190,7 @@ impl Const {
     /// AND
     /// - [fill] is not a global true or false value, and has been sampled.
     pub fn cast(&self, len: u64, fill: AbstrVal) -> (Const, bool) {
-        if self.width() <= len {
+        if len <= self.width() {
             return (Const::new(self.v.clone(), len), false);
         }
         let (fill_bit, tainted) = if fill.is_true() {
@@ -168,10 +201,17 @@ impl Const {
             (rand::thread_rng().gen_bool(0.5), true)
         };
         let mut v = self.v.clone();
-        for i in (len..self.width()) {
+        if len <= self.width() {
+            return (Const::new(v, len), tainted);
+        }
+        for i in (self.width()..len) {
             v.set_bit(i, fill_bit);
         }
         (Const::new(v, len), tainted)
+    }
+
+    fn is_neg(&self) -> bool {
+        self.v < BigUint::ZERO
     }
 }
 
@@ -428,10 +468,10 @@ impl std::fmt::Display for AbstrVal {
 }
 
 impl AbstrVal {
-    pub fn new_global(c: Const, il_gvar: Option<String>) -> AbstrVal {
+    pub fn new_global(c: Const, il_gvar: Option<String>, base: Address) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
-            base: 0,
+            base,
             c: 0,
         };
         AbstrVal { m, c, il_gvar }
@@ -455,11 +495,11 @@ impl AbstrVal {
     }
 
     pub fn new_true() -> AbstrVal {
-        AbstrVal::new_global(Const::get_true(), None)
+        AbstrVal::new_global(Const::get_true(), None, 0)
     }
 
     pub fn new_false() -> AbstrVal {
-        AbstrVal::new_global(Const::get_false(), None)
+        AbstrVal::new_global(Const::get_false(), None, 0)
     }
 
     pub fn new(m: MemRegion, c: Const, il_gvar: Option<String>) -> AbstrVal {
@@ -479,19 +519,13 @@ impl AbstrVal {
     /// True, if this is a global non-zero value.
     /// False otherwise
     pub fn is_true(&self) -> bool {
-        if self.m.class != MemRegionClass::Global {
-            return false;
-        }
-        !self.c.is_zero()
+        self.m.class == MemRegionClass::Global && self.get_width() == 1 && !self.c.is_zero()
     }
 
     /// True, if this is a global zero value.
     /// False otherwise
     pub fn is_false(&self) -> bool {
-        if self.m.class != MemRegionClass::Global {
-            return false;
-        }
-        self.c.is_zero()
+        self.m.class == MemRegionClass::Global && self.get_width() == 1 && self.c.is_zero()
     }
 
     pub fn is_global(&self) -> bool {
@@ -507,7 +541,6 @@ impl AbstrVal {
     }
 
     pub fn get_as_addr(&self) -> Address {
-        assert!(self.c.required_bits() <= 64);
         self.c.as_u64()
     }
 
@@ -776,10 +809,21 @@ impl AbstrVM {
     /// It takes the address of an input-functions at [address] and the current
     /// [invocation] of the function.
     pub fn rv(&self, address: Address, invocation: u64, width: u64) -> Const {
+        if width <= 64 {
+            return Const {
+                v: (self.dist.sample(&mut rand::thread_rng()) as u64)
+                    .to_biguint()
+                    .unwrap(),
+                width,
+            };
+        }
+        let samples_cnt = width + 7 >> 3;
+        let mut v_buf = Vec::<u8>::new();
+        for _ in (0..samples_cnt) {
+            v_buf.push(self.dist.sample(&mut rand::thread_rng()) as u8);
+        }
         Const {
-            v: (self.dist.sample(&mut rand::thread_rng()) as u128)
-                .to_bigint()
-                .unwrap(),
+            v: BigUint::from_bytes_be(v_buf.as_slice()),
             width,
         }
     }
@@ -894,12 +938,12 @@ impl AbstrVM {
                     let svar = AbstrVal::new_stack(Const::get_zero(rsize as u64), self.get_pc());
                     self.set_mem_val(
                         &svar,
-                        AbstrVal::new_global(Const::get_umax(rsize as u64), None),
+                        AbstrVal::new_global(Const::get_umax(rsize as u64), None, 0),
                     );
                     self.set_taint_flag(&svar, false);
                     svar
                 }
-                false => AbstrVal::new_global(Const::get_zero(rsize as u64), Some(name.clone())),
+                false => AbstrVal::new_global(Const::get_zero(rsize as u64), Some(name.clone()), 0),
             };
             self.gvars.insert(name.clone(), init_val);
             self.rt.insert(name.to_owned(), false);
@@ -929,7 +973,7 @@ impl AbstrVM {
         } else {
             let pc = self.pc;
             let ic_pc = self.get_ic(pc);
-            v3 = AbstrVal::new_global(self.rv(pc, ic_pc, v1.get_width()), None);
+            v3 = AbstrVal::new_global(self.rv(pc, ic_pc, v1.get_width()), None, self.get_pc());
             tainted = true;
         }
         (v3, tainted)
@@ -965,6 +1009,7 @@ impl AbstrVM {
                     self.rv(pc, ic_pc, v1.get_width())
                 },
                 None,
+                self.get_pc(),
             );
             tainted = true;
         }
@@ -981,12 +1026,12 @@ impl AbstrVM {
             return v;
         }
         for vt in self.cs.iter().rev() {
-            if v.c.v() < &BigInt::ZERO {
+            if v.c.v() < BigInt::ZERO {
                 break;
             }
             v.m = vt.sp.m.clone();
             let r = v.c.v() + vt.sp.c.v();
-            v.c.set(r);
+            v.c.seti(r);
         }
         v
     }
@@ -1041,7 +1086,7 @@ impl AbstrVM {
             self.read_io_at_u64(key.get_as_addr(), n_bytes),
             (n_bytes * 8) as u64,
         );
-        AbstrVal::new_global(gmem_val, None)
+        AbstrVal::new_global(gmem_val, None, self.get_pc())
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {

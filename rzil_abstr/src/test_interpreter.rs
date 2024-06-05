@@ -9,13 +9,14 @@ mod tests {
     };
 
     use binding::{get_test_bin_path, init_rizin_instance, RzCoreWrapper};
+    use num_bigint::{ToBigInt, ToBigUint};
 
     use crate::interpreter::{
-        interpret, AddrInfo, ConcreteCall, Const, IntrpPath, MemXref, StackXref,
+        interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, MemXref, StackXref,
     };
 
-    fn get_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
-        let icall_o = get_test_bin_path().join("icall.o");
+    fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
+        let icall_o = get_test_bin_path().join("x86_icall.o");
         let rz_core =
             RzCoreWrapper::new(init_rizin_instance(icall_o.to_str().expect("Path wrong")));
         rz_core
@@ -43,9 +44,33 @@ mod tests {
         (rz_core, path)
     }
 
+    fn get_hexagon_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
+        let icall_o = get_test_bin_path().join("hexagon_icall.o");
+        let rz_core =
+            RzCoreWrapper::new(init_rizin_instance(icall_o.to_str().expect("Path wrong")));
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.entries", "0x08000040");
+        let v = VecDeque::from(vec![
+            0x08000040, 0x0800004c, 0x08000050, 0x08000070, 0x08000054, 0x08000058, 0x08000080,
+            0x0800005c, 0x08000060, 0x08000090, 0x08000064,
+        ]);
+        let mut path = IntrpPath::from(v);
+        path.push_info(0x08000050, AddrInfo::new_call());
+        path.push_info(0x08000058, AddrInfo::new_call());
+        path.push_info(0x08000060, AddrInfo::new_call());
+        path.push_info(0x08000070, AddrInfo::new_return());
+        path.push_info(0x08000080, AddrInfo::new_return());
+        path.push_info(0x08000090, AddrInfo::new_return());
+        path.push_info(0x08000064, AddrInfo::new_return());
+
+        (rz_core, path)
+    }
+
     #[test]
-    fn test_icall_discover() {
-        let (core, path) = get_icall_test();
+    fn test_x86_icall_discover() {
+        let (core, path) = get_x86_icall_test();
         let products = interpret(core, path);
         let mut call_expected = HashSet::new();
         call_expected.insert(ConcreteCall::new(0x0800005d, 0x080000b0));
@@ -60,25 +85,25 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         stack_expected.insert(StackXref::new(0x8000040, Const::new_i64(-0x8, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000048, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800004f, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000056, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000048, Const::new_i64(-0xc, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800004f, Const::new_i64(-0x10, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000056, Const::new_i64(-0x10, 64), 0x8000040));
         stack_expected.insert(StackXref::new(0x800005d, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000064, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000067, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800006a, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000070, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000073, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, Const::new_i64(-0xc, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000067, Const::new_i64(-0xc, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800006a, Const::new_i64(-0x10, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000070, Const::new_i64(-0x10, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000073, Const::new_i64(-0x10, 64), 0x8000040));
         stack_expected.insert(StackXref::new(0x800007a, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000081, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000084, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000087, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800008d, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000090, Const::new_u64(0xfffffffffffffff0, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000081, Const::new_i64(-0xc, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000084, Const::new_i64(-0xc, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000087, Const::new_i64(-0x10, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800008d, Const::new_i64(-0x10, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000090, Const::new_i64(-0x10, 64), 0x8000040));
         stack_expected.insert(StackXref::new(0x8000097, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800009e, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000a1, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000a4, Const::new_u64(0xfffffffffffffff4, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800009e, Const::new_i64(-0xc, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000a1, Const::new_i64(-0xc, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000a4, Const::new_i64(-0xc, 64), 0x8000040));
         stack_expected.insert(StackXref::new(0x80000ab, Const::new_i64(-0x8, 64), 0x8000040));
         stack_expected.insert(StackXref::new(0x80000ac, Const::new_i64(0x0, 64), 0x8000040));
         stack_expected.insert(StackXref::new(0x80000b0, Const::new_i64(-0x8, 64), 0x80000b0));
@@ -102,5 +127,91 @@ mod tests {
         mem_expected.insert(MemXref::new(0x0800007a, 0x080000e8, 8));
         mem_expected.insert(MemXref::new(0x08000097, 0x080000f0, 8));
         assert!(products.mem_xrefs.eq(&mem_expected));
+    }
+
+    #[test]
+    fn test_hexagon_icall_discover() {
+        let (core, path) = get_hexagon_icall_test();
+        let products = interpret(core, path);
+        let mut call_expected = HashSet::new();
+        call_expected.insert(ConcreteCall::new(0x08000050, 0x08000070));
+        call_expected.insert(ConcreteCall::new(0x08000058, 0x08000080));
+        call_expected.insert(ConcreteCall::new(0x08000060, 0x08000090));
+        println!("call xrefs");
+        for call in products.concrete_calls.iter() {
+            println!("{}", call);
+        }
+        assert!(products.concrete_calls.eq(&call_expected));
+        println!("Stack xrefs");
+        for sxref in products.stack_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        let mut stack_expected = HashSet::new();
+        stack_expected.insert(StackXref::new(
+            0x8000040,
+            Const::new_u64(0xfffffff0, 32),
+            0x8000040,
+        ));
+        assert!(products.stack_xrefs.eq(&stack_expected));
+
+        println!("Mem xrefs");
+        for sxref in products.mem_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        let mut mem_expected = HashSet::new();
+        mem_expected.insert(MemXref::new(0x800004c, 0x8000098, 4));
+        mem_expected.insert(MemXref::new(0x8000054, 0x800009c, 4));
+        mem_expected.insert(MemXref::new(0x800005c, 0x80000a0, 4));
+        assert!(products.mem_xrefs.eq(&mem_expected));
+    }
+
+    #[test]
+    fn test_constant() {
+        let u_32_max = Const::new_u64(0xffffffff, 32);
+        // Comparison tests. Due to our bit width limitation, we need to check
+        // how the converted values are interpreted.
+        // This should be independent of the underlying BigInt or BigUint struct.
+        assert_eq!(u_32_max.vu(), 0xffffffffu32.to_biguint().unwrap());
+        assert_eq!(u_32_max.v(), -1.to_bigint().unwrap());
+        assert_ne!(u_32_max.v(), 0xffffffffu64.to_bigint().unwrap());
+
+        let (mut casted, mut tainted) = u_32_max.cast(64, AbstrVal::new_false());
+        assert!(!tainted);
+        assert_eq!(casted.vu(), 0xffffffffu32.to_biguint().unwrap());
+        assert_eq!(casted.v(), 0xffffffffu64.to_bigint().unwrap());
+
+        (casted, tainted) = u_32_max.cast(64, AbstrVal::new_true());
+        assert!(!tainted);
+        assert_eq!(casted.vu(), 0xffffffffffffffffu64.to_biguint().unwrap());
+        assert_eq!(casted.v(), -1.to_bigint().unwrap());
+
+        let u_16_half = Const::new_u64(0xffff, 16);
+        assert_eq!(u_16_half.vu(), 0xffffu16.to_biguint().unwrap());
+        assert_eq!(u_16_half.v(), -1.to_bigint().unwrap());
+        assert_ne!(u_16_half.v(), 0xffffu64.to_bigint().unwrap());
+
+        (casted, tainted) = u_16_half.cast(64, AbstrVal::new_true());
+        assert!(!tainted);
+        assert_eq!(casted.vu(), 0xffffffffffffffffu64.to_biguint().unwrap());
+        assert_eq!(casted.v(), -1.to_bigint().unwrap());
+
+        let u_16_pat = Const::new_u64(0x1010, 16);
+        assert_eq!(u_16_pat.vu(), 0x1010u64.to_biguint().unwrap());
+        assert_eq!(u_16_pat.v(), 0x1010u64.to_bigint().unwrap());
+        (casted, tainted) = u_16_pat.cast(64, AbstrVal::new_true());
+        assert!(!tainted);
+        assert_eq!(casted.vu(), 0xffffffffffff1010u64.to_biguint().unwrap());
+        assert_eq!(
+            casted.v(),
+            (0xffffffffffff1010u64 as i64).to_bigint().unwrap()
+        );
+
+        // Not a true/false value for the bit set.
+        // This is tainted.
+        (_, tainted) = u_16_pat.cast(
+            64,
+            AbstrVal::new_global(Const::new_u64(0xffff, 16), None, 0),
+        );
+        assert!(tainted);
     }
 }

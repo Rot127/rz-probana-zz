@@ -8,7 +8,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val, parse_bda_timeout};
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigUint;
 use std::ffi::{CStr, CString};
 
 use core::panic;
@@ -475,7 +475,7 @@ pub fn rz_notify_error(rz_core: GRzCore, mut msg: String) {
 
 /// Converts a BitVector to an arbitrary sized BigInt.
 /// It returns the big integer and the lenght in bits.
-pub fn bv_to_int(bv: *mut RzBitVector) -> (BigInt, u64) {
+pub fn bv_to_int(bv: *mut RzBitVector) -> (BigUint, u64) {
     null_check!(bv);
     let bits: u32 = unsafe { rz_bv_len(bv) };
     let buf_size = ((bits + 7) >> 3) as usize;
@@ -484,6 +484,6 @@ pub fn bv_to_int(bv: *mut RzBitVector) -> (BigInt, u64) {
         rz_bv_set_to_bytes_le(bv, buf.as_mut_ptr());
         buf.set_len(buf_size);
     }
-    let n = BigInt::from_bytes_le(Sign::Plus, buf.as_slice());
+    let n = BigUint::from_bytes_le(buf.as_slice());
     (n, bits as u64)
 }
