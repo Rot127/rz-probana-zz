@@ -260,32 +260,44 @@ impl RzCoreWrapper {
         buf
     }
 
-    pub fn read_io_mapped_at(&self, addr: u64, len: usize) -> Vec<u8> {
+    pub fn read_io_mapped_at(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
         let mut buf = Vec::<u8>::with_capacity(len);
         unsafe {
             if !rz_io_read_at_mapped(self.get_io(), addr, buf.as_mut_ptr(), len) {
-                panic!(
+                println!(
                     "rz_io_read_at_mapped() failed reading at address: {:#x}",
                     addr
                 );
+                return None;
             }
             buf.set_len(len);
         }
-        buf
+        Some(buf)
     }
 
     pub fn get_iword(&self, addr: u64) -> *mut RzAnalysisInsnWord {
         let iword_decoder = self.get_iword_decoder();
         unsafe {
-            let leading_bytes = if addr < 8 { addr } else { 8 };
+            let leading_bytes = if addr < 4 { addr } else { 4 };
             let iword = rz_analysis_insn_word_new();
-            let buf_len = 64;
-            let buf = self.read_io_mapped_at(addr - leading_bytes, buf_len);
+            let mut buf_len = 32;
+            let mut buf: Option<Vec<u8>> = None;
+            while buf.is_none() {
+                if buf_len < 12 {
+                    panic!("Could not read the minimum of the required memory to reliably decode an instruction.");
+                }
+                buf = self.read_io_mapped_at(addr - leading_bytes, buf_len);
+                if buf.is_some() {
+                    break;
+                }
+                // The read goes beyond a map. Hence we read until we are in the map.
+                buf_len -= 4;
+            }
             let success = iword_decoder.unwrap()(
                 self.get_analysis(),
                 iword,
                 addr,
-                buf.as_ptr(),
+                buf.unwrap().as_ptr(),
                 buf_len,
                 leading_bytes as usize,
             );
