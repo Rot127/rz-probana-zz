@@ -6,7 +6,6 @@
 #![allow(non_upper_case_globals)]
 
 use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val, parse_bda_timeout};
-use regex::Regex;
 use std::ffi::CString;
 use std::ptr::null;
 
@@ -187,38 +186,6 @@ pub extern "C" fn rz_set_bda_timeout(core: *mut c_void, node: *mut c_void) -> bo
     true
 }
 
-pub extern "C" fn rz_set_bda_malloc_regex(core: *mut c_void, node: *mut c_void) -> bool {
-    let _ = core as *mut RzCore;
-    let rz_node = node as *mut RzConfigNode;
-    // Just perform a check on the given value.
-    let re = &c_to_str(pderef!(rz_node).value);
-    if Regex::new(re).is_err() {
-        log_rz!(
-            LOG_ERROR,
-            None,
-            format!("Regex pattern: '{}' is invalid.", re)
-        );
-        return false;
-    }
-    true
-}
-
-pub extern "C" fn rz_set_bda_input_regex(core: *mut c_void, node: *mut c_void) -> bool {
-    let _ = core as *mut RzCore;
-    let rz_node = node as *mut RzConfigNode;
-    // Just perform a check on the given value.
-    let re = &c_to_str(pderef!(rz_node).value);
-    if Regex::new(re).is_err() {
-        log_rz!(
-            LOG_ERROR,
-            None,
-            format!("Regex pattern: '{}' is invalid.", re)
-        );
-        return false;
-    }
-    true
-}
-
 pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
     unsafe {
         // Add bda commands
@@ -280,24 +247,6 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
             str_to_c!(
                 "Number of node duplications, when loops with unknown iterations are resolved within CFGs and iCFGs."
             ),
-        );
-        rz_config_node_desc(
-            rz_config_set_cb(
-                pderef!(core).config,
-                str_to_c!("plugins.bda.malloc_regex"),
-                str_to_c!(".*([cm]|re)alloc.*"),
-                Some(rz_set_bda_malloc_regex),
-            ),
-            str_to_c!("Regex pattern for names of memory allocating functions."),
-        );
-        rz_config_node_desc(
-            rz_config_set_cb(
-                pderef!(core).config,
-                str_to_c!("plugins.bda.input_regex"),
-                str_to_c!(".*fread.*"),
-                Some(rz_set_bda_input_regex),
-            ),
-            str_to_c!("Regex pattern for names of input functions (by users, peripherals, randomness etc.)."),
         );
         rz_config_lock(pderef!(core).config, 1);
     };
