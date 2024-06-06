@@ -448,12 +448,12 @@ pub struct MemRegion {
 impl std::fmt::Display for MemRegion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let letter = match self.class {
-            MemRegionClass::Global => "G",
-            MemRegionClass::Heap => "H",
-            MemRegionClass::Stack => "S",
+            MemRegionClass::Global => "𝑮",
+            MemRegionClass::Heap => "𝑯",
+            MemRegionClass::Stack => "𝑺",
             _ => panic!("Handled mem class."),
         };
-        write!(f, "{}{}[{:#x}]", subscript(self.c), letter, self.base)
+        write!(f, "{}{} ⌊{:#x}⌋", subscript(self.c), letter, self.base)
     }
 }
 
