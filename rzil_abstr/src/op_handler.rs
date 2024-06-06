@@ -1165,8 +1165,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if vm.pc_is_call() {
         vm.add_call_xref(addr);
         vm.call_stack_push(
-            *vm.peak_next()
-                .expect("There whould always be a next instruction after a call"),
+            addr
         );
     }
 

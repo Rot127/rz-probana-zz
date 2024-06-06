@@ -31,6 +31,8 @@ use crate::op_handler::eval_effect;
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 pub type Address = u64;
 
+const INVALID_ADDRESS: u64 = u64::MAX;
+
 #[derive(Clone, Debug, Hash)]
 pub struct Const {
     v: BigUint,
@@ -1160,8 +1162,13 @@ impl AbstrVM {
             .clone()
     }
 
-    /// Pushes a a functions call frame on the call stack, before it jumps to [proc_addr].
+    /// Pushes a functions call frame on the call stack, before it jumps to [proc_addr].
     pub fn call_stack_push(&mut self, proc_addr: Address) {
+        if self.peak_next().is_none() || *self.peak_next().unwrap() != proc_addr {
+            // Don't push a stack frame if we don't actually interpret the procedure
+            // Happens for calls to malloc or input functions.
+            return;
+        }
         // For now we just assume that the SP was _not_ updated before the actual jump to the procedure.
         let cf = CallFrame {
             in_site: self.pc,
@@ -1247,10 +1254,20 @@ impl AbstrVM {
     /// Initializes the stack for the first two cells of size [stack_cell_size].
     fn setup_initial_stack(&mut self, stack_cell_size: u64) {
         let zero = Const::get_zero(stack_cell_size);
+        // Save dummy values where first stack pointers point to
         self.set_mem_val(
             &AbstrVal::new_stack(zero.clone(), self.get_pc()),
             AbstrVal::new_global(zero.clone(), None, 0),
         );
+        // Push initial stack frame
+        let cf = CallFrame {
+            in_site: self.pc,
+            instance: 0,
+            return_addr: INVALID_ADDRESS,
+            sp: self.get_sp(),
+        };
+        println!("PUSH: {}", cf);
+        self.cs.push(cf);
     }
 }
 
