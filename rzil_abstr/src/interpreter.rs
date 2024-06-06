@@ -1246,20 +1246,9 @@ impl AbstrVM {
 
     /// Initializes the stack for the first two cells of size [stack_cell_size].
     fn setup_initial_stack(&mut self, stack_cell_size: u64) {
-        let byte_width = ((stack_cell_size + 7) >> 3);
         let zero = Const::get_zero(stack_cell_size);
-
-        let cell0 = Const::get_umax(stack_cell_size);
         self.set_mem_val(
-            &AbstrVal::new_stack(cell0, self.get_pc()),
-            AbstrVal::new_global(zero.clone(), None, 0),
-        );
-        let cell1 = Const::new(
-            Const::get_umax(stack_cell_size).vu() - byte_width.to_biguint().unwrap(),
-            stack_cell_size,
-        );
-        self.set_mem_val(
-            &AbstrVal::new_stack(cell1, self.get_pc()),
+            &AbstrVal::new_stack(zero.clone(), self.get_pc()),
             AbstrVal::new_global(zero.clone(), None, 0),
         );
     }
