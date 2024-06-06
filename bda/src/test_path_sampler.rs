@@ -86,7 +86,7 @@ mod tests {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
             NodeId::from(LINEAR_CFG_ENTRY),
-            Procedure::new(Some(get_cfg_linear()), false),
+            Procedure::new(Some(get_cfg_linear()), false, false),
         );
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
@@ -113,7 +113,7 @@ mod tests {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
             NodeId::from(GEE_ADDR),
-            Procedure::new(Some(get_gee_cfg()), false),
+            Procedure::new(Some(get_gee_cfg()), false, false),
         );
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
@@ -139,7 +139,7 @@ mod tests {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
             NodeId::from(CFG_ENTRY_C),
-            Procedure::new(Some(get_C()), false),
+            Procedure::new(Some(get_C()), false, false),
         );
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
@@ -165,7 +165,7 @@ mod tests {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
             NodeId::from(GEE_ADDR),
-            Procedure::new(Some(get_cfg_simple_loop()), false),
+            Procedure::new(Some(get_cfg_simple_loop()), false, false),
         );
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
@@ -225,7 +225,7 @@ mod tests {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
             NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY),
-            Procedure::new(Some(get_unset_indirect_call_to_0_cfg()), false),
+            Procedure::new(Some(get_unset_indirect_call_to_0_cfg()), false, false),
         );
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
@@ -241,7 +241,7 @@ mod tests {
         let mut lcfg = get_cfg_simple_loop();
         icfg.add_procedure(
             NodeId::from(SIMPLE_LOOP_ENTRY),
-            Procedure::new(Some(lcfg), false),
+            Procedure::new(Some(lcfg), false, false),
         );
         icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
             .write()
@@ -260,7 +260,10 @@ mod tests {
 
         lcfg = get_gee_cfg();
         lcfg.make_acyclic(&wmap, None);
-        icfg.add_procedure(NodeId::from(GEE_ADDR), Procedure::new(Some(lcfg), false));
+        icfg.add_procedure(
+            NodeId::from(GEE_ADDR),
+            Procedure::new(Some(lcfg), false, false),
+        );
         icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
             .write()
             .unwrap()
@@ -281,7 +284,7 @@ mod tests {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
             NodeId::from(CFG_ENTRY_A),
-            Procedure::new(Some(get_A()), false),
+            Procedure::new(Some(get_A()), false, false),
         );
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
@@ -294,7 +297,7 @@ mod tests {
         // Add two levels of calls and check weights again.
         icfg.add_procedure(
             NodeId::from(CFG_ENTRY_B),
-            Procedure::new(Some(get_B()), false),
+            Procedure::new(Some(get_B()), false, false),
         );
         icfg.get_procedure(&NodeId::from(CFG_ENTRY_A))
             .write()
@@ -307,7 +310,7 @@ mod tests {
 
         icfg.add_procedure(
             NodeId::from(CFG_ENTRY_C),
-            Procedure::new(Some(get_C()), false),
+            Procedure::new(Some(get_C()), false, false),
         );
         icfg.get_procedure(&NodeId::from(CFG_ENTRY_B))
             .write()

@@ -755,15 +755,18 @@ pub struct Procedure {
     cfg: Option<CFG>,
     /// Flag if this procedure is malloc.
     is_malloc: bool,
+    /// Flag if this procedure provides unpredictable input.
+    is_input: bool,
     /// Timestamp of the last change performed.
     last_change: Instant,
 }
 
 impl Procedure {
-    pub fn new(cfg: Option<CFG>, is_malloc: bool) -> Procedure {
+    pub fn new(cfg: Option<CFG>, is_malloc: bool, is_input: bool) -> Procedure {
         Procedure {
             cfg,
             is_malloc,
+            is_input,
             last_change: Instant::now(),
         }
     }
@@ -796,6 +799,7 @@ impl Procedure {
         Procedure {
             cfg: Some(self.get_cfg().get_clone(icfg_clone_id)),
             is_malloc: self.is_malloc,
+            is_input: self.is_input,
             last_change: Instant::now(),
         }
     }

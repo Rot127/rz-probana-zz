@@ -12,11 +12,11 @@ use crate::state::BDAState;
 
 use binding::{
     cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef,
-    rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_bin_object_get_entries,
-    rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_cfg, rz_core_graph_cfg_iwords,
-    rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error, GRzCore, RzAnalysis, RzBinAddr,
-    RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    rz_analysis_function_is_input, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
+    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_cfg,
+    rz_core_graph_cfg_iwords, rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error,
+    GRzCore, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph,
+    RzGraphNode, RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
@@ -278,12 +278,21 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) 
         }
         icfg.add_procedure(
             n,
-            Procedure::new(Some(CFG::new_graph(get_graph(rz_cfg))), unsafe {
-                rz_analysis_function_is_malloc(rz_analysis_get_function_at(
-                    a as *mut RzAnalysis,
-                    n.address,
-                ))
-            }),
+            Procedure::new(
+                Some(CFG::new_graph(get_graph(rz_cfg))),
+                unsafe {
+                    rz_analysis_function_is_malloc(rz_analysis_get_function_at(
+                        a as *mut RzAnalysis,
+                        n.address,
+                    ))
+                },
+                unsafe {
+                    rz_analysis_function_is_input(rz_analysis_get_function_at(
+                        a as *mut RzAnalysis,
+                        n.address,
+                    ))
+                },
+            ),
         );
         set_cfg_node_data(
             icfg.get_procedure(&n).write().unwrap().get_cfg_mut(),
