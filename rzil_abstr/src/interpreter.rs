@@ -398,10 +398,11 @@ pub struct StackXref {
 }
 
 impl StackXref {
+    /// This functions sets the IC always to 1
     pub fn new(at: Address, offset: Const, base: Address) -> StackXref {
         StackXref {
             at,
-            var: AbstrVal::new_stack(offset, base),
+            var: AbstrVal::new_stack(1, offset, base),
         }
     }
 }
@@ -504,11 +505,11 @@ impl AbstrVal {
         AbstrVal { m, c, il_gvar }
     }
 
-    pub fn new_stack(offset: Const, base: Address) -> AbstrVal {
+    pub fn new_stack(ic: u64, offset: Const, base: Address) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Stack,
             base,
-            c: 0,
+            c: ic,
         };
         AbstrVal {
             m,
@@ -991,7 +992,7 @@ impl AbstrVM {
             {
                 true => {
                     stack_access_size = rsize;
-                    let svar = AbstrVal::new_stack(Const::get_zero(rsize as u64), self.get_pc());
+                    let svar = AbstrVal::new_stack(1, Const::get_zero(rsize as u64), self.get_pc());
                     self.set_taint_flag(&svar, false);
                     svar
                 }
@@ -1265,7 +1266,12 @@ impl AbstrVM {
     fn rebase_sp(&mut self, base: Address) {
         let invoc_count = self.get_ic(self.get_pc());
         let sp = self.get_sp();
-        self.set_sp(AbstrVal::new_stack(Const::get_zero(sp.get_width()), base));
+        let ic = self.get_pc_ic();
+        self.set_sp(AbstrVal::new_stack(
+            ic,
+            Const::get_zero(sp.get_width()),
+            base,
+        ));
     }
 
     /// Initializes the stack for the first two cells of size [stack_cell_size].
@@ -1273,7 +1279,7 @@ impl AbstrVM {
         let zero = Const::get_zero(stack_cell_size);
         // Save dummy values where first stack pointers point to
         self.set_mem_val(
-            &AbstrVal::new_stack(zero.clone(), self.get_pc()),
+            &AbstrVal::new_stack(1, zero.clone(), self.get_pc()),
             AbstrVal::new_global(zero.clone(), None, 0),
         );
         // Push initial stack frame
@@ -1309,6 +1315,10 @@ impl AbstrVM {
 
     fn get_reg_size(&self, name: &str) -> usize {
         *self.reg_sizes.get(name).expect("Register has no size set.")
+    }
+
+    fn get_pc_ic(&mut self) -> u64 {
+        self.get_ic(self.get_pc())
     }
 }
 
