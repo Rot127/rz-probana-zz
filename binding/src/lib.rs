@@ -238,6 +238,18 @@ impl RzCoreWrapper {
         c as usize
     }
 
+    pub fn get_bda_malloc_regex(&self) -> String {
+        let n = CString::new("plugins.bda.malloc_regex").expect("Conversion failed.");
+        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        c_to_str(c)
+    }
+
+    pub fn get_bda_input_regex(&self) -> String {
+        let n = CString::new("plugins.bda.input_regex").expect("Conversion failed.");
+        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        c_to_str(c)
+    }
+
     pub fn get_analysis_op(&self, addr: u64) -> *mut RzAnalysisOp {
         let iop: *mut RzAnalysisOp = unsafe {
             rz_core_analysis_op(

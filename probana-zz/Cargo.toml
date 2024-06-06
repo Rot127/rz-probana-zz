@@ -12,6 +12,7 @@ binding = { path = "../binding", version = "0.1.0" }
 helper = { path = "../helper", version = "0.1.0" }
 bda = { path = "../bda", version = "0.1.0" }
 osprey = { path = "../osprey", version = "0.1.0" }
+regex = "1.10.4"
 
 [lib]
 crate-type = ["rlib", "cdylib"]
