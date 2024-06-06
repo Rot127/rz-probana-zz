@@ -1164,9 +1164,10 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // functions.
     if vm.pc_is_call() {
         vm.add_call_xref(addr);
-        vm.call_stack_push(
-            addr
-        );
+        vm.call_stack_push(addr);
+    }
+    if vm.is_malloc(addr) {
+        vm.move_heap_val_into_ret_reg();
     }
 
     true

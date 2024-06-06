@@ -23,7 +23,7 @@ use binding::{
     c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
     rz_io_read_at_mapped, GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzCoreWrapper, RzILMem,
     RzILOpEffect, RzILOpPure, RzILTypePure, RzRegisterId, RzRegisterId_RZ_REG_NAME_BP,
-    RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    RzRegisterId_RZ_REG_NAME_R1, RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 use crate::op_handler::eval_effect;
@@ -517,6 +517,19 @@ impl AbstrVal {
         }
     }
 
+    pub fn new_heap(ic: u64, offset: Const, base: Address) -> AbstrVal {
+        let m = MemRegion {
+            class: MemRegionClass::Heap,
+            base,
+            c: ic,
+        };
+        AbstrVal {
+            m,
+            c: offset,
+            il_gvar: None,
+        }
+    }
+
     pub fn get_width(&self) -> u64 {
         self.c.width()
     }
@@ -683,6 +696,8 @@ pub struct AbstrVM {
     /// Register roles (SP, PC, LR, ARG 1, ARG 2 etc)
     /// Role to register name nap.
     reg_roles: HashMap<RzRegisterId, String>,
+    /// Register sizes in bits, indexed by name
+    reg_sizes: HashMap<String, usize>,
     /// Const value jump targets
     calls_xref: HashSet<ConcreteCall>,
     /// Const value memory values loaded or stored.
@@ -725,6 +740,7 @@ impl AbstrVM {
             lvars: HashMap::new(),
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
+            reg_sizes: HashMap::new(),
             calls_xref: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
@@ -742,10 +758,18 @@ impl AbstrVM {
         &self.rz_core
     }
 
-    /// Returns true if this address points to a procedure.
+    /// Returns true if the instruction at [addr] is calssified as call.
     pub fn is_call(&self, addr: Address) -> bool {
         if let Some(ainfo) = self.pa.addr_info.get(&addr) {
             return ainfo.is_call;
+        }
+        false
+    }
+
+    /// Returns true if the instruction at [addr] is calssified as a call to malloc.
+    pub fn is_malloc(&self, addr: Address) -> bool {
+        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
+            return ainfo.calls_malloc;
         }
         false
     }
@@ -938,16 +962,8 @@ impl AbstrVM {
                 );
             }
         }
-        let sp_name = self
-            .reg_roles
-            .get(&RzRegisterId_RZ_REG_NAME_SP)
-            .expect("SP must be defined in register profile.")
-            .clone();
-        let bp_name = self
-            .reg_roles
-            .get(&RzRegisterId_RZ_REG_NAME_BP)
-            .expect("BP must be defined in register profile.")
-            .clone();
+        let sp_name = self.get_reg_name_by_role(RzRegisterId_RZ_REG_NAME_SP);
+        let bp_name = self.get_reg_name_by_role(RzRegisterId_RZ_REG_NAME_BP);
         // Temp registers for Hexagon. Should be moved to a separated function
         // where other cases are handled as well.
         // Also should be the stack setup properly, depending on the ABI
@@ -981,6 +997,7 @@ impl AbstrVM {
                 }
                 false => AbstrVal::new_global(Const::get_zero(rsize as u64), Some(name.clone()), 0),
             };
+            self.reg_sizes.insert(name.clone(), rsize as usize);
             self.gvars.insert(name.clone(), init_val);
             self.rt.insert(name.to_owned(), false);
         }
@@ -1268,6 +1285,30 @@ impl AbstrVM {
         };
         println!("PUSH: {}", cf);
         self.cs.push(cf);
+    }
+
+    /// Sets the register which takes return values, to a new Heap abstract value.
+    /// This function is usually called after a memory allocating call.
+    pub fn move_heap_val_into_ret_reg(&mut self) {
+        let rr_name = self.get_reg_name_by_role(RzRegisterId_RZ_REG_NAME_R1);
+        let rr_size = self.get_reg_size(&rr_name);
+        let hval = AbstrVal::new_heap(
+            self.get_ic(self.get_pc()),
+            Const::get_zero(rr_size as u64),
+            self.get_pc(),
+        );
+        self.set_varg(&rr_name, hval);
+    }
+
+    fn get_reg_name_by_role(&self, role: RzRegisterId) -> String {
+        self.reg_roles
+            .get(&role)
+            .expect("Role must be defined in register profile.")
+            .clone()
+    }
+
+    fn get_reg_size(&self, name: &str) -> usize {
+        *self.reg_sizes.get(name).expect("Register has no size set.")
     }
 }
 
