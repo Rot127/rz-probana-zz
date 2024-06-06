@@ -35,4 +35,4 @@ Cargo.lock
 # Rust toolchain selection file
 rust-toolchain
 # Custom build script
-build.sh
+/build.sh
