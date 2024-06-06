@@ -23,7 +23,8 @@ use binding::{
     c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
     rz_io_read_at_mapped, GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzCoreWrapper, RzILMem,
     RzILOpEffect, RzILOpPure, RzILTypePure, RzRegisterId, RzRegisterId_RZ_REG_NAME_BP,
-    RzRegisterId_RZ_REG_NAME_R1, RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    RzRegisterId_RZ_REG_NAME_R0, RzRegisterId_RZ_REG_NAME_R1, RzRegisterId_RZ_REG_NAME_SP,
+    LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 use crate::op_handler::eval_effect;
@@ -263,7 +264,7 @@ impl AddrInfo {
         }
     }
 
-    pub fn new_malloc() -> AddrInfo {
+    pub fn new_malloc_call() -> AddrInfo {
         AddrInfo {
             is_call: true,
             calls_malloc: true,
@@ -768,7 +769,7 @@ impl AbstrVM {
     }
 
     /// Returns true if the instruction at [addr] is calssified as a call to malloc.
-    pub fn is_malloc(&self, addr: Address) -> bool {
+    pub fn calls_malloc(&self, addr: Address) -> bool {
         if let Some(ainfo) = self.pa.addr_info.get(&addr) {
             return ainfo.calls_malloc;
         }
@@ -1296,7 +1297,7 @@ impl AbstrVM {
     /// Sets the register which takes return values, to a new Heap abstract value.
     /// This function is usually called after a memory allocating call.
     pub fn move_heap_val_into_ret_reg(&mut self) {
-        let rr_name = self.get_reg_name_by_role(RzRegisterId_RZ_REG_NAME_R1);
+        let rr_name = self.get_reg_name_by_role(RzRegisterId_RZ_REG_NAME_R0);
         let rr_size = self.get_reg_size(&rr_name);
         let hval = AbstrVal::new_heap(
             self.get_ic(self.get_pc()),
