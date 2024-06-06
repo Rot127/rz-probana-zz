@@ -13,3 +13,7 @@ Files: py_requirements.txt
 Copyright: 2023 Rot127 <unisono@quyllur.org>
 License: CC0-1.0
 
+
+Files: rzil_abstr/test_bins/*.o
+Copyright: 2024 Rot127 <unisono@quyllur.org>
+License: CC0-1.0

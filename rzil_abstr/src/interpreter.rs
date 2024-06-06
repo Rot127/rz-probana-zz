@@ -1111,7 +1111,7 @@ impl AbstrVM {
     /// If [n_bytes] == 0, it panics as well.
     pub fn get_mem_val(&self, key: &AbstrVal, n_bytes: usize) -> AbstrVal {
         if let Some(v) = self.ms.get(key) {
-            println!("LOAD: {}@{}", v, key);
+            println!("LOAD: AT: {} -> {}", key, v);
             return v.clone();
         }
         if !key.is_global() || n_bytes == 0 {

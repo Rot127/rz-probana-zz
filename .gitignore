@@ -22,9 +22,17 @@ Cargo.lock
 # VSCode
 .vscode
 
+# RustRover JetBrains stuff
+.idea
+
+# GDB
+.gdb_history
+
 # Code coverage files
 *.info
 *.profraw
 
 # Rust toolchain selection file
 rust-toolchain
+# Custom build script
+build.sh
