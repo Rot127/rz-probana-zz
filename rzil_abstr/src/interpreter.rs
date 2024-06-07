@@ -55,6 +55,10 @@ impl PartialEq for Const {
 }
 
 impl Const {
+    pub fn as_signed_num_str(&self) -> String {
+        format!("{:#x}{}", self.v(), subscript(self.width))
+    }
+
     /// Returns a bit mask with all bits set.
     /// The bitmask has a length is always aligned to the next byte.
     pub fn get_maski(width: u64) -> BigInt {
@@ -492,7 +496,16 @@ impl Hash for AbstrVal {
 
 impl std::fmt::Display for AbstrVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "〈{}, {:#x}〉", self.m, self.c)
+        write!(
+            f,
+            "〈{}, {}〉",
+            self.m,
+            if self.m.class == MemRegionClass::Stack {
+                self.c.as_signed_num_str()
+            } else {
+                format!("{:#x}", self.c)
+            }
+        )
     }
 }
 
