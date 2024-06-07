@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rzil_abstr::interpreter::{ConcreteCall, MemXref, StackXref};
+use rzil_abstr::interpreter::{ConcreteCall, MemOpSeq, MemXref, StackXref};
 
 use crate::weight::WeightMap;
 
@@ -30,6 +30,8 @@ pub struct BDAState {
     pub mem_xrefs: HashSet<MemXref>,
     /// Discovered stacK_xrefs
     pub stack_xrefs: HashSet<StackXref>,
+    /// Memory op sequences
+    pub mos: MemOpSeq,
 }
 
 impl BDAState {
@@ -42,6 +44,7 @@ impl BDAState {
             calls: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
+            mos: MemOpSeq::new(),
         }
     }
 

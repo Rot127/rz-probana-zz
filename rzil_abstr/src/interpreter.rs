@@ -9,14 +9,17 @@ use rand_distr::{
     num_traits::{ConstOne, ConstZero},
     Distribution, Normal,
 };
-use std::hash::{Hash, Hasher};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     ffi::CString,
     fmt::LowerHex,
+    hash::{Hash, Hasher},
     io::Read,
     ops::Deref,
-    sync::MutexGuard,
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        MutexGuard,
+    },
 };
 
 use binding::{
@@ -623,14 +626,14 @@ impl AbstrVal {
 type AbstrOp2 = fn(v1: &Const, v2: &Const) -> Const;
 type AbstrOp1 = fn(v1: &Const) -> Const;
 
-struct MemOp {
+pub struct MemOp {
     /// Address of the memory instruction
     addr: Address,
     /// The abstract memory value which is processed.
     aval: AbstrVal,
 }
 
-type MemOpSeq = Vec<MemOp>;
+pub type MemOpSeq = Vec<MemOp>;
 
 pub struct CallFrame {
     /// The invocation site
@@ -1178,7 +1181,7 @@ impl AbstrVM {
 
     pub fn enqueue_mos(&mut self, v: &AbstrVal) {
         self.mos.push(MemOp {
-            addr: self.pc,
+            addr: self.get_pc(),
             aval: v.clone(),
         });
     }
@@ -1337,7 +1340,7 @@ impl AbstrVM {
 }
 
 /// Interprets the given path with the given interpeter VM.
-pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
+pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<MemOpSeq>) -> IntrpByProducts {
     let mut vm = AbstrVM::new(rz_core, path.get(0), path);
     if !vm.init_register_file(vm.get_rz_core().clone()) {
         return IntrpByProducts {
@@ -1348,6 +1351,8 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath) -> IntrpByProducts {
     }
 
     while vm.step() {}
+
+    tx.send(vm.mos);
 
     // Replace with Channel and send/rcv
     IntrpByProducts {

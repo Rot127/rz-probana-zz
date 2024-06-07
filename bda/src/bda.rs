@@ -3,6 +3,7 @@
 
 use std::{
     collections::HashMap,
+    sync::mpsc::{channel, Receiver, Sender},
     thread::{self, JoinHandle},
     time::Instant,
 };
@@ -10,7 +11,7 @@ use std::{
 use binding::{log_rizin, log_rz, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
-use rzil_abstr::interpreter::{interpret, IntrpByProducts};
+use rzil_abstr::interpreter::{interpret, IntrpByProducts, MemOpSeq};
 
 use crate::{
     bda_binding::get_bin_entries,
@@ -130,6 +131,8 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     let mut rng = thread_rng();
     let mut products: Vec<IntrpByProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<IntrpByProducts>> = HashMap::new();
+    let mut all_mos = MemOpSeq::new();
+    let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
     while run_condition_fulfilled(&state) {
         spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads
@@ -145,9 +148,10 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             );
             if threads.get(&tid).is_none() {
                 let core_ref = core.clone();
+                let thread_tx = tx.clone();
                 threads.insert(
                     tid,
-                    thread::spawn(move || interpret(core_ref, path.to_addr_path())),
+                    thread::spawn(move || interpret(core_ref, path.to_addr_path(), thread_tx)),
                 );
             }
         }
@@ -177,6 +181,9 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             // Report mem vals
         }
         products.clear();
+        if let Ok(mem_ops) = rx.try_recv() {
+            all_mos.extend(mem_ops);
+        }
     }
     spinner.done(get_bda_status(state, paths_walked));
     println!(
