@@ -1,33 +1,22 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
-#![allow(unused)]
 
 use helper::num::subscript;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
-use rand_distr::{
-    num_traits::{ConstOne, ConstZero},
-    Distribution, Normal,
-};
+use rand_distr::{Distribution, Normal};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    ffi::CString,
     fmt::LowerHex,
     hash::{Hash, Hasher},
     io::Read,
-    ops::Deref,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        MutexGuard,
-    },
+    sync::mpsc::Sender,
 };
 
 use binding::{
-    c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free,
-    rz_io_read_at_mapped, GRzCore, RzAnalysisOpMask_RZ_ANALYSIS_OP_MASK_IL, RzCoreWrapper, RzILMem,
-    RzILOpEffect, RzILOpPure, RzILTypePure, RzRegisterId, RzRegisterId_RZ_REG_NAME_BP,
-    RzRegisterId_RZ_REG_NAME_R0, RzRegisterId_RZ_REG_NAME_R1, RzRegisterId_RZ_REG_NAME_SP,
-    LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
+    RzRegisterId, RzRegisterId_RZ_REG_NAME_BP, RzRegisterId_RZ_REG_NAME_R0,
+    RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 use crate::op_handler::eval_effect;
@@ -178,7 +167,7 @@ impl Const {
     /// Returns a constant of [width] bits with all bits set to true.
     pub fn get_umax(width: u64) -> Const {
         let mut v = 0.to_biguint().unwrap();
-        for i in (0..width) {
+        for i in 0..width {
             v.set_bit(i as u64, true);
         }
         Const { v, width }
@@ -222,13 +211,13 @@ impl Const {
         if len <= self.width() {
             return (Const::new(v, len), tainted);
         }
-        for i in (self.width()..len) {
+        for i in self.width()..len {
             v.set_bit(i, fill_bit);
         }
         (Const::new(v, len), tainted)
     }
 
-    fn is_neg(&self) -> bool {
+    fn _is_neg(&self) -> bool {
         self.v < BigUint::ZERO
     }
 }
@@ -458,7 +447,6 @@ impl std::fmt::Display for MemRegion {
             MemRegionClass::Global => "𝑮",
             MemRegionClass::Heap => "𝑯",
             MemRegionClass::Stack => "𝑺",
-            _ => panic!("Handled mem class."),
         };
         write!(f, "{}{} ⌊{:#x}⌋", subscript(self.c), letter, self.base)
     }
@@ -513,11 +501,11 @@ impl std::fmt::Display for AbstrVal {
 }
 
 impl AbstrVal {
-    pub fn new_global(c: Const, il_gvar: Option<String>, base: Address) -> AbstrVal {
+    pub fn new_global(ic: u64, c: Const, il_gvar: Option<String>, base: Address) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
             base,
-            c: 0,
+            c: ic,
         };
         AbstrVal { m, c, il_gvar }
     }
@@ -553,11 +541,11 @@ impl AbstrVal {
     }
 
     pub fn new_true() -> AbstrVal {
-        AbstrVal::new_global(Const::get_true(), None, 0)
+        AbstrVal::new_global(1, Const::get_true(), None, 0)
     }
 
     pub fn new_false() -> AbstrVal {
-        AbstrVal::new_global(Const::get_false(), None, 0)
+        AbstrVal::new_global(1, Const::get_false(), None, 0)
     }
 
     pub fn new(m: MemRegion, c: Const, il_gvar: Option<String>) -> AbstrVal {
@@ -688,8 +676,6 @@ pub struct AbstrVM {
     is: HashMap<Address, u64>,
     /// Invocation count map
     ic: HashMap<Address, u64>,
-    /// Loop predicate map
-    lp: HashMap<Address, bool>,
     /// MemStore map
     ms: HashMap<AbstrVal, AbstrVal>,
     /// MemTaint map
@@ -702,8 +688,6 @@ pub struct AbstrVM {
     cs: CallStack,
     /// The resulting memory operand sequences of the interpretation
     mos: MemOpSeq,
-    /// IL operation buffer
-    il_op_buf: HashMap<Address, *mut RzILOpEffect>,
     /// Global variables (mostly registers)
     /// This is equivalent to the RS map described in the paper.
     gvars: HashMap<String, AbstrVal>,
@@ -746,14 +730,12 @@ impl AbstrVM {
             pc,
             is: HashMap::new(),
             ic: HashMap::new(),
-            lp: HashMap::new(),
             ms: HashMap::new(),
             mt: HashMap::new(),
             rt: HashMap::new(),
             pa: path,
             cs: CallStack::new(),
             mos: MemOpSeq::new(),
-            il_op_buf: HashMap::new(),
             gvars: HashMap::new(),
             lvars: HashMap::new(),
             lpures: HashMap::new(),
@@ -877,7 +859,7 @@ impl AbstrVM {
     /// simulate input for the program.
     /// It takes the address of an input-functions at [address] and the current
     /// [invocation] of the function.
-    pub fn rv(&self, address: Address, invocation: u64, width: u64) -> Const {
+    pub fn rv(&self, width: u64) -> Const {
         if width <= 64 {
             return Const {
                 v: (self.dist.sample(&mut rand::thread_rng()) as u64)
@@ -888,7 +870,7 @@ impl AbstrVM {
         }
         let samples_cnt = width + 7 >> 3;
         let mut v_buf = Vec::<u8>::new();
-        for _ in (0..samples_cnt) {
+        for _ in 0..samples_cnt {
             v_buf.push(self.dist.sample(&mut rand::thread_rng()) as u8);
         }
         Const {
@@ -921,7 +903,7 @@ impl AbstrVM {
         *self.ic.entry(self.pc).or_default() += 1;
 
         let iword_decoder = unlocked_core!(self).get_iword_decoder();
-        let mut effect;
+        let effect;
         let result;
         if iword_decoder.is_some() {
             let iword = unlocked_core!(self).get_iword(self.pc);
@@ -969,7 +951,7 @@ impl AbstrVM {
         let alias = core.get_reg_alias();
         for ralias in alias {
             let ra = pderef!(ralias);
-            if let Some(p) = self.reg_roles.insert(ra.role, c_to_str(ra.reg_name)) {
+            if let Some(_) = self.reg_roles.insert(ra.role, c_to_str(ra.reg_name)) {
                 log_rz!(
                     LOG_WARN,
                     None,
@@ -1013,7 +995,9 @@ impl AbstrVM {
                     self.set_taint_flag(&svar, false);
                     svar
                 }
-                false => AbstrVal::new_global(Const::get_zero(rsize as u64), Some(name.clone()), 0),
+                false => {
+                    AbstrVal::new_global(1, Const::get_zero(rsize as u64), Some(name.clone()), 0)
+                }
             };
             self.reg_sizes.insert(name.clone(), rsize as usize);
             self.gvars.insert(name.clone(), init_val);
@@ -1037,15 +1021,22 @@ impl AbstrVM {
         v1: AbstrVal,
         sample_bool: bool,
     ) -> (AbstrVal, bool) {
-        let mut tainted: bool;
-        let mut v3: AbstrVal;
+        let tainted: bool;
+        let v3: AbstrVal;
         if v1.m.class == MemRegionClass::Global {
             v3 = AbstrVal::new(v1.m.clone(), op(&v1.c), None);
             tainted = false;
         } else {
-            let pc = self.pc;
-            let ic_pc = self.get_ic(pc);
-            v3 = AbstrVal::new_global(self.rv(pc, ic_pc, v1.get_width()), None, self.get_pc());
+            v3 = AbstrVal::new_global(
+                self.get_pc_ic(),
+                if sample_bool {
+                    self.rvb()
+                } else {
+                    self.rv(v1.get_width())
+                },
+                None,
+                self.get_pc(),
+            );
             tainted = true;
         }
         (v3, tainted)
@@ -1063,8 +1054,8 @@ impl AbstrVM {
         v2: AbstrVal,
         sample_bool: bool,
     ) -> (AbstrVal, bool) {
-        let mut tainted: bool;
-        let mut v3: AbstrVal;
+        let tainted: bool;
+        let v3: AbstrVal;
         if v1.m.class == MemRegionClass::Global {
             v3 = AbstrVal::new(v2.m.clone(), op(&v1.c, &v2.c), None);
             tainted = false;
@@ -1075,10 +1066,11 @@ impl AbstrVM {
             let pc = self.pc;
             let ic_pc = self.get_ic(pc);
             v3 = AbstrVal::new_global(
+                ic_pc,
                 if sample_bool {
                     self.rvb()
                 } else {
-                    self.rv(pc, ic_pc, v1.get_width())
+                    self.rv(v1.get_width())
                 },
                 None,
                 self.get_pc(),
@@ -1128,7 +1120,7 @@ impl AbstrVM {
 
     pub fn set_taint_flag(&mut self, v3: &AbstrVal, tainted: bool) {
         if let Some(il_gvar) = v3.il_gvar.clone() {
-            if let Some(global) = self.gvars.get(&il_gvar) {
+            if let Some(_) = self.gvars.get(&il_gvar) {
                 self.rt.insert(il_gvar, tainted);
                 return;
             }
@@ -1146,7 +1138,7 @@ impl AbstrVM {
     /// MS map. If this fails it panics for Heap and Stack values. But attempts to read [n_bytes]
     /// from the memory mapped in Rizins IO.
     /// If [n_bytes] == 0, it panics as well.
-    pub fn get_mem_val(&self, key: &AbstrVal, n_bytes: usize) -> AbstrVal {
+    pub fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> AbstrVal {
         if let Some(v) = self.ms.get(key) {
             println!("LOAD: AT: {} -> {}", key, v);
             return v.clone();
@@ -1158,7 +1150,7 @@ impl AbstrVM {
             self.read_io_at_u64(key.get_as_addr(), n_bytes),
             (n_bytes * 8) as u64,
         );
-        AbstrVal::new_global(gmem_val, None, self.get_pc())
+        AbstrVal::new_global(self.get_pc_ic(), gmem_val, None, self.get_pc())
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
@@ -1233,7 +1225,7 @@ impl AbstrVM {
     pub fn read_io_at_u64(&self, addr: Address, n_bytes: usize) -> u64 {
         let data = self.read_io_at(addr, n_bytes);
         let mut buf: [u8; 8] = [0; 8];
-        data.as_slice().read_exact(&mut buf[..n_bytes]);
+        data.as_slice().read_exact(&mut buf[..n_bytes]).unwrap();
         u64::from_le_bytes(buf)
     }
 
@@ -1262,7 +1254,7 @@ impl AbstrVM {
 
     /// Checks if the given register name is the register name of
     /// the stack base pointer.
-    fn is_bp(&self, reg_name: &str) -> bool {
+    fn _is_bp(&self, reg_name: &str) -> bool {
         reg_name
             == self
                 .reg_roles
@@ -1281,7 +1273,6 @@ impl AbstrVM {
 
     /// Resets the stack pointer to a new base.
     fn rebase_sp(&mut self, base: Address) {
-        let invoc_count = self.get_ic(self.get_pc());
         let sp = self.get_sp();
         let ic = self.get_pc_ic();
         self.set_sp(AbstrVal::new_stack(
@@ -1297,7 +1288,7 @@ impl AbstrVM {
         // Save dummy values where first stack pointers point to
         self.set_mem_val(
             &AbstrVal::new_stack(1, zero.clone(), self.get_pc()),
-            AbstrVal::new_global(zero.clone(), None, 0),
+            AbstrVal::new_global(1, zero.clone(), None, 0),
         );
         // Push initial stack frame
         let cf = CallFrame {
@@ -1334,7 +1325,7 @@ impl AbstrVM {
         *self.reg_sizes.get(name).expect("Register has no size set.")
     }
 
-    fn get_pc_ic(&mut self) -> u64 {
+    pub fn get_pc_ic(&mut self) -> u64 {
         self.get_ic(self.get_pc())
     }
 }
@@ -1352,7 +1343,13 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<MemOpSeq>) -> Int
 
     while vm.step() {}
 
-    tx.send(vm.mos);
+    if let Err(_) = tx.send(vm.mos) {
+        log_rz!(
+            LOG_ERROR,
+            None,
+            "Interpreter could not send data. Main thread hangs"
+        );
+    }
 
     // Replace with Channel and send/rcv
     IntrpByProducts {

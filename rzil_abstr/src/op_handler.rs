@@ -143,13 +143,13 @@ macro_rules! check_effect_success {
 }
 
 fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    let v = AbstrVal::new_global(Const::get_false(), None, vm.get_pc());
+    let v = AbstrVal::new_global(vm.get_pc_ic(), Const::get_false(), None, vm.get_pc());
     vm.set_taint_flag(&v, false);
     Some(v)
 }
 
 fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    let v = AbstrVal::new_global(Const::get_true(), None, vm.get_pc());
+    let v = AbstrVal::new_global(vm.get_pc_ic(), Const::get_true(), None, vm.get_pc());
     vm.set_taint_flag(&v, false);
     Some(v)
 }
@@ -158,7 +158,7 @@ fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     null_check!(op);
     let bv = unsafe { pderef!(op).op.bitv.value };
     let (num, bits) = bv_to_int(bv);
-    let v = AbstrVal::new_global(Const::new(num, bits), None, vm.get_pc());
+    let v = AbstrVal::new_global(vm.get_pc_ic(), Const::new(num, bits), None, vm.get_pc());
     vm.set_taint_flag(&v, false);
     Some(v)
 }

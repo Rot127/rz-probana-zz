@@ -132,7 +132,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     let mut products: Vec<IntrpByProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<IntrpByProducts>> = HashMap::new();
     let mut all_mos = MemOpSeq::new();
-    let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
+    let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = channel();
     while run_condition_fulfilled(&state) {
         spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads
