@@ -283,14 +283,14 @@ impl RzCoreWrapper {
             let mut buf_len = 32;
             let mut buf: Option<Vec<u8>> = None;
             while buf.is_none() {
-                if buf_len < 12 {
+                if buf_len < 4 {
                     panic!("Could not read the minimum of the required memory to reliably decode an instruction.");
                 }
                 buf = self.read_io_mapped_at(addr - leading_bytes, buf_len);
                 if buf.is_some() {
                     break;
                 }
-                // The read goes beyond a map. Hence we read until we are in the map.
+                // The read goes beyond a mapped region. Hence we read until we are in the maped region.
                 buf_len -= 4;
             }
             let success = iword_decoder.unwrap()(
@@ -436,7 +436,8 @@ pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
             panic!("Could not init RzCore.");
         }
         println!("Open file");
-        if !rz_core_file_open_load(core, binary.as_ptr().cast(), 0, RZ_PERM_R as i32, false) {
+        let b_path = CString::new(binary).unwrap();
+        if !rz_core_file_open_load(core, b_path.as_ptr(), 0, RZ_PERM_R as i32, false) {
             panic!("Could not open file {}", binary);
         }
 

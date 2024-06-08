@@ -283,7 +283,7 @@ mod tests {
             println!("{}", call);
         }
 
-        let mut call_expected = HashSet::new();
+        let call_expected = HashSet::new();
         assert!(products.concrete_calls.eq(&call_expected));
 
         println!("Stack xrefs");
@@ -328,6 +328,64 @@ mod tests {
         expected_heap_mos.insert(MemOp::new(0x80000ab, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
         expected_heap_mos.insert(MemOp::new(0x80000b1, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
         expected_heap_mos.insert(MemOp::new(0x80000b5, AbstrVal::new_heap(1, Const::new_u64(0x4, 64), 0x8000082)));
+        }
+        assert_eq!(all_mos.iter().filter(|x| x.is_heap()).count(), 8);
+        for op in expected_heap_mos.iter() {
+            assert!(all_mos.contains(op), "{} not in MOS", op);
+        }
+    }
+
+    #[test]
+    fn test_hexagon_malloc() {
+        let (core, path) = get_hexagon_malloc_test();
+        let mut all_mos = MemOpSeq::new();
+        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
+        let products = interpret(core, path, tx);
+        let call_expected = HashSet::new();
+        assert!(products.concrete_calls.eq(&call_expected));
+
+        println!("Stack xrefs");
+        for sxref in products.stack_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        let mut stack_expected = HashSet::new();
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        stack_expected.insert(StackXref::new(0x8000060, Const::new_i32(-0x8, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000068, Const::new_i32(-0xc, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000074, Const::new_i32(-0x10, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000080, Const::new_i32(-0x14, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000084, Const::new_i32(-0x10, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x800009c, Const::new_i32(-0x10, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000a8, Const::new_i32(-0x14, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000b4, Const::new_i32(-0x14, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000c4, Const::new_i32(-0x8, 32), 0x8000060));
+        }
+        assert!(products.stack_xrefs.eq(&stack_expected));
+
+        println!("Mem xrefs");
+        for sxref in products.mem_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        let mem_expected = HashSet::new();
+        assert!(products.mem_xrefs.eq(&mem_expected));
+
+        all_mos.extend(rx.recv().unwrap());
+        println!("MOS");
+        for memop in all_mos.iter() {
+            println!("{}", memop);
+        }
+        let mut expected_heap_mos = HashSet::new();
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        expected_heap_mos.insert(MemOp::new(0x8000084, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
+        expected_heap_mos.insert(MemOp::new(0x8000098, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
+        expected_heap_mos.insert(MemOp::new(0x800009c, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
+        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, Const::new_u64(0x8, 32), 0x8000070)));
+        expected_heap_mos.insert(MemOp::new(0x80000a8, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
+        expected_heap_mos.insert(MemOp::new(0x80000ac, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
+        expected_heap_mos.insert(MemOp::new(0x80000b4, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
+        expected_heap_mos.insert(MemOp::new(0x80000b8, AbstrVal::new_heap(1, Const::new_u64(0x4, 32), 0x800007c)));
         }
         assert_eq!(all_mos.iter().filter(|x| x.is_heap()).count(), 8);
         for op in expected_heap_mos.iter() {
