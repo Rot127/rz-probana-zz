@@ -582,6 +582,10 @@ impl AbstrVal {
         self.m.class == MemRegionClass::Stack
     }
 
+    pub fn is_heap(&self) -> bool {
+        self.m.class == MemRegionClass::Heap
+    }
+
     pub fn get_mem_region(&self) -> &MemRegion {
         &self.m
     }
@@ -614,11 +618,28 @@ impl AbstrVal {
 type AbstrOp2 = fn(v1: &Const, v2: &Const) -> Const;
 type AbstrOp1 = fn(v1: &Const) -> Const;
 
+#[derive(PartialEq, Eq, Hash)]
 pub struct MemOp {
     /// Address of the memory instruction
     addr: Address,
     /// The abstract memory value which is processed.
     aval: AbstrVal,
+}
+
+impl MemOp {
+    pub fn new(addr: Address, aval: AbstrVal) -> MemOp {
+        MemOp { addr, aval }
+    }
+
+    pub fn is_heap(&self) -> bool {
+        self.aval.is_heap()
+    }
+}
+
+impl std::fmt::Display for MemOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MemOp: {:#x} -> {}", self.addr, self.aval)
+    }
 }
 
 pub type MemOpSeq = Vec<MemOp>;
@@ -896,11 +917,16 @@ impl AbstrVM {
         }
         println!("pc = {:#x}", self.pc);
 
+        *self.ic.entry(self.pc).or_default() += 1;
+
         if self.is_return_point() {
             self.call_stack_pop();
         }
-
-        *self.ic.entry(self.pc).or_default() += 1;
+        // Not yet done for iwords. iwords must only skip the call part.
+        if self.calls_malloc(self.get_pc()) {
+            self.move_heap_val_into_ret_reg();
+            return true;
+        }
 
         let iword_decoder = unlocked_core!(self).get_iword_decoder();
         let effect;

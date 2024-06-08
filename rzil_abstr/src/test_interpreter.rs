@@ -5,14 +5,18 @@
 mod tests {
     use std::{
         collections::{HashSet, VecDeque},
-        sync::{Arc, Mutex},
+        sync::{
+            mpsc::{channel, Receiver, Sender},
+            Arc, Mutex,
+        },
     };
 
     use binding::{get_test_bin_path, init_rizin_instance, RzCoreWrapper};
     use num_bigint::{ToBigInt, ToBigUint};
 
     use crate::interpreter::{
-        interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, MemXref, StackXref,
+        interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, MemOp, MemOpSeq, MemXref,
+        StackXref,
     };
 
     fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
