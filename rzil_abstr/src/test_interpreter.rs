@@ -19,6 +19,9 @@ mod tests {
         StackXref,
     };
 
+    // Rizin is not thread safe. If multiple RzCore are initialized and used in parallel, everything breaks.
+    static TEST_RIZIN_MUTEX: Mutex<u64> = Mutex::new(0);
+
     fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
         let icall_o = get_test_bin_path().join("x86_icall.o");
         let rz_core =
@@ -119,6 +122,11 @@ mod tests {
 
     #[test]
     fn test_x86_icall_discover() {
+        let mut mr = TEST_RIZIN_MUTEX.try_lock();
+        while mr.is_err() {
+            mr = TEST_RIZIN_MUTEX.try_lock();
+        }
+
         let (core, path) = get_x86_icall_test();
         let mut all_mos = MemOpSeq::new();
         let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = channel();
@@ -183,6 +191,11 @@ mod tests {
 
     #[test]
     fn test_hexagon_icall_discover() {
+        let mut mr = TEST_RIZIN_MUTEX.try_lock();
+        while mr.is_err() {
+            mr = TEST_RIZIN_MUTEX.try_lock();
+        }
+
         let (core, path) = get_hexagon_icall_test();
         let mut all_mos = MemOpSeq::new();
         let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
@@ -224,6 +237,11 @@ mod tests {
 
     #[test]
     fn test_constant() {
+        let mut mr = TEST_RIZIN_MUTEX.try_lock();
+        while mr.is_err() {
+            mr = TEST_RIZIN_MUTEX.try_lock();
+        }
+
         let u_32_max = Const::new_u64(0xffffffff, 32);
         // Comparison tests. Due to our bit width limitation, we need to check
         // how the converted values are interpreted.
@@ -274,6 +292,11 @@ mod tests {
 
     #[test]
     fn test_x86_malloc() {
+        let mut mr = TEST_RIZIN_MUTEX.try_lock();
+        while mr.is_err() {
+            mr = TEST_RIZIN_MUTEX.try_lock();
+        }
+
         let (core, path) = get_x86_malloc_test();
         let mut all_mos = MemOpSeq::new();
         let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
@@ -337,6 +360,11 @@ mod tests {
 
     #[test]
     fn test_hexagon_malloc() {
+        let mut mr = TEST_RIZIN_MUTEX.try_lock();
+        while mr.is_err() {
+            mr = TEST_RIZIN_MUTEX.try_lock();
+        }
+
         let (core, path) = get_hexagon_malloc_test();
         let mut all_mos = MemOpSeq::new();
         let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();

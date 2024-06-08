@@ -5,9 +5,18 @@
 
 use bda::bda_binding::rz_analysis_bda_handler;
 use binding::{get_rz_test_bin_path, init_rizin_instance, RzCoreWrapper};
+use std::sync::Mutex;
+
+// Rizin is not thread safe. If multiple RzCore are initialized and used in parallel, everything breaks.
+static TEST_RIZIN_MUTEX: Mutex<u64> = Mutex::new(0);
 
 #[test]
 fn test_aaaaPb_x86_cfg_test() {
+    let mut mr = TEST_RIZIN_MUTEX.try_lock();
+    while mr.is_err() {
+        mr = TEST_RIZIN_MUTEX.try_lock();
+    }
+
     let test_bin = get_rz_test_bin_path()
         .join("elf")
         .join("analysis")
@@ -17,12 +26,17 @@ fn test_aaaaPb_x86_cfg_test() {
     rz_core
         .lock()
         .unwrap()
-        .set_conf_val("plugins.bda.timeout", "10");
+        .set_conf_val("plugins.bda.timeout", "5");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
 #[test]
 fn test_aaaaPb_hexagon_test_jmp() {
+    let mut mr = TEST_RIZIN_MUTEX.try_lock();
+    while mr.is_err() {
+        mr = TEST_RIZIN_MUTEX.try_lock();
+    }
+
     let test_bin = get_rz_test_bin_path()
         .join("elf")
         .join("hexagon")
@@ -33,12 +47,17 @@ fn test_aaaaPb_hexagon_test_jmp() {
     rz_core
         .lock()
         .unwrap()
-        .set_conf_val("plugins.bda.timeout", "10");
+        .set_conf_val("plugins.bda.timeout", "5");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
 #[test]
 fn test_aaaaPb_hexagon_hello_loop() {
+    let mut mr = TEST_RIZIN_MUTEX.try_lock();
+    while mr.is_err() {
+        mr = TEST_RIZIN_MUTEX.try_lock();
+    }
+
     let test_bin = get_rz_test_bin_path()
         .join("elf")
         .join("analysis")
@@ -48,6 +67,6 @@ fn test_aaaaPb_hexagon_hello_loop() {
     rz_core
         .lock()
         .unwrap()
-        .set_conf_val("plugins.bda.timeout", "10");
+        .set_conf_val("plugins.bda.timeout", "5");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
