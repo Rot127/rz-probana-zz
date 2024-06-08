@@ -72,10 +72,57 @@ mod tests {
         (rz_core, path)
     }
 
+    fn get_x86_malloc_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
+        let icall_o = get_test_bin_path().join("x86_malloc.o");
+        let rz_core =
+            RzCoreWrapper::new(init_rizin_instance(icall_o.to_str().expect("Path wrong")));
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.entries", "0x08000060");
+        // Path over main. Not entering dummy_malloc()
+        let v = VecDeque::from(vec![
+            0x08000060, 0x08000061, 0x08000064, 0x08000068, 0x0800006f, 0x08000074, 0x08000079,
+            0x0800007d, 0x08000082, 0x08000087, 0x0800008b, 0x0800008f, 0x08000099, 0x0800009c,
+            0x080000a0, 0x080000a7, 0x080000ab, 0x080000b1, 0x080000b5, 0x080000bb, 0x080000bd,
+            0x080000c1, 0x080000c2,
+        ]);
+        let mut path = IntrpPath::from(v);
+        path.push_info(0x08000074, AddrInfo::new_malloc_call());
+        path.push_info(0x08000082, AddrInfo::new_malloc_call());
+        path.push_info(0x080000c2, AddrInfo::new_return());
+
+        (rz_core, path)
+    }
+
+    fn get_hexagon_malloc_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
+        let icall_o = get_test_bin_path().join("hexagon_malloc.o");
+        let rz_core =
+            RzCoreWrapper::new(init_rizin_instance(icall_o.to_str().expect("Path wrong")));
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.entries", "0x08000060");
+        // Path over main. Not entering dummy_malloc()
+        let v = VecDeque::from(vec![
+            0x08000060, 0x08000064, 0x08000068, 0x0800006c, 0x08000070, 0x08000074, 0x08000078,
+            0x0800007c, 0x08000080, 0x08000084, 0x08000088, 0x08000090, 0x08000098, 0x0800009c,
+            0x080000a0, 0x080000a8, 0x080000ac, 0x080000b4, 0x080000b8, 0x080000c0, 0x080000c4,
+        ]);
+        let mut path = IntrpPath::from(v);
+        path.push_info(0x08000070, AddrInfo::new_malloc_call());
+        path.push_info(0x0800007c, AddrInfo::new_malloc_call());
+        path.push_info(0x080000c4, AddrInfo::new_return());
+
+        (rz_core, path)
+    }
+
     #[test]
     fn test_x86_icall_discover() {
         let (core, path) = get_x86_icall_test();
-        let products = interpret(core, path);
+        let mut all_mos = MemOpSeq::new();
+        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = channel();
+        let products = interpret(core, path, tx);
         let mut call_expected = HashSet::new();
         call_expected.insert(ConcreteCall::new(0x0800005d, 0x080000b0));
         call_expected.insert(ConcreteCall::new(0x0800007a, 0x080000c0));
@@ -131,12 +178,15 @@ mod tests {
         mem_expected.insert(MemXref::new(0x0800007a, 0x080000e8, 8));
         mem_expected.insert(MemXref::new(0x08000097, 0x080000f0, 8));
         assert!(products.mem_xrefs.eq(&mem_expected));
+        all_mos.extend(rx.recv().unwrap());
     }
 
     #[test]
     fn test_hexagon_icall_discover() {
         let (core, path) = get_hexagon_icall_test();
-        let products = interpret(core, path);
+        let mut all_mos = MemOpSeq::new();
+        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
+        let products = interpret(core, path, tx);
         let mut call_expected = HashSet::new();
         call_expected.insert(ConcreteCall::new(0x08000050, 0x08000070));
         call_expected.insert(ConcreteCall::new(0x08000058, 0x08000080));
@@ -169,6 +219,7 @@ mod tests {
         mem_expected.insert(MemXref::new(0x8000054, 0x800009c, 4));
         mem_expected.insert(MemXref::new(0x800005c, 0x80000a0, 4));
         assert!(products.mem_xrefs.eq(&mem_expected));
+        all_mos.extend(rx.recv().unwrap());
     }
 
     #[test]
@@ -216,8 +267,71 @@ mod tests {
         // This is tainted.
         (_, tainted) = u_16_pat.cast(
             64,
-            AbstrVal::new_global(Const::new_u64(0xffff, 16), None, 0),
+            AbstrVal::new_global(1, Const::new_u64(0xffff, 16), None, 0),
         );
         assert!(tainted);
+    }
+
+    #[test]
+    fn test_x86_malloc() {
+        let (core, path) = get_x86_malloc_test();
+        let mut all_mos = MemOpSeq::new();
+        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
+        let products = interpret(core, path, tx);
+        println!("call xrefs");
+        for call in products.concrete_calls.iter() {
+            println!("{}", call);
+        }
+
+        let mut call_expected = HashSet::new();
+        assert!(products.concrete_calls.eq(&call_expected));
+
+        println!("Stack xrefs");
+        for sxref in products.stack_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        let mut stack_expected = HashSet::new();
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        stack_expected.insert(StackXref::new(0x8000060, Const::new_i32(-0x8, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000068, Const::new_i32(-0xc, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000079, Const::new_i32(-0x18, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000087, Const::new_i32(-0x20, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x800008b, Const::new_i32(-0x18, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x800009c, Const::new_i32(-0x18, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000a7, Const::new_i32(-0x20, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000b1, Const::new_i32(-0x20, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000c1, Const::new_i32(-0x8, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000c2, Const::new_i32(0x0, 64), 0x8000060));
+        }
+        assert!(products.stack_xrefs.eq(&stack_expected));
+
+        println!("Mem xrefs");
+        for sxref in products.mem_xrefs.iter() {
+            println!("{}", sxref);
+        }
+        assert!(products.mem_xrefs.is_empty());
+        all_mos.extend(rx.recv().unwrap());
+
+        println!("MOS");
+        for memop in all_mos.iter() {
+            println!("{}", memop);
+        }
+        let mut expected_heap_mos = HashSet::new();
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        expected_heap_mos.insert(MemOp::new(0x800008b, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
+        expected_heap_mos.insert(MemOp::new(0x8000099, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
+        expected_heap_mos.insert(MemOp::new(0x800009c, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
+        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, Const::new_u64(0x8, 64), 0x8000074)));
+        expected_heap_mos.insert(MemOp::new(0x80000a7, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
+        expected_heap_mos.insert(MemOp::new(0x80000ab, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
+        expected_heap_mos.insert(MemOp::new(0x80000b1, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
+        expected_heap_mos.insert(MemOp::new(0x80000b5, AbstrVal::new_heap(1, Const::new_u64(0x4, 64), 0x8000082)));
+        }
+        assert_eq!(all_mos.iter().filter(|x| x.is_heap()).count(), 8);
+        for op in expected_heap_mos.iter() {
+            assert!(all_mos.contains(op), "{} not in MOS", op);
+        }
     }
 }
