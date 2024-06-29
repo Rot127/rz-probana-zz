@@ -27,6 +27,14 @@ fn test_aaaaPb_x86_cfg_test() {
         .lock()
         .unwrap()
         .set_conf_val("plugins.bda.timeout", "5");
+    rz_core
+        .lock()
+        .unwrap()
+        .set_conf_val("plugins.bda.entries", "0x08000040");
+    rz_core
+        .lock()
+        .unwrap()
+        .set_conf_val("plugins.bda.skip_questions", "true");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
@@ -48,6 +56,10 @@ fn test_aaaaPb_hexagon_test_jmp() {
         .lock()
         .unwrap()
         .set_conf_val("plugins.bda.timeout", "5");
+    rz_core
+        .lock()
+        .unwrap()
+        .set_conf_val("plugins.bda.skip_questions", "true");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }
 
@@ -68,5 +80,9 @@ fn test_aaaaPb_hexagon_hello_loop() {
         .lock()
         .unwrap()
         .set_conf_val("plugins.bda.timeout", "5");
+    rz_core
+        .lock()
+        .unwrap()
+        .set_conf_val("plugins.bda.skip_questions", "true");
     rz_analysis_bda_handler(core, 0, std::ptr::null_mut());
 }

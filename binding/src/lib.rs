@@ -220,6 +220,12 @@ impl RzCoreWrapper {
         parse_bda_entry_list(c_to_str(c))
     }
 
+    pub fn get_bda_skip_questions(&self) -> bool {
+        let n = CString::new("plugins.bda.skip_questions").expect("Conversion failed.");
+        let c = unsafe { rz_config_get_b(uderef!(self.ptr).config, n.as_ptr()) };
+        c
+    }
+
     pub fn get_bda_runtime(&self) -> Option<u64> {
         let n = CString::new("plugins.bda.timeout").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };

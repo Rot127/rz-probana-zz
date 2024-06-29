@@ -21,23 +21,6 @@ use crate::{
     state::{run_condition_fulfilled, BDAState},
 };
 
-fn malloc_present(icfg: &ICFG) -> bool {
-    if !icfg.has_malloc() {
-        log_rz!(
-            LOG_WARN,
-            Some("BDA"),
-            "The binary has no memory allocating function symbol.\n\
-            This means BDA will NOT be able to deduct values on the heap.\n\
-            It is highly advisable to identify and name malloc() functions first in the binary.\n"
-                .to_string()
-        );
-        if ask_yes_no("Abort?") {
-            return false;
-        }
-    }
-    true
-}
-
 fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
     let mut passed = (Instant::now() - state.bda_start).as_secs();
     let hours = passed / 3600;
@@ -118,9 +101,25 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         }
     };
 
-    if !malloc_present(icfg) {
-        return;
+    if !icfg.has_malloc() {
+        log_rz!(
+            LOG_WARN,
+            Some("BDA"),
+            "The binary has no memory allocating function symbol.\n\
+            This means BDA will NOT be able to deduct values on the heap.\n\
+            It is highly advisable to identify and name malloc() functions first in the binary.\n"
+                .to_string()
+        );
+        if !core
+            .lock()
+            .expect("Should not be locked")
+            .get_bda_skip_questions()
+            && ask_yes_no("Abort?")
+        {
+            return;
+        }
     }
+
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
 
     let mut nothing_happened = 0;

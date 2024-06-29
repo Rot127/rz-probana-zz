@@ -176,6 +176,17 @@ pub extern "C" fn rz_set_bda_node_dups(core: *mut c_void, node: *mut c_void) -> 
     true
 }
 
+pub extern "C" fn rz_set_bda_skip_questions(core: *mut c_void, node: *mut c_void) -> bool {
+    let _ = core as *mut RzCore;
+    let rz_node = node as *mut RzConfigNode;
+    let s = c_to_str(pderef!(rz_node).value);
+    if s != "true" && s != "false" {
+        log_rz!(LOG_ERROR, None, "Value must be: 'true' or 'false'");
+        return false;
+    }
+    true
+}
+
 pub extern "C" fn rz_set_bda_timeout(core: *mut c_void, node: *mut c_void) -> bool {
     let _ = core as *mut RzCore;
     let rz_node = node as *mut RzConfigNode;
@@ -247,6 +258,15 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
             str_to_c!(
                 "Number of node duplications, when loops with unknown iterations are resolved within CFGs and iCFGs."
             ),
+        );
+        rz_config_node_desc(
+            rz_config_set_cb(
+                pderef!(core).config,
+                str_to_c!("plugins.bda.skip_questions"),
+                str_to_c!("false"),
+                Some(rz_set_bda_skip_questions),
+            ),
+            str_to_c!("Ignore questions and just continue the analysis."),
         );
         rz_config_lock(pderef!(core).config, 1);
     };
