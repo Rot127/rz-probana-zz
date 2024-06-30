@@ -84,6 +84,18 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
     Some(bin_entries)
 }
 
+fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpByProducts>) {
+    for product in products.iter() {
+        state.update_calls(&product.concrete_calls);
+        state.update_mem_xrefs(&product.mem_xrefs);
+        state.update_stack_xrefs(&product.stack_xrefs);
+        // Update iCFG with resolved calls
+        // Recalculate weight.
+        // Report mem vals
+    }
+    products.clear();
+}
+
 /// Runs the BDA analysis by sampleing paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
@@ -132,7 +144,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     let mut threads: HashMap<usize, JoinHandle<IntrpByProducts>> = HashMap::new();
     let mut all_mos = MemOpSeq::new();
     let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = channel();
-    while run_condition_fulfilled(&state) {
+    loop {
         spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads
         for tid in 0..state.num_threads {
@@ -169,24 +181,30 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         }
         if nothing {
             nothing_happened += 1;
+        } else {
+            paths_walked += products.len();
         }
-        for product in products.iter() {
-            paths_walked += 1;
-            state.update_calls(&product.concrete_calls);
-            state.update_mem_xrefs(&product.mem_xrefs);
-            state.update_stack_xrefs(&product.stack_xrefs);
-            // Update iCFG with resolved calls
-            // Recalculate weight.
-            // Report mem vals
-        }
-        products.clear();
+        move_products_to_state(state, &mut products);
         if let Ok(mem_ops) = rx.try_recv() {
             all_mos.extend(mem_ops);
+        }
+        if !run_condition_fulfilled(&state) {
+            for tid in 0..state.num_threads {
+                if !threads.get(&tid).is_none() {
+                    let thread = threads.remove(&tid).unwrap();
+                    match thread.join() {
+                        Err(_) => {}
+                        Ok(r) => products.push(r),
+                    };
+                }
+            }
+            move_products_to_state(state, &mut products);
+            break;
         }
     }
     spinner.done(get_bda_status(state, paths_walked));
     println!(
-        "Lazy factor: {}/{} = {}",
+        "Lazy factor (nothing/thread_handled): {}/{} = {}",
         nothing_happened,
         handled_thread,
         nothing_happened as f64 / handled_thread as f64
