@@ -1294,7 +1294,11 @@ impl AbstrVM {
             .get(&RzRegisterId_RZ_REG_NAME_SP)
             .expect("SP must be defined in register profile.")
             .clone();
-        self.set_varg(&sp_name, av);
+        self.set_varg(&sp_name, av.clone());
+        let sp_tmp = format!("{}_tmp", sp_name);
+        if self.gvars.contains_key(&sp_tmp) {
+            self.set_varg(&sp_tmp, av);
+        }
     }
 
     /// Resets the stack pointer to a new base.
