@@ -241,15 +241,15 @@ fn sample_cfg_path(
                     }
                 });
             call_targets.for_each(|ct| {
-                if !icfg.has_procedure(&ct) {
-                    // Likely a dynamically linked procedure.
-                    return;
-                }
                 if icfg.is_malloc(&ct) {
                     ninfo.calls_malloc = true;
                 }
                 if icfg.is_input(&ct) {
                     ninfo.calls_input = true;
+                }
+                if !icfg.has_procedure(&ct) {
+                    // Likely a dynamically linked procedure.
+                    return;
                 }
                 let entry = icfg
                     .get_procedure(&ct)
