@@ -1029,8 +1029,8 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     let norm_k = vm.normalize_val(key);
     // We assume for now a size of 8 bytes. Just as rz_il_mem_value_len() does.
     let size = 8;
-    let v = vm.get_mem_val(&norm_k, size);
-    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    let (v, is_sampled) = vm.get_mem_val(&norm_k, size);
+    let norm_t = key_t || vm.get_taint_flag(&norm_k) || is_sampled;
     vm.set_taint_flag(&norm_k, norm_t);
     vm.enqueue_mos(&v);
     if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
@@ -1050,8 +1050,8 @@ fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal
     let key = k.unwrap();
     let key_t = vm.get_taint_flag(&key);
     let norm_k = vm.normalize_val(key);
-    let v = vm.get_mem_val(&norm_k, n_bytes as usize);
-    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    let (v, is_sampled) = vm.get_mem_val(&norm_k, n_bytes as usize);
+    let norm_t = key_t || vm.get_taint_flag(&norm_k) | is_sampled;
     vm.set_taint_flag(&norm_k, norm_t);
     vm.enqueue_mos(&v);
     if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {

@@ -1164,19 +1164,27 @@ impl AbstrVM {
     /// MS map. If this fails it panics for Heap and Stack values. But attempts to read [n_bytes]
     /// from the memory mapped in Rizins IO.
     /// If [n_bytes] == 0, it panics as well.
-    pub fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> AbstrVal {
+    /// Returns the new Abstract value and if it was sampled.
+    pub fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, bool) {
         if let Some(v) = self.ms.get(key) {
             println!("LOAD: AT: {} -> {}", key, v);
-            return v.clone();
+            return (v.clone(), false);
         }
-        if !key.is_global() || n_bytes == 0 {
-            panic!("No value saved for: {}", key);
+        if n_bytes == 0 {
+            panic!("Cannot read 0 bytes for: {}", key);
+        }
+        let mut is_sampled = false;
+        if !key.is_global() {
+            is_sampled = true;
         }
         let gmem_val = Const::new_u64(
             self.read_io_at_u64(key.get_as_addr(), n_bytes),
             (n_bytes * 8) as u64,
         );
-        AbstrVal::new_global(self.get_pc_ic(), gmem_val, None, self.get_pc())
+        (
+            AbstrVal::new_global(self.get_pc_ic(), gmem_val, None, self.get_pc()),
+            is_sampled,
+        )
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
