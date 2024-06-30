@@ -241,6 +241,10 @@ fn sample_cfg_path(
                     }
                 });
             call_targets.for_each(|ct| {
+                if !icfg.has_procedure(&ct) {
+                    // Likely a dynamically linked procedure.
+                    return;
+                }
                 if icfg.is_malloc(&ct) {
                     ninfo.calls_malloc = true;
                 }
