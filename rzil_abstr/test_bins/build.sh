@@ -4,8 +4,12 @@
 echo "Compile x86 binaries"
 clang -c -o x86_icall.o icall.c
 clang -c -o x86_malloc.o malloc.c
+clang -c -o x86_icall_malloc.o icall_malloc.c
+clang -c -o x86_discover_recurse_cfg.o discover_recurse_cfg.c
 
 echo "Compile Hexagon binaries"
 hexagon-unknown-linux-musl-clang -c -O1 -o hexagon_icall.o icall.c
 hexagon-unknown-linux-musl-clang -c -O0 -o hexagon_malloc.o malloc.c
+hexagon-unknown-linux-musl-clang -c -O0 -o hexagon_icall_malloc.o icall_malloc.c
+hexagon-unknown-linux-musl-clang -c -O0 -o hexagon_discover_recurse_cfg.o discover_recurse_cfg.c
 
