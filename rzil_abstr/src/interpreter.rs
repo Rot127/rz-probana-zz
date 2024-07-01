@@ -107,18 +107,29 @@ impl Const {
     /// Returns the BigInt of this constant
     pub fn v(&self) -> BigInt {
         let target_byte_w: usize = ((self.width() + 7) >> 3) as usize;
+        if target_byte_w == 0 {
+            return BigInt::ZERO;
+        }
 
-        let v = self.v.to_bytes_be();
-        let mut be_bytes = vec![
+        let v = self.v.to_bytes_le();
+        let mut le_bytes = vec![
             if self.v.bit(self.width() - 1) {
                 0xffu8
             } else {
                 0x00u8
             };
-            target_byte_w - v.len()
+            target_byte_w
         ];
-        be_bytes.extend_from_slice(v.as_slice());
-        let result = BigInt::from_signed_bytes_be(be_bytes.as_slice());
+        for (i, vbyte) in v.iter().enumerate() {
+            if let Some(byte) = le_bytes.get_mut(i) {
+                *byte = if *byte == 0xffu8 {
+                    *byte & *vbyte
+                } else {
+                    *byte | *vbyte
+                }
+            }
+        }
+        let result = BigInt::from_signed_bytes_le(le_bytes.as_slice());
         result
     }
 

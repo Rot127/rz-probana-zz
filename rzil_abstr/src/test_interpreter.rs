@@ -260,6 +260,11 @@ mod tests {
         assert_eq!(casted.vu(), 0xffffffffffffffffu64.to_biguint().unwrap());
         assert_eq!(casted.v(), -1.to_bigint().unwrap());
 
+        (casted, tainted) = u_32_max.cast(0, AbstrVal::new_false());
+        assert!(!tainted);
+        assert_eq!(casted.vu(), 0x0u64.to_biguint().unwrap());
+        assert_eq!(casted.v(), 0.to_bigint().unwrap());
+
         let u_16_half = Const::new_u64(0xffff, 16);
         assert_eq!(u_16_half.vu(), 0xffffu16.to_biguint().unwrap());
         assert_eq!(u_16_half.v(), -1.to_bigint().unwrap());
