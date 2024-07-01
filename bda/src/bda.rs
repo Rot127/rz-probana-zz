@@ -221,6 +221,10 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     for ic in state.stack_xrefs.iter() {
         println!("{}", ic);
     }
+    println!("MOS");
+    for ic in state.mos.iter() {
+        println!("{}", ic);
+    }
     let mut term_reason = "";
     if state.bda_timed_out() {
         term_reason = "timeout";
