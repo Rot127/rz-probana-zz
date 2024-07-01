@@ -163,7 +163,11 @@ fn select_branch(mut weights: VecDeque<WeightID>, wmap: &RwLock<WeightMap>) -> u
         choice_app.push_back(weights.pop_front().unwrap());
         let w_choice = approximate_weights(&choice_app, wmap);
         let w_rest = approximate_weights(&weights, wmap);
-        let n = w_choice.exp - w_rest.exp;
+        let n = if w_choice.exp < w_rest.exp {
+            0
+        } else {
+            w_choice.exp - w_rest.exp
+        };
         if n >= 64 {
             for _ in 0..n {
                 if rng.gen_bool(0.5) {
