@@ -282,6 +282,29 @@ pub fn get_paper_example_icfg() -> (ICFG, RwLock<WeightMap>) {
     (icfg, wmapo)
 }
 
+/// Entry node is part of loop
+/// 0 ---> 1 ----> 2
+///  <----
+pub fn get_entry_loop_cfg() -> CFG {
+    let mut cfg = CFG::new();
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    cfg.add_edge(
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0), NodeId::new(0, 0, 2))),
+    );
+    cfg.add_edge(
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 0))),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+    );
+    cfg.add_edge(
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 0))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+    );
+    }
+    cfg
+}
+
 pub fn get_icfg_with_selfref_and_recurse_cfg() -> ICFG {
     let mut icfg = ICFG::new();
     let cfg_recurse_selfref = get_cfg_self_ref_call();

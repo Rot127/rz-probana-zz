@@ -18,7 +18,7 @@ mod tests {
             get_cfg_no_loop_sub_routine, get_cfg_no_loop_sub_routine_loop_ret,
             get_cfg_self_ref_loop, get_cfg_simple_loop, get_cfg_simple_loop_extra_nodes,
             get_cfg_single_node, get_cfg_single_self_ref, get_endless_loop_cfg,
-            get_endless_loop_icfg, get_endless_loop_icfg_branch, get_gee_cfg,
+            get_endless_loop_icfg, get_endless_loop_icfg_branch, get_entry_loop_cfg, get_gee_cfg,
             get_icfg_with_selfref_and_recurse_cfg, get_main_cfg, get_paper_example_cfg_loop,
             get_paper_example_icfg, get_unset_indirect_call_to_0_cfg, FOO_ADDR, GEE_ADDR,
             LINEAR_CFG_ENTRY, MAIN_ADDR, SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL,
@@ -590,6 +590,21 @@ mod tests {
         assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_1), false);
         // Node doesn't exit.
         assert_eq!(CFG::check_self_ref_hold(&edges, &node_0, &node_2), false);
+    }
+
+    #[test]
+    fn test_entry_loop_cfg() {
+        // Check if after making a graph acyclic, where the entry node is part of a loop,
+        // the entry is still the same.
+        let wmap = &WeightMap::new();
+        let mut cfg = get_entry_loop_cfg();
+        cfg.make_acyclic(wmap, None);
+        println!("{:?}", Dot::with_config(&cfg.graph, &[]));
+        assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 4, wmap);
+        assert_eq!(cfg.get_entry(), NodeId::new(0, 0, 0));
+        assert_eq!(cfg.graph.edge_count(), 11);
+        assert_eq!(cfg.graph.node_count(), 9);
+        assert_eq!(cfg.nodes_meta.len(), 9);
     }
 
     #[test]

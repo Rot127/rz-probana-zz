@@ -520,6 +520,9 @@ impl CFG {
         }
         if from.1.has_entry() {
             self.entry = from.0;
+            // The entry of a CFG is always the original CFG node.
+            // Never a clone.
+            self.entry.cfg_clone_id = 0;
         }
         if !self.nodes_meta.contains_key(&from.0) {
             self.nodes_meta.insert(from.0, from.1);
