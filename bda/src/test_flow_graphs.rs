@@ -152,7 +152,7 @@ mod tests {
         // Add a cloned edge from main -> foo'()
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        icfg.add_edge(
+        icfg.add_edge_test(
             (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(None, false, false)),
             (NodeId::new(0, 0, FOO_ADDR), Procedure::new(None, false, false)),
 );

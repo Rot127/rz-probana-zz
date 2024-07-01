@@ -100,7 +100,7 @@ impl ICFG {
 
     /// Adds an edge to the graph.
     /// The edge is only added once.
-    pub fn add_edge(&mut self, from: (NodeId, Procedure), to: (NodeId, Procedure)) {
+    pub fn add_edge_test(&mut self, from: (NodeId, Procedure), to: (NodeId, Procedure)) {
         // Check if a procedure is located at the actual address.
         if !self.procedures.contains_key(&from.0) {
             if !from.1.is_cfg_set() {
