@@ -274,7 +274,8 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) 
             unsafe { rz_core_graph_cfg(rz_core, n.address) }
         };
         if rz_cfg.is_null() {
-            panic!("A value for an CFG was NULL");
+            log_rz!(LOG_WARN, Some("BDA"), "A value for an CFG was NULL");
+            continue;
         }
         icfg.add_procedure(
             n,
