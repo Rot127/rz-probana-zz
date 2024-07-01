@@ -179,9 +179,13 @@ fn select_branch(mut weights: VecDeque<WeightID>, wmap: &RwLock<WeightMap>) -> u
                 return candidate;
             }
         } else {
-            let r: usize = rng
-                .gen_range(0..(w_choice.sig * u64::pow(2, n as u32) + w_rest.sig as u64) as usize);
-            if r >= w_rest.sig as usize {
+            let r: u64 = rng.gen_range(
+                0..(w_choice
+                    .sig
+                    .saturating_mul(u64::pow(2, n as u32))
+                    .saturating_add(w_rest.sig)),
+            );
+            if r >= w_rest.sig {
                 return candidate;
             }
         }
