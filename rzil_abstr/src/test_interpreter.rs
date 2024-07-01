@@ -15,8 +15,8 @@ mod tests {
     use num_bigint::{ToBigInt, ToBigUint};
 
     use crate::interpreter::{
-        interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, MemOp, MemOpSeq, MemXref,
-        StackXref,
+        interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, IntrpProducts, MemOp,
+        MemXref, StackXref,
     };
 
     // Rizin is not thread safe. If multiple RzCore are initialized and used in parallel, everything breaks.
@@ -128,9 +128,14 @@ mod tests {
         }
 
         let (core, path) = get_x86_icall_test();
-        let mut all_mos = MemOpSeq::new();
-        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = channel();
-        let products = interpret(core, path, tx);
+        let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
+        interpret(core, path, tx);
+        let products: IntrpProducts;
+        if let Ok(prods) = rx.try_recv() {
+            products = prods;
+        } else {
+            panic!("Received no products.");
+        }
         let mut call_expected = HashSet::new();
         call_expected.insert(ConcreteCall::new(0x0800005d, 0x080000b0));
         call_expected.insert(ConcreteCall::new(0x0800007a, 0x080000c0));
@@ -186,7 +191,6 @@ mod tests {
         mem_expected.insert(MemXref::new(0x0800007a, 0x080000e8, 8));
         mem_expected.insert(MemXref::new(0x08000097, 0x080000f0, 8));
         assert!(products.mem_xrefs.eq(&mem_expected));
-        all_mos.extend(rx.recv().unwrap());
     }
 
     #[test]
@@ -197,9 +201,14 @@ mod tests {
         }
 
         let (core, path) = get_hexagon_icall_test();
-        let mut all_mos = MemOpSeq::new();
-        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
-        let products = interpret(core, path, tx);
+        let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
+        interpret(core, path, tx);
+        let products: IntrpProducts;
+        if let Ok(prods) = rx.try_recv() {
+            products = prods;
+        } else {
+            panic!("Received no products.");
+        }
         let mut call_expected = HashSet::new();
         call_expected.insert(ConcreteCall::new(0x08000050, 0x08000070));
         call_expected.insert(ConcreteCall::new(0x08000058, 0x08000080));
@@ -232,7 +241,6 @@ mod tests {
         mem_expected.insert(MemXref::new(0x8000054, 0x800009c, 4));
         mem_expected.insert(MemXref::new(0x800005c, 0x80000a0, 4));
         assert!(products.mem_xrefs.eq(&mem_expected));
-        all_mos.extend(rx.recv().unwrap());
     }
 
     #[test]
@@ -303,9 +311,14 @@ mod tests {
         }
 
         let (core, path) = get_x86_malloc_test();
-        let mut all_mos = MemOpSeq::new();
-        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
-        let products = interpret(core, path, tx);
+        let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
+        interpret(core, path, tx);
+        let products: IntrpProducts;
+        if let Ok(prods) = rx.try_recv() {
+            products = prods;
+        } else {
+            panic!("Received no products.");
+        }
         println!("call xrefs");
         for call in products.concrete_calls.iter() {
             println!("{}", call);
@@ -339,10 +352,9 @@ mod tests {
             println!("{}", sxref);
         }
         assert!(products.mem_xrefs.is_empty());
-        all_mos.extend(rx.recv().unwrap());
 
         println!("MOS");
-        for memop in all_mos.iter() {
+        for memop in products.mos.iter() {
             println!("{}", memop);
         }
         let mut expected_heap_mos = HashSet::new();
@@ -357,9 +369,9 @@ mod tests {
         expected_heap_mos.insert(MemOp::new(0x80000b1, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
         expected_heap_mos.insert(MemOp::new(0x80000b5, AbstrVal::new_heap(1, Const::new_u64(0x4, 64), 0x8000082)));
         }
-        assert_eq!(all_mos.iter().filter(|x| x.is_heap()).count(), 8);
+        assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 8);
         for op in expected_heap_mos.iter() {
-            assert!(all_mos.contains(op), "{} not in MOS", op);
+            assert!(products.mos.contains(op), "{} not in MOS", op);
         }
     }
 
@@ -371,9 +383,14 @@ mod tests {
         }
 
         let (core, path) = get_hexagon_malloc_test();
-        let mut all_mos = MemOpSeq::new();
-        let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = std::sync::mpsc::channel();
-        let products = interpret(core, path, tx);
+        let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
+        interpret(core, path, tx);
+        let products: IntrpProducts;
+        if let Ok(prods) = rx.try_recv() {
+            products = prods;
+        } else {
+            panic!("Received no products.");
+        }
         let call_expected = HashSet::new();
         assert!(products.concrete_calls.eq(&call_expected));
 
@@ -403,9 +420,8 @@ mod tests {
         let mem_expected = HashSet::new();
         assert!(products.mem_xrefs.eq(&mem_expected));
 
-        all_mos.extend(rx.recv().unwrap());
         println!("MOS");
-        for memop in all_mos.iter() {
+        for memop in products.mos.iter() {
             println!("{}", memop);
         }
         let mut expected_heap_mos = HashSet::new();
@@ -420,9 +436,9 @@ mod tests {
         expected_heap_mos.insert(MemOp::new(0x80000b4, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
         expected_heap_mos.insert(MemOp::new(0x80000b8, AbstrVal::new_heap(1, Const::new_u64(0x4, 32), 0x800007c)));
         }
-        assert_eq!(all_mos.iter().filter(|x| x.is_heap()).count(), 8);
+        assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 8);
         for op in expected_heap_mos.iter() {
-            assert!(all_mos.contains(op), "{} not in MOS", op);
+            assert!(products.mos.contains(op), "{} not in MOS", op);
         }
     }
 }

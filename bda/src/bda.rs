@@ -11,7 +11,7 @@ use std::{
 use binding::{log_rizin, log_rz, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
-use rzil_abstr::interpreter::{interpret, IntrpByProducts, MemOpSeq};
+use rzil_abstr::interpreter::{interpret, IntrpProducts};
 
 use crate::{
     bda_binding::get_bin_entries,
@@ -84,16 +84,19 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
     Some(bin_entries)
 }
 
-fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpByProducts>) {
+fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts>) {
     for product in products.iter() {
         state.update_calls(&product.concrete_calls);
         state.update_mem_xrefs(&product.mem_xrefs);
         state.update_stack_xrefs(&product.stack_xrefs);
-        // Update iCFG with resolved calls
-        // Recalculate weight.
-        // Report mem vals
     }
     products.clear();
+}
+
+fn update_icfg(_icfg: &mut ICFG, _products: &[IntrpProducts]) {
+    // Update iCFG with resolved calls
+    // Recalculate weight.
+    // todo!()
 }
 
 /// Runs the BDA analysis by sampleing paths within the iCFG and performing
@@ -140,10 +143,9 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     let mut spinner = Spinner::new("".to_string());
     let mut paths_walked = 0;
     let mut rng = thread_rng();
-    let mut products: Vec<IntrpByProducts> = Vec::new();
-    let mut threads: HashMap<usize, JoinHandle<IntrpByProducts>> = HashMap::new();
-    let mut all_mos = MemOpSeq::new();
-    let (tx, rx): (Sender<MemOpSeq>, Receiver<MemOpSeq>) = channel();
+    let mut products: Vec<IntrpProducts> = Vec::new();
+    let mut threads: HashMap<usize, JoinHandle<_>> = HashMap::new();
+    let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
     loop {
         spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads
@@ -173,35 +175,38 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
                 nothing = false;
                 handled_thread += 1;
                 let thread = threads.remove(&tid).unwrap();
-                match thread.join() {
-                    Err(_) => panic!("Thread failed."),
-                    Ok(r) => products.push(r),
-                };
+                if let Err(_) = thread.join() {
+                    panic!("Thread failed.");
+                }
             }
         }
         if nothing {
             nothing_happened += 1;
         } else {
-            paths_walked += products.len();
+            paths_walked += 1;
         }
+        if let Ok(prods) = rx.try_recv() {
+            products.push(prods);
+        }
+        update_icfg(icfg, &products);
         move_products_to_state(state, &mut products);
-        if let Ok(mem_ops) = rx.try_recv() {
-            all_mos.extend(mem_ops);
-        }
         if !run_condition_fulfilled(&state) {
             for tid in 0..state.num_threads {
                 if !threads.get(&tid).is_none() {
                     let thread = threads.remove(&tid).unwrap();
-                    match thread.join() {
-                        Err(_) => {}
-                        Ok(r) => products.push(r),
-                    };
+                    if let Err(_) = thread.join() {
+                        panic!("Thread failed.");
+                    }
                 }
             }
-            move_products_to_state(state, &mut products);
+            if let Ok(prods) = rx.try_recv() {
+                products.push(prods);
+                move_products_to_state(state, &mut products);
+            }
             break;
         }
     }
+    // Report mem values to Rizin
     spinner.done(get_bda_status(state, paths_walked));
     println!(
         "Lazy factor (nothing/thread_handled): {}/{} = {}",

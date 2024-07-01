@@ -629,7 +629,7 @@ impl AbstrVal {
 type AbstrOp2 = fn(v1: &Const, v2: &Const) -> Const;
 type AbstrOp1 = fn(v1: &Const) -> Const;
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MemOp {
     /// Address of the memory instruction
     addr: Address,
@@ -683,19 +683,21 @@ type CallStack = Vec<CallFrame>;
 
 /// Resulting by-products of the abstract interpretation.
 #[derive(Debug)]
-pub struct IntrpByProducts {
+pub struct IntrpProducts {
     /// Indirect calls resolved during interpretation
     pub concrete_calls: HashSet<ConcreteCall>,
     pub mem_xrefs: HashSet<MemXref>,
     pub stack_xrefs: HashSet<StackXref>,
+    pub mos: MemOpSeq,
 }
 
-impl IntrpByProducts {
-    pub fn new() -> IntrpByProducts {
-        IntrpByProducts {
+impl IntrpProducts {
+    pub fn new() -> IntrpProducts {
+        IntrpProducts {
             concrete_calls: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
+            mos: MemOpSeq::new(),
         }
     }
 }
@@ -1379,31 +1381,28 @@ impl AbstrVM {
     }
 }
 
-/// Interprets the given path with the given interpeter VM.
-pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<MemOpSeq>) -> IntrpByProducts {
+/// Interprets the given path with the given interpreter VM.
+pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
     let mut vm = AbstrVM::new(rz_core, path.get(0), path);
     if !vm.init_register_file(vm.get_rz_core().clone()) {
-        return IntrpByProducts {
-            concrete_calls: HashSet::new(),
-            mem_xrefs: HashSet::new(),
-            stack_xrefs: HashSet::new(),
-        };
+        return;
     }
 
     while vm.step() {}
 
-    if let Err(_) = tx.send(vm.mos) {
+    // Replace with Channel and send/rcv
+    let products = IntrpProducts {
+        concrete_calls: vm.calls_xref.into(),
+        mem_xrefs: vm.mem_xrefs.into(),
+        stack_xrefs: vm.stack_xrefs.into(),
+        mos: vm.mos.into(),
+    };
+
+    if let Err(_) = tx.send(products) {
         log_rz!(
             LOG_ERROR,
             None,
             "Interpreter could not send data. Main thread hangs"
         );
-    }
-
-    // Replace with Channel and send/rcv
-    IntrpByProducts {
-        concrete_calls: vm.calls_xref.into(),
-        mem_xrefs: vm.mem_xrefs.into(),
-        stack_xrefs: vm.stack_xrefs.into(),
     }
 }
