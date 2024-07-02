@@ -13,10 +13,10 @@ use crate::state::BDAState;
 use binding::{
     cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef,
     rz_analysis_function_is_input, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
-    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_cfg,
-    rz_core_graph_cfg_iwords, rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error,
-    GRzCore, RzAnalysis, RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph,
-    RzGraphNode, RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t,
+    rz_graph_free, rz_notify_error, GRzCore, RzBinAddr, RzBinFile, RzCmdStatus, RzCore,
+    RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
@@ -239,8 +239,36 @@ fn guarded_rz_core_graph_icfg(core: GRzCore) -> *mut RzGraph {
     unsafe { rz_core_graph_icfg(c.ptr) }
 }
 
-pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) {
-    let core = RzCoreWrapper::new(rz_core);
+/// Sets up a procedure by pulling all relevant data
+/// from Rizin and initializing the Procedure struct.
+pub fn setup_procedure_from_addr(core: &RzCoreWrapper, address: Address) -> Option<Procedure> {
+    let rz_cfg = core.get_rz_cfg(address);
+    if rz_cfg.is_null() {
+        log_rz!(LOG_WARN, Some("BDA"), "A value for an CFG was NULL");
+        return None;
+    }
+    let mut cfg = CFG::new_graph(get_graph(rz_cfg));
+    set_cfg_node_data(&mut cfg, rz_cfg);
+    let proc = Procedure::new(
+        Some(cfg.to_owned()),
+        unsafe {
+            rz_analysis_function_is_malloc(rz_analysis_get_function_at(
+                core.get_analysis(),
+                address,
+            ))
+        },
+        unsafe {
+            rz_analysis_function_is_input(rz_analysis_get_function_at(core.get_analysis(), address))
+        },
+    );
+    unsafe {
+        rz_graph_free(rz_cfg);
+    }
+    return Some(proc);
+}
+
+pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
+    let core: GRzCore = RzCoreWrapper::new(rz_core);
     let rz_icfg = guarded_rz_core_graph_icfg(core.clone());
     if rz_icfg.is_null() {
         log_rz!(LOG_ERROR, Some("BDA"), "No iCFG present.".to_string());
@@ -267,40 +295,14 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t, a: *mut RzAnalysis) 
     let mut progress_bar = ProgressBar::new(String::from("Transfer CFGs"), nodes.len());
     let mut done = 0;
     for n in nodes {
-        let get_iword_cfg = pderef!(pderef!(a).cur).decode_iword.is_some();
-        let rz_cfg = if get_iword_cfg {
-            unsafe { rz_core_graph_cfg_iwords(rz_core, n.address) }
+        if let Some(proc) = setup_procedure_from_addr(&core.lock().unwrap(), n.address) {
+            icfg.add_procedure(n, proc);
         } else {
-            unsafe { rz_core_graph_cfg(rz_core, n.address) }
-        };
-        if rz_cfg.is_null() {
-            log_rz!(LOG_WARN, Some("BDA"), "A value for an CFG was NULL");
-            continue;
-        }
-        icfg.add_procedure(
-            n,
-            Procedure::new(
-                Some(CFG::new_graph(get_graph(rz_cfg))),
-                unsafe {
-                    rz_analysis_function_is_malloc(rz_analysis_get_function_at(
-                        a as *mut RzAnalysis,
-                        n.address,
-                    ))
-                },
-                unsafe {
-                    rz_analysis_function_is_input(rz_analysis_get_function_at(
-                        a as *mut RzAnalysis,
-                        n.address,
-                    ))
-                },
-            ),
-        );
-        set_cfg_node_data(
-            icfg.get_procedure(&n).write().unwrap().get_cfg_mut(),
-            rz_cfg,
-        );
-        unsafe {
-            rz_graph_free(rz_cfg);
+            log_rz!(
+                LOG_WARN,
+                Some("BDA"),
+                format!("Did not add CFG located at {:#x}", n.address)
+            )
         }
         done += 1;
         progress_bar.update_print(done, None);
@@ -326,6 +328,6 @@ pub extern "C" fn rz_analysis_bda_handler(
         );
         return rz_cmd_status_t_RZ_CMD_STATUS_ERROR;
     }
-    run_bda_analysis(core, pderef!(core).analysis);
+    run_bda_analysis(core);
     rz_cmd_status_t_RZ_CMD_STATUS_ERROR
 }

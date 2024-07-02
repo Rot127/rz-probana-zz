@@ -14,7 +14,8 @@ use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, IntrpProducts};
 
 use crate::{
-    bda_binding::get_bin_entries,
+    bda_binding::{get_bin_entries, setup_procedure_from_addr},
+    cfg::Procedure,
     flow_graphs::{Address, NodeId},
     icfg::ICFG,
     path_sampler::sample_path,
@@ -93,13 +94,50 @@ fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts
     products.clear();
 }
 
-fn update_icfg(_icfg: &mut ICFG, _products: &[IntrpProducts]) {
-    // Update iCFG with resolved calls
-    // Recalculate weight.
-    // todo!()
+/// Updates the iCFG with newly discovered calls.
+fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &[IntrpProducts]) {
+    let mut call_added = false;
+    products.iter().for_each(|prod| {
+        for code_xref in prod.concrete_calls.iter() {
+            let proc_addr = NodeId::from(code_xref.get_proc_addr());
+            let from = NodeId::from(code_xref.get_from());
+            let to = NodeId::from(code_xref.get_to());
+            let procedure_from: Option<Procedure> = if icfg.has_procedure(&proc_addr) {
+                None
+            } else {
+                setup_procedure_from_addr(&core.lock().unwrap(), proc_addr.address)
+            };
+            if procedure_from.is_none() && !icfg.has_procedure(&proc_addr) {
+                log_rz!(
+                    LOG_WARN,
+                    Some("BDA"),
+                    format!("Could not initialize procedure at {}", proc_addr)
+                );
+                continue;
+            }
+            let procedure_to: Option<Procedure> = if icfg.has_procedure(&to) {
+                None
+            } else {
+                setup_procedure_from_addr(&core.lock().unwrap(), from.address)
+            };
+            if procedure_to.is_none() && !icfg.has_procedure(&to) {
+                log_rz!(
+                    LOG_WARN,
+                    Some("BDA"),
+                    format!("Could not initialize procedure at {}", to)
+                );
+                continue;
+            }
+            icfg.add_edge((proc_addr, procedure_from), (to, procedure_to), Some(from));
+            call_added = true;
+        }
+    });
+    if call_added {
+        icfg.resolve_loops(1, state.get_weight_map());
+    }
 }
 
-/// Runs the BDA analysis by sampleing paths within the iCFG and performing
+/// Runs the BDA analysis by sampling paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
 pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
@@ -188,7 +226,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         if let Ok(prods) = rx.try_recv() {
             products.push(prods);
         }
-        update_icfg(icfg, &products);
+        update_icfg(core.clone(), state, icfg, &products);
         move_products_to_state(state, &mut products);
         if !run_condition_fulfilled(&state) {
             for tid in 0..state.num_threads {

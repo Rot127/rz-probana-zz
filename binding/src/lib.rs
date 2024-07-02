@@ -324,6 +324,15 @@ impl RzCoreWrapper {
         pderef!(self.ptr).analysis
     }
 
+    pub fn get_rz_cfg(&self, address: u64) -> *mut RzGraph {
+        let is_iword_arch = pderef!(self.get_cur()).decode_iword.is_some();
+        if is_iword_arch {
+            unsafe { rz_core_graph_cfg_iwords(self.ptr, address) }
+        } else {
+            unsafe { rz_core_graph_cfg(self.ptr, address) }
+        }
+    }
+
     pub fn get_cur(&self) -> *mut rz_analysis_plugin_t {
         pderef!(self.get_analysis()).cur
     }

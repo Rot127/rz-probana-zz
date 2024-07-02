@@ -1169,7 +1169,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // So we only check for calls to input and malloc
     // functions.
     if vm.pc_is_call() {
-        vm.add_call_xref(addr);
+        vm.add_call_xref(vm.get_entry(), addr);
         vm.call_stack_push(addr);
     }
     true

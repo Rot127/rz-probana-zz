@@ -24,7 +24,7 @@ use crate::op_handler::eval_effect;
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 pub type Address = u64;
 
-const INVALID_ADDRESS: u64 = u64::MAX;
+const MAX_ADDRESS: u64 = u64::MAX;
 
 #[derive(Clone, Debug, Hash)]
 pub struct Const {
@@ -349,6 +349,8 @@ impl IntrpPath {
 /// Those can be discovered, if only constant value were used to define the call target.
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
 pub struct ConcreteCall {
+    /// The address of the procedure this call occurs.
+    proc_addr: Address,
     /// The caller
     from: Address,
     /// The callee
@@ -356,8 +358,24 @@ pub struct ConcreteCall {
 }
 
 impl ConcreteCall {
-    pub fn new(from: Address, to: Address) -> Self {
-        Self { from, to }
+    pub fn new(proc_addr: Address, from: Address, to: Address) -> Self {
+        Self {
+            proc_addr,
+            from,
+            to,
+        }
+    }
+
+    pub fn get_proc_addr(&self) -> Address {
+        self.proc_addr
+    }
+
+    pub fn get_from(&self) -> Address {
+        self.from
+    }
+
+    pub fn get_to(&self) -> Address {
+        self.to
     }
 }
 
@@ -718,6 +736,8 @@ pub struct AbstrVM {
     rt: HashMap<String, bool>,
     /// Path
     pa: IntrpPath,
+    /// Entry point of path (the CFG)
+    entry: Address,
     /// Call stack
     cs: CallStack,
     /// The resulting memory operand sequences of the interpretation
@@ -768,6 +788,7 @@ impl AbstrVM {
             mt: HashMap::new(),
             rt: HashMap::new(),
             pa: path,
+            entry: pc,
             cs: CallStack::new(),
             mos: MemOpSeq::new(),
             gvars: HashMap::new(),
@@ -808,8 +829,15 @@ impl AbstrVM {
         false
     }
 
-    pub fn add_call_xref(&mut self, to: Address) {
-        self.calls_xref.insert(ConcreteCall { from: self.pc, to });
+    pub fn add_call_xref(&mut self, proc_addr: Address, to: Address) {
+        if to == MAX_ADDRESS {
+            return;
+        }
+        self.calls_xref.insert(ConcreteCall {
+            proc_addr,
+            from: self.pc,
+            to,
+        });
     }
 
     pub fn add_mem_xref(&mut self, to: Address, size: u64) {
@@ -877,7 +905,7 @@ impl AbstrVM {
             return;
         }
         av.il_gvar = Some(name.to_string());
-        println!("SET: {} -> {}", name, av);
+        // println!("SET: {} -> {}", name, av);
         self.gvars.insert(name.to_owned(), av);
     }
 
@@ -928,7 +956,7 @@ impl AbstrVM {
         } else {
             return false;
         }
-        println!("pc = {:#x}", self.pc);
+        // println!("pc = {:#x}", self.pc);
 
         *self.ic.entry(self.pc).or_default() += 1;
 
@@ -1180,7 +1208,7 @@ impl AbstrVM {
     /// Returns the new Abstract value and if it was sampled.
     pub fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, bool) {
         if let Some(v) = self.ms.get(key) {
-            println!("LOAD: AT: {} -> {}", key, v);
+            // println!("LOAD: AT: {} -> {}", key, v);
             return (v.clone(), false);
         }
         if n_bytes == 0 {
@@ -1201,7 +1229,7 @@ impl AbstrVM {
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
-        println!("STORE: AT {} => {} ", key, val);
+        // println!("STORE: AT {} => {} ", key, val);
         self.ms.insert(key.clone(), val);
     }
 
@@ -1251,7 +1279,7 @@ impl AbstrVM {
             sp: self.get_sp(),
         };
         self.rebase_sp(proc_addr);
-        println!("PUSH: {}", cf);
+        // println!("PUSH: {}", cf);
         self.cs.push(cf);
     }
 
@@ -1259,7 +1287,7 @@ impl AbstrVM {
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
         let cf = self.cs.pop();
         if cf.is_some() {
-            println!("POP: {}", cf.as_ref().unwrap());
+            // println!("POP: {}", cf.as_ref().unwrap());
             self.set_sp(cf.as_ref().unwrap().sp.clone());
         }
         cf
@@ -1345,10 +1373,10 @@ impl AbstrVM {
         let cf = CallFrame {
             in_site: self.pc,
             instance: 0,
-            return_addr: INVALID_ADDRESS,
+            return_addr: MAX_ADDRESS,
             sp: self.get_sp(),
         };
-        println!("PUSH: {}", cf);
+        // println!("PUSH: {}", cf);
         self.cs.push(cf);
     }
 
@@ -1378,6 +1406,10 @@ impl AbstrVM {
 
     pub fn get_pc_ic(&mut self) -> u64 {
         self.get_ic(self.get_pc())
+    }
+
+    pub fn get_entry(&self) -> u64 {
+        return self.entry;
     }
 }
 

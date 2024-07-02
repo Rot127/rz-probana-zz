@@ -204,7 +204,7 @@ fn sample_cfg_path(
     wmap: &RwLock<WeightMap>,
     addr_ranges: &Vec<(Address, Address)>,
 ) {
-    let mut prev_was_call = false;
+    let mut recursed_into_procedure = false;
     let mut cur = start;
     loop {
         if !addr_ranges.is_empty()
@@ -218,10 +218,10 @@ fn sample_cfg_path(
             is_call: false,
             calls_malloc: false,
             calls_input: false,
-            is_return_point: prev_was_call,
+            is_return_point: recursed_into_procedure,
         };
-        if prev_was_call {
-            prev_was_call = false;
+        if recursed_into_procedure {
+            recursed_into_procedure = false;
         }
 
         path.push(cur);
@@ -229,10 +229,11 @@ fn sample_cfg_path(
         if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
             meta.insns
                 .iter()
-                .any(|i| !i.call_target.is_invalid_call_target())
+                .any(|i| !i.call_target.is_invalid_call_target() || i.is_indirect_call)
         }) {
+            // For indirect calls without an set address we do not recuse into it to sample a path.
+            // Put we set the meta information for the path node (marking it as call).
             ninfo.is_call = true;
-            prev_was_call = true;
             // The instr. word has a call.
             // First visit this procedure and add it to the path
             let call_targets = cfg
@@ -257,6 +258,7 @@ fn sample_cfg_path(
                 }
                 if !icfg.has_procedure(&ct) {
                     // Likely a dynamically linked procedure.
+                    // Hence Rizin doesn't have a CFG for it.
                     return;
                 }
                 let entry = icfg
@@ -265,6 +267,7 @@ fn sample_cfg_path(
                     .unwrap()
                     .get_cfg()
                     .get_entry();
+                recursed_into_procedure = true;
                 sample_cfg_path(
                     icfg,
                     icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),

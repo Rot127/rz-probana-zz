@@ -583,8 +583,9 @@ impl CFG {
             }
         }
         if !call_set {
-            panic!("Call target was not updated, wither because no call exist or the instruction index is off.");
+            panic!("Call target was not updated, either because no call exist or the instruction index is off.");
         }
+        println!("Change call target to: {}", call_target);
     }
 }
 

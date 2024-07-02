@@ -98,19 +98,62 @@ impl ICFG {
         self.procedures.insert(node_id, RwLock::new(proc));
     }
 
+    /// Adds an edge [from] -> [to]. The procedures can be passed optionally. If a procedure given
+    /// is None, it is expected that the iCFG already contains it.
+    /// Otherwise it panics.
+    /// If [addr_to_update] is Some, it is assume that the newly added edge was discovered
+    /// via an indirect call/jump. The instruction at [addr_to_update] is updated accordingly.
+    pub fn add_edge(
+        &mut self,
+        from: (NodeId, Option<Procedure>),
+        to: (NodeId, Option<Procedure>),
+        addr_to_update: Option<NodeId>,
+    ) {
+        let from_nid = from.0;
+        let to_nid = to.0;
+        if !self.has_procedure(&from_nid) {
+            if from.1.is_none() {
+                panic!(
+                    "Cannot add edge ({} -> {}), no procedure given",
+                    from_nid, to_nid
+                );
+            }
+            let mut from_proc = from.1.unwrap();
+            if addr_to_update.is_some() {
+                from_proc.update_call_target(&from_nid, -1, &to_nid);
+            }
+            self.add_procedure(from_nid, from_proc);
+        }
+        if !self.has_procedure(&to_nid) {
+            if to.1.is_none() {
+                panic!(
+                    "Cannot add edge ({} -> {}), no procedure given",
+                    from_nid, to_nid
+                );
+            }
+            self.add_procedure(to_nid, to.1.unwrap());
+        }
+
+        // Add actual edge
+        if self.graph.contains_edge(from_nid, to_nid) {
+            return;
+        }
+        self.graph.add_edge(from_nid, to_nid, 0);
+    }
+
     /// Adds an edge to the graph.
     /// The edge is only added once.
     pub fn add_edge_test(&mut self, from: (NodeId, Procedure), to: (NodeId, Procedure)) {
         // Check if a procedure is located at the actual address.
         if !self.procedures.contains_key(&from.0) {
             if !from.1.is_cfg_set() {
-                panic!("If a new node is added to the iCFG, the procedure can not be None.");
+                panic!("If a new node is added to the iCFG, the procedure has no CFG.");
             }
             self.add_procedure(from.0, from.1);
         }
         if !self.procedures.contains_key(&to.0) {
             if !to.1.is_cfg_set() {
-                panic!("If a new node is added to the iCFG, the procedure can not be None.");
+                panic!("If a new node is added to the iCFG, the procedure has no CFG.");
             }
             self.add_procedure(to.0, to.1);
         }
