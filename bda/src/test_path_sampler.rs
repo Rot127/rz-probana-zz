@@ -273,6 +273,7 @@ mod tests {
                 &NodeId::from(GEE_ADDR),
             );
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
+        path_stats.iter().for_each(|p| { println!("{}", p.0); });
         assert_eq!(path_stats.len(), 2, "Wrong path count.");
         for (_, c) in path_stats.iter() {
             check_p_path(*c, 0.5, 0.01);

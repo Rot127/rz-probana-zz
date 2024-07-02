@@ -5,6 +5,7 @@ use helper::spinner::Spinner;
 use petgraph::algo::{is_cyclic_directed, kosaraju_scc, toposort};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
+use rand::{thread_rng, Rng};
 
 use core::panic;
 use std::collections::{HashMap, HashSet};
@@ -188,6 +189,71 @@ impl std::cmp::PartialEq<u128> for NodeId {
         self.icfg_clone_id == (*other >> 96) as u32
             && self.cfg_clone_id == ((*other >> 64) as u32 & u32::MAX)
             && self.address == *other as u64
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodeIdVec {
+    vec: Vec<NodeId>,
+}
+
+impl NodeIdVec {
+    pub fn from_nid(nid: NodeId) -> NodeIdVec {
+        let mut nid_vec = NodeIdVec { vec: Vec::new() };
+        nid_vec.push(nid);
+        nid_vec
+    }
+
+    pub fn contains(&self, nid: &NodeId) -> bool {
+        self.vec.contains(nid)
+    }
+
+    pub fn push(&mut self, nid: NodeId) {
+        if nid != INVALID_NODE_ID && !self.vec.contains(&nid) {
+            self.vec.push(nid)
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.vec.is_empty()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, NodeId> {
+        self.vec.iter()
+    }
+
+    pub fn update_icfg_clone_ids(&mut self, icfg_clone_id: u32) {
+        for ct in self.vec.iter_mut() {
+            ct.icfg_clone_id = icfg_clone_id;
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.vec.clear();
+    }
+
+    pub fn set_next_icfg_clone_id(&mut self) {
+        for ct in self.vec.iter_mut() {
+            ct.icfg_clone_id = ct.icfg_clone_id + 1;
+        }
+    }
+
+    /// Samples a NodeId uniformily at random from the vector
+    /// If the list is empty, it returns an INVALID_NODE_ID
+    pub fn sample(&self) -> NodeId {
+        if self.vec.is_empty() {
+            return INVALID_NODE_ID;
+        }
+        let s = self
+            .vec
+            .get(thread_rng().gen_range(0..self.vec.len()))
+            .expect("Schroedingers bug encountered.")
+            .clone();
+        s
+    }
+
+    pub fn new() -> NodeIdVec {
+        NodeIdVec { vec: Vec::new() }
     }
 }
 

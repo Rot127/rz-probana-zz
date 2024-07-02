@@ -11,7 +11,7 @@ use helper::progress::ProgressBar;
 
 use crate::{
     cfg::{InsnNodeWeightType, Procedure},
-    flow_graphs::{FlowGraph, FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
+    flow_graphs::{FlowGraph, FlowGraphOperations, NodeId, ProcedureMap},
     weight::{WeightID, WeightMap},
 };
 
@@ -270,27 +270,32 @@ impl FlowGraphOperations for ICFG {
             {
                 // O(1) - instruction words have a constant length
                 for i in nmeta.insns.iter_mut() {
-                    // Either the call target is within the same CFG, it is
+                    // Either the call target is within the same CFG,
                     // in the next CFG clone or has no edge in the iCFG.
                     if i.itype.weight_type != InsnNodeWeightType::Call {
                         continue;
                     }
                     // The call target cannot point backwards to a previous clone.
-                    i.call_target.icfg_clone_id = cfg_id.icfg_clone_id;
-                    // Call target edge is within the original CFG.
-                    if self.get_graph().contains_edge(*cfg_id, i.call_target) {
+                    i.call_targets.update_icfg_clone_ids(cfg_id.icfg_clone_id);
+                    if i.call_targets
+                        .iter()
+                        .any(|ct| self.get_graph().contains_edge(*cfg_id, *ct))
+                    {
+                        // Call target edge is within the original CFG.
                         continue;
                     }
-                    // Call target edge points to the next CFG clone in the iCFG.
-                    let clone = i.call_target.get_next_icfg_clone();
-                    if self.get_graph().contains_edge(*cfg_id, clone) {
-                        i.call_target = clone;
+                    if i.call_targets.iter().any(|ct| {
+                        self.get_graph()
+                            .contains_edge(*cfg_id, ct.clone().get_next_icfg_clone())
+                    }) {
+                        // Call target edge points to the next CFG clone in the iCFG.
+                        i.call_targets.set_next_icfg_clone_id();
                         continue;
                     }
                     // This is the special case of the last clone.
-                    // Its call edge was not not duplicated in the iCFG
+                    // Its call edge was not not duplicated in the iCFG (because it is the last clone),
                     // so we need to transform the node to a normal node.
-                    i.call_target = INVALID_NODE_ID;
+                    i.call_targets.clear();
                     i.itype.weight_type = InsnNodeWeightType::Normal;
                 }
             }

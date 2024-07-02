@@ -204,7 +204,8 @@ fn sample_cfg_path(
     wmap: &RwLock<WeightMap>,
     addr_ranges: &Vec<(Address, Address)>,
 ) {
-    let mut recursed_into_procedure = false;
+    // Flag if the instruction ad the previous neighbor address was a call.
+    let mut node_follows_call = false;
     let mut cur = start;
     loop {
         if !addr_ranges.is_empty()
@@ -218,10 +219,10 @@ fn sample_cfg_path(
             is_call: false,
             calls_malloc: false,
             calls_input: false,
-            is_return_point: recursed_into_procedure,
+            is_return_point: node_follows_call,
         };
-        if recursed_into_procedure {
-            recursed_into_procedure = false;
+        if node_follows_call {
+            node_follows_call = false;
         }
 
         path.push(cur);
@@ -229,13 +230,13 @@ fn sample_cfg_path(
         if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
             meta.insns
                 .iter()
-                .any(|i| !i.call_target.is_invalid_call_target() || i.is_indirect_call)
+                .any(|i| !i.call_targets.is_empty() || i.is_indirect_call)
         }) {
             // For indirect calls without an set address we do not recuse into it to sample a path.
             // Put we set the meta information for the path node (marking it as call).
             ninfo.is_call = true;
             // The instr. word has a call.
-            // First visit this procedure and add it to the path
+            // First visit these procedures and add it to the path
             let call_targets = cfg
                 .nodes_meta
                 .get(&cur)
@@ -243,40 +244,42 @@ fn sample_cfg_path(
                 .insns
                 .iter()
                 .filter_map(|i| {
-                    if !i.call_target.is_invalid_call_target() {
-                        Some(i.call_target)
+                    if !i.call_targets.is_empty() {
+                        Some(i.call_targets.clone())
                     } else {
                         None
                     }
                 });
-            call_targets.for_each(|ct| {
-                if icfg.is_malloc(&ct) {
-                    ninfo.calls_malloc = true;
-                }
-                if icfg.is_input(&ct) {
-                    ninfo.calls_input = true;
-                }
-                if !icfg.has_procedure(&ct) {
-                    // Likely a dynamically linked procedure.
-                    // Hence Rizin doesn't have a CFG for it.
-                    return;
-                }
-                let entry = icfg
-                    .get_procedure(&ct)
-                    .read()
-                    .unwrap()
-                    .get_cfg()
-                    .get_entry();
-                recursed_into_procedure = true;
-                sample_cfg_path(
-                    icfg,
-                    icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
-                    entry,
-                    path,
-                    i + 1,
-                    wmap,
-                    addr_ranges,
-                )
+            call_targets.for_each(|cts| {
+                cts.iter().for_each(|ct| {
+                    if icfg.is_malloc(&ct) {
+                        ninfo.calls_malloc = true;
+                    }
+                    if icfg.is_input(&ct) {
+                        ninfo.calls_input = true;
+                    }
+                    if !icfg.has_procedure(&ct) {
+                        // Likely a dynamically linked procedure.
+                        // Hence Rizin doesn't have a CFG for it.
+                        return;
+                    }
+                    let entry = icfg
+                        .get_procedure(&ct)
+                        .read()
+                        .unwrap()
+                        .get_cfg()
+                        .get_entry();
+                    sample_cfg_path(
+                        icfg,
+                        icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
+                        entry,
+                        path,
+                        i + 1,
+                        wmap,
+                        addr_ranges,
+                    );
+                    node_follows_call = true;
+                });
             });
         }
         path.add_info(cur, ninfo);

@@ -676,12 +676,12 @@ pub fn get_unset_indirect_call_to_0_cfg() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0x6000), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0x6001), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
+        (NodeId::new(0, 0, 0x6000), CFGNodeData::new_test_single(0x6000, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0x6001), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(0x6001, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
-        (NodeId::new(0, 0, 0x6002), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 0x6003), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(0x6001, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
+        (NodeId::new(0, 0, 0x6002), CFGNodeData::new_test_single(0x6002, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 0x6003), INVALID_NODE_ID)),
     );
     }
 

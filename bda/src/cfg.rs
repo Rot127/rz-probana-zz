@@ -12,7 +12,9 @@ use binding::{log_rizin, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 
 use crate::{
-    flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
+    flow_graphs::{
+        Address, FlowGraph, FlowGraphOperations, NodeId, NodeIdVec, ProcedureMap, INVALID_NODE_ID,
+    },
     weight::{NodeWeightIDRefMap, WeightID, WeightMap},
 };
 
@@ -69,9 +71,9 @@ pub struct InsnNodeData {
     pub addr: Address,
     /// Instruction type. Determines weight calculation.
     pub itype: InsnNodeType,
-    /// Node this instruction calls. The NodeId points to another CFG.
-    /// It can point to a cloned NodeId.
-    pub call_target: NodeId,
+    /// Node this instruction calls. The NodeIds point to other CFGs.
+    /// Multiple call targets are possible, if a call target is dynamically calculated.
+    pub call_targets: NodeIdVec,
     /// The timestamp of the call target last used.
     /// If this timestamp is earlier then the procedures timestamp
     /// the procedure was edited and the weight of this node should be recaclulated.
@@ -89,7 +91,7 @@ pub struct InsnNodeData {
 impl InsnNodeData {
     pub fn new_call(
         addr: Address,
-        call_target: NodeId,
+        call_targets: NodeIdVec,
         is_indirect_call: bool,
         jump_target: NodeId,
         next: NodeId,
@@ -97,7 +99,7 @@ impl InsnNodeData {
         InsnNodeData {
             addr,
             itype: InsnNodeType::new(InsnNodeWeightType::Call, false),
-            call_target,
+            call_targets,
             ct_last_state: None,
             orig_jump_target: jump_target,
             orig_next: next,
@@ -116,7 +118,7 @@ impl InsnNodeData {
         InsnNodeData {
             addr,
             itype,
-            call_target,
+            call_targets: NodeIdVec::from_nid(call_target),
             ct_last_state: None,
             orig_jump_target,
             orig_next,
@@ -133,7 +135,7 @@ impl InsnNodeData {
     ) -> WeightID {
         let mut sum_succ_weights: WeightID = wmap.read().unwrap().get_zero();
         for (target_id, target_weight) in iword_succ_weights.iter() {
-            if *target_id == self.call_target
+            if self.call_targets.contains(target_id)
                 || self.orig_jump_target.get_orig_node_id() == target_id.get_orig_node_id()
                 || self.orig_next.get_orig_node_id() == target_id.get_orig_node_id()
             {
@@ -161,10 +163,17 @@ impl InsnNodeData {
             InsnNodeWeightType::Exit => const_one.clone(),
             InsnNodeWeightType::Normal => sum_succ_weights,
             InsnNodeWeightType::Call => {
-                let has_procedure = procedure_map.get(&self.call_target).is_some();
+                // This sampling step breaks the promise of path insensitivity of the algorithm.
+                // But due to the design decission, to seperate path sampling from
+                // abstract interpretation, I can't come up with a better method then this.
+                // Because, if a single call instruction computes its targets
+                // dynamically, we do not know at this sampling stage, where it will
+                // jump to.
+                let ct_nid = &self.call_targets.sample();
+                let has_procedure = procedure_map.get(ct_nid).is_some();
                 let cw: WeightID = if has_procedure {
                     procedure_map
-                        .get(&self.call_target)
+                        .get(ct_nid)
                         .expect(
                             "The call target must be set, even if no weight is associated with it.",
                         )
@@ -224,39 +233,13 @@ impl CFGNodeData {
         node.insns.push(InsnNodeData {
             addr,
             itype: ntype,
-            call_target: INVALID_NODE_ID,
+            call_targets: NodeIdVec::new(),
             ct_last_state: None,
             orig_jump_target: jump_target,
             orig_next: next,
             is_indirect_call: false,
         });
         node
-    }
-
-    /// Updaets the nodes weight ID with the given one and updates last access times of procedures.
-    pub fn update_node_weight(&mut self, new_wid: WeightID, proc_map: &ProcedureMap) {
-        self.weight_id = Some(new_wid);
-        self.insns.iter_mut().for_each(|i| {
-            if proc_map.contains_key(&i.call_target) // The procedure is known AND
-                && (i.ct_last_state.is_none() // We haven't used it yet in a calculation
-                    || proc_map // OR the procedure was updated since our last usage.
-                        .get(&i.call_target)
-                        .expect("Just tested")
-                        .read()
-                        .unwrap()
-                        .last_change
-                        > i.ct_last_state.unwrap())
-            {
-                i.ct_last_state = Some(
-                    proc_map
-                        .get(&i.call_target)
-                        .expect("Just tested")
-                        .read()
-                        .unwrap()
-                        .last_change,
-                )
-            }
-        });
     }
 
     /// Calulcates the weights of all instructions part of this instruction word
@@ -294,7 +277,7 @@ impl CFGNodeData {
         };
         node.insns.push(InsnNodeData::new_call(
             addr,
-            call_target,
+            NodeIdVec::from_nid(call_target),
             is_indirect_call,
             INVALID_NODE_ID,
             next,
@@ -485,10 +468,10 @@ impl CFG {
                 continue;
             }
             ninfo.insns.iter().for_each(|i| {
-                if i.itype.weight_type == InsnNodeWeightType::Call
-                    && !i.call_target.is_invalid_call_target()
-                {
-                    targets.push((i.call_target, i.ct_last_state))
+                if i.itype.weight_type == InsnNodeWeightType::Call {
+                    i.call_targets
+                        .iter()
+                        .for_each(|ct| targets.push((*ct, i.ct_last_state)));
                 }
             });
         }
@@ -577,7 +560,7 @@ impl CFG {
                 if call_set {
                     panic!("Two calls exist, but it wasn't specifies which one to update.");
                 }
-                insn.call_target = call_target.clone();
+                insn.call_targets.push(*call_target);
                 insn.ct_last_state = Some(procedure_timestamp);
                 call_set = true;
             }
@@ -585,7 +568,6 @@ impl CFG {
         if !call_set {
             panic!("Call target was not updated, either because no call exist or the instruction index is off.");
         }
-        println!("Change call target to: {}", call_target);
     }
 }
 
