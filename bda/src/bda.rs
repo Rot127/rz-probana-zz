@@ -14,7 +14,7 @@ use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, IntrpProducts};
 
 use crate::{
-    bda_binding::{get_bin_entries, setup_procedure_from_addr},
+    bda_binding::{get_bin_entries, setup_procedure_at_addr},
     cfg::Procedure,
     flow_graphs::{Address, NodeId},
     icfg::ICFG,
@@ -105,7 +105,7 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
             let procedure_from: Option<Procedure> = if icfg.has_procedure(&proc_addr) {
                 None
             } else {
-                setup_procedure_from_addr(&core.lock().unwrap(), proc_addr.address)
+                setup_procedure_at_addr(&core.lock().unwrap(), proc_addr.address)
             };
             if procedure_from.is_none() && !icfg.has_procedure(&proc_addr) {
                 log_rz!(
@@ -118,7 +118,7 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
             let procedure_to: Option<Procedure> = if icfg.has_procedure(&to) {
                 None
             } else {
-                setup_procedure_from_addr(&core.lock().unwrap(), from.address)
+                setup_procedure_at_addr(&core.lock().unwrap(), to.address)
             };
             if procedure_to.is_none() && !icfg.has_procedure(&to) {
                 log_rz!(
@@ -160,7 +160,8 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             Some("BDA"),
             "The binary has no memory allocating function symbol.\n\
             This means BDA will NOT be able to deduct values on the heap.\n\
-            It is highly advisable to identify and name malloc() functions first in the binary.\n"
+            It is highly advisable to identify and define malloc() functions first in the binary.\n
+            Use the 'af+' command to define the functions."
                 .to_string()
         );
         if !core

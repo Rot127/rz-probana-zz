@@ -118,11 +118,13 @@ impl ICFG {
                     from_nid, to_nid
                 );
             }
-            let mut from_proc = from.1.unwrap();
-            if addr_to_update.is_some() {
-                from_proc.update_call_target(&from_nid, -1, &to_nid);
-            }
-            self.add_procedure(from_nid, from_proc);
+            self.add_procedure(from_nid, from.1.unwrap());
+        }
+        if let Some(call_addr) = addr_to_update {
+            self.get_procedure(&from_nid)
+                .write()
+                .unwrap()
+                .update_call_target(&call_addr, -1, &to_nid);
         }
         if !self.has_procedure(&to_nid) {
             if to.1.is_none() {

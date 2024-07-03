@@ -26,7 +26,7 @@ pub struct PathNodeInfo {
     calls_malloc: bool,
     /// True if the iword calls an input function.
     calls_input: bool,
-    /// True if the iword is executed after a call.
+    /// True if the iword is executed after a call from a subroutine.
     is_return_point: bool,
 }
 

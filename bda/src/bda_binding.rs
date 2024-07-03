@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::panic;
 use std::ptr::null;
+use std::{panic, ptr};
 
 use crate::bda::run_bda;
 use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG};
@@ -241,7 +241,7 @@ fn guarded_rz_core_graph_icfg(core: GRzCore) -> *mut RzGraph {
 
 /// Sets up a procedure by pulling all relevant data
 /// from Rizin and initializing the Procedure struct.
-pub fn setup_procedure_from_addr(core: &RzCoreWrapper, address: Address) -> Option<Procedure> {
+pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option<Procedure> {
     let rz_cfg = core.get_rz_cfg(address);
     if rz_cfg.is_null() {
         log_rz!(LOG_WARN, Some("BDA"), "A value for an CFG was NULL");
@@ -249,22 +249,22 @@ pub fn setup_procedure_from_addr(core: &RzCoreWrapper, address: Address) -> Opti
     }
     let mut cfg = CFG::new_graph(get_graph(rz_cfg));
     set_cfg_node_data(&mut cfg, rz_cfg);
-    let proc = Procedure::new(
-        Some(cfg.to_owned()),
-        unsafe {
-            rz_analysis_function_is_malloc(rz_analysis_get_function_at(
-                core.get_analysis(),
-                address,
-            ))
-        },
-        unsafe {
-            rz_analysis_function_is_input(rz_analysis_get_function_at(core.get_analysis(), address))
-        },
-    );
     unsafe {
+        let fcn_ptr = rz_analysis_get_function_at(core.get_analysis(), address);
+        if fcn_ptr == ptr::null_mut() {
+            panic!(
+                "Attempt to make a invalid procedure at: {:#x}. Symbol not defined in Rizin.",
+                address
+            )
+        }
+        let proc = Procedure::new(
+            Some(cfg.to_owned()),
+            rz_analysis_function_is_malloc(fcn_ptr),
+            rz_analysis_function_is_input(fcn_ptr),
+        );
         rz_graph_free(rz_cfg);
+        return Some(proc);
     }
-    return Some(proc);
 }
 
 pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
@@ -295,7 +295,7 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
     let mut progress_bar = ProgressBar::new(String::from("Transfer CFGs"), nodes.len());
     let mut done = 0;
     for n in nodes {
-        if let Some(proc) = setup_procedure_from_addr(&core.lock().unwrap(), n.address) {
+        if let Some(proc) = setup_procedure_at_addr(&core.lock().unwrap(), n.address) {
             icfg.add_procedure(n, proc);
         } else {
             log_rz!(

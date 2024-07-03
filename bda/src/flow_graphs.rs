@@ -209,7 +209,7 @@ impl NodeIdVec {
     }
 
     pub fn push(&mut self, nid: NodeId) {
-        if nid != INVALID_NODE_ID && !self.vec.contains(&nid) {
+        if nid != INVALID_NODE_ID && nid.address != MAX_ADDRESS && !self.vec.contains(&nid) {
             self.vec.push(nid)
         }
     }
