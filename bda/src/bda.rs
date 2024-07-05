@@ -160,7 +160,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             Some("BDA"),
             "The binary has no memory allocating function symbol.\n\
             This means BDA will NOT be able to deduct values on the heap.\n\
-            It is highly advisable to identify and define malloc() functions first in the binary.\n
+            It is highly advisable to identify and define malloc() functions first in the binary.\n\
             Use the 'af+' command to define the functions."
                 .to_string()
         );

@@ -243,6 +243,10 @@ pub struct AddrInfo {
     calls_malloc: bool,
     /// IWord calls an input function.
     calls_input: bool,
+    /// This node doesn't push to the call stack, because it
+    /// doesnt follow the call for various reasons
+    /// (e.g. is malloc, unresolved indirect call, calls unmapped code).
+    doesnt_push_to_cs: bool,
     /// IWord is executed on return of a procedure.
     is_return_point: bool,
 }
@@ -252,12 +256,14 @@ impl AddrInfo {
         is_call: bool,
         calls_malloc: bool,
         calls_input: bool,
+        doesnt_push_to_cs: bool,
         is_return_point: bool,
     ) -> AddrInfo {
         AddrInfo {
             is_call,
             calls_malloc,
             calls_input,
+            doesnt_push_to_cs,
             is_return_point,
         }
     }
@@ -267,6 +273,7 @@ impl AddrInfo {
             is_call: true,
             calls_malloc: false,
             calls_input: false,
+            doesnt_push_to_cs: false,
             is_return_point: false,
         }
     }
@@ -276,6 +283,7 @@ impl AddrInfo {
             is_call: true,
             calls_malloc: true,
             calls_input: false,
+            doesnt_push_to_cs: false,
             is_return_point: false,
         }
     }
@@ -285,6 +293,7 @@ impl AddrInfo {
             is_call: true,
             calls_malloc: false,
             calls_input: true,
+            doesnt_push_to_cs: false,
             is_return_point: false,
         }
     }
@@ -294,6 +303,7 @@ impl AddrInfo {
             is_call: false,
             calls_malloc: false,
             calls_input: false,
+            doesnt_push_to_cs: false,
             is_return_point: true,
         }
     }
@@ -381,7 +391,11 @@ impl ConcreteCall {
 
 impl std::fmt::Display for ConcreteCall {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "icall {:#x} -> {:#x}", self.from, self.to)
+        write!(
+            f,
+            "icall {:#x} : {:#x} -> {:#x}",
+            self.proc_addr, self.from, self.to
+        )
     }
 }
 
@@ -736,10 +750,13 @@ pub struct AbstrVM {
     rt: HashMap<String, bool>,
     /// Path
     pa: IntrpPath,
-    /// Entry point of path (the CFG)
-    entry: Address,
+    /// Entry point of the currerntly executed procedure.
+    proc_entry: Vec<Address>,
     /// Call stack
     cs: CallStack,
+    /// Flag if the call stack should be popped.
+    /// Set to false in case the call instruction before did not push to the stack.
+    skip_cs_pop: bool,
     /// The resulting memory operand sequences of the interpretation
     mos: MemOpSeq,
     /// Global variables (mostly registers)
@@ -788,8 +805,9 @@ impl AbstrVM {
             mt: HashMap::new(),
             rt: HashMap::new(),
             pa: path,
-            entry: pc,
+            proc_entry: Vec::new(),
             cs: CallStack::new(),
+            skip_cs_pop: false,
             mos: MemOpSeq::new(),
             gvars: HashMap::new(),
             lvars: HashMap::new(),
@@ -825,6 +843,20 @@ impl AbstrVM {
     pub fn calls_malloc(&self, addr: Address) -> bool {
         if let Some(ainfo) = self.pa.addr_info.get(&addr) {
             return ainfo.calls_malloc;
+        }
+        false
+    }
+
+    pub fn calls_input(&self, addr: Address) -> bool {
+        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
+            return ainfo.calls_input;
+        }
+        false
+    }
+
+    pub fn doesnt_push_to_cs(&self, addr: Address) -> bool {
+        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
+            return ainfo.doesnt_push_to_cs;
         }
         false
     }
@@ -960,11 +992,12 @@ impl AbstrVM {
 
         *self.ic.entry(self.pc).or_default() += 1;
 
-        if self.is_return_point() {
+        if self.is_return_point() && !self.skip_cs_pop() {
             self.call_stack_pop();
         }
         // Not yet done for iwords. iwords must only skip the call part.
-        if self.calls_malloc(self.get_pc()) {
+        if self.calls_malloc(self.get_pc()) || self.calls_input(self.get_pc()) {
+            self.set_skip_cs_pop(true);
             self.move_heap_val_into_ret_reg();
             return true;
         }
@@ -1266,9 +1299,8 @@ impl AbstrVM {
 
     /// Pushes a functions call frame on the call stack, before it jumps to [proc_addr].
     pub fn call_stack_push(&mut self, proc_addr: Address) {
-        if self.peak_next().is_none() || *self.peak_next().unwrap() != proc_addr {
-            // Don't push a stack frame if we don't actually interpret the procedure
-            // Happens for calls to malloc or input functions.
+        if self.doesnt_push_to_cs(self.get_pc()) {
+            self.set_skip_cs_pop(true);
             return;
         }
         // For now we just assume that the SP was _not_ updated before the actual jump to the procedure.
@@ -1279,17 +1311,17 @@ impl AbstrVM {
             sp: self.get_sp(),
         };
         self.rebase_sp(proc_addr);
-        // println!("PUSH: {}", cf);
+        println!("PUSH: {}", cf);
+        self.proc_entry.push(proc_addr);
         self.cs.push(cf);
     }
 
     /// Pops a call frame from the call stack.
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
         let cf = self.cs.pop();
-        if cf.is_some() {
-            // println!("POP: {}", cf.as_ref().unwrap());
-            self.set_sp(cf.as_ref().unwrap().sp.clone());
-        }
+        println!("POP: {}", cf.as_ref().unwrap());
+        self.proc_entry.pop();
+        self.set_sp(cf.as_ref().unwrap().sp.clone());
         cf
     }
 
@@ -1376,7 +1408,8 @@ impl AbstrVM {
             return_addr: MAX_ADDRESS,
             sp: self.get_sp(),
         };
-        // println!("PUSH: {}", cf);
+        println!("PUSH: {}", cf);
+        self.proc_entry.push(self.pc);
         self.cs.push(cf);
     }
 
@@ -1408,8 +1441,16 @@ impl AbstrVM {
         self.get_ic(self.get_pc())
     }
 
-    pub fn get_entry(&self) -> u64 {
-        return self.entry;
+    pub fn get_cur_entry(&self) -> u64 {
+        return *self.proc_entry.last().expect("No entry in list");
+    }
+
+    fn skip_cs_pop(&self) -> bool {
+        self.skip_cs_pop
+    }
+
+    fn set_skip_cs_pop(&mut self, flag: bool) {
+        self.skip_cs_pop = flag;
     }
 }
 

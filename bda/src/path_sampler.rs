@@ -26,6 +26,8 @@ pub struct PathNodeInfo {
     calls_malloc: bool,
     /// True if the iword calls an input function.
     calls_input: bool,
+    /// Is an indirect call without any address defined yet.
+    doesnt_push_to_cs: bool,
     /// True if the iword is executed after a call from a subroutine.
     is_return_point: bool,
 }
@@ -84,7 +86,13 @@ impl Path {
         for (n, i) in self.node_info.iter() {
             ipath.push_info(
                 n.address,
-                AddrInfo::new(i.is_call, i.calls_malloc, i.calls_input, i.is_return_point),
+                AddrInfo::new(
+                    i.is_call,
+                    i.calls_malloc,
+                    i.calls_input,
+                    i.doesnt_push_to_cs,
+                    i.is_return_point,
+                ),
             )
         }
         ipath
@@ -219,6 +227,7 @@ fn sample_cfg_path(
             is_call: false,
             calls_malloc: false,
             calls_input: false,
+            doesnt_push_to_cs: false,
             is_return_point: node_follows_call,
         };
         if node_follows_call {
@@ -235,6 +244,7 @@ fn sample_cfg_path(
             // For indirect calls without an set address we do not recuse into it to sample a path.
             // Put we set the meta information for the path node (marking it as call).
             ninfo.is_call = true;
+            node_follows_call = true;
             // The instr. word has a call.
             // First visit these procedures and add it to the path
             let call_targets = cfg
@@ -250,37 +260,41 @@ fn sample_cfg_path(
                         None
                     }
                 });
-            call_targets.for_each(|cts| {
-                cts.iter().for_each(|ct| {
-                    if icfg.is_malloc(&ct) {
-                        ninfo.calls_malloc = true;
-                    }
-                    if icfg.is_input(&ct) {
-                        ninfo.calls_input = true;
-                    }
-                    if !icfg.has_procedure(&ct) {
-                        // Likely a dynamically linked procedure.
-                        // Hence Rizin doesn't have a CFG for it.
-                        return;
-                    }
-                    let entry = icfg
-                        .get_procedure(&ct)
-                        .read()
-                        .unwrap()
-                        .get_cfg()
-                        .get_entry();
-                    sample_cfg_path(
-                        icfg,
-                        icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
-                        entry,
-                        path,
-                        i + 1,
-                        wmap,
-                        addr_ranges,
-                    );
-                    node_follows_call = true;
-                });
-            });
+            // Only works for iwords with a single call instructions
+            if let Some(cts) = call_targets.last() {
+                let ct = cts.sample();
+                if icfg.is_malloc(&ct) {
+                    ninfo.calls_malloc = true;
+                }
+                if icfg.is_input(&ct) {
+                    ninfo.calls_input = true;
+                }
+                if !icfg.has_procedure(&ct) || ninfo.calls_malloc || ninfo.calls_input {
+                    // Either a dynamically linked procedure (without CFG)
+                    // or a malloc/input call which we don't sample.
+                    // Treat it as unset icall, because it is executed normally
+                    // but should not PUSH to the call stack.
+                    ninfo.doesnt_push_to_cs = true;
+                    return;
+                }
+                let entry = icfg
+                    .get_procedure(&ct)
+                    .read()
+                    .unwrap()
+                    .get_cfg()
+                    .get_entry();
+                sample_cfg_path(
+                    icfg,
+                    icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
+                    entry,
+                    path,
+                    i + 1,
+                    wmap,
+                    addr_ranges,
+                );
+            } else {
+                ninfo.doesnt_push_to_cs = true;
+            }
         }
         path.add_info(cur, ninfo);
 
