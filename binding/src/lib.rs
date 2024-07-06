@@ -431,7 +431,7 @@ pub fn get_pkg_path() -> PathBuf {
     let repo_dir: String = match env::var("CARGO_MANIFEST_DIR") {
         Ok(v) => v,
         Err(_e) => {
-            println!("CARGO_MANIFEST_DIR must be set.");
+            panic!("CARGO_MANIFEST_DIR must be set.");
             std::process::exit(1)
         }
     };

@@ -103,12 +103,13 @@ impl ICFG {
     /// Otherwise it panics.
     /// If [addr_to_update] is Some, it is assume that the newly added edge was discovered
     /// via an indirect call/jump. The instruction at [addr_to_update] is updated accordingly.
+    /// Returns true if the edge was contained in the iCFG.
     pub fn add_edge(
         &mut self,
         from: (NodeId, Option<Procedure>),
         to: (NodeId, Option<Procedure>),
         addr_to_update: Option<NodeId>,
-    ) {
+    ) -> bool {
         let from_nid = from.0;
         let to_nid = to.0;
         if !self.has_procedure(&from_nid) {
@@ -138,9 +139,10 @@ impl ICFG {
 
         // Add actual edge
         if self.graph.contains_edge(from_nid, to_nid) {
-            return;
+            return true;
         }
         self.graph.add_edge(from_nid, to_nid, 0);
+        return false;
     }
 
     /// Adds an edge to the graph.

@@ -92,7 +92,9 @@ mod tests {
         ]);
         let mut path = IntrpPath::from(v);
         path.push_info(0x08000074, AddrInfo::new_malloc_call());
+        path.push_info(0x08000079, AddrInfo::new_return_point());
         path.push_info(0x08000082, AddrInfo::new_malloc_call());
+        path.push_info(0x08000087, AddrInfo::new_return_point());
         path.push_info(0x080000c2, AddrInfo::new_return());
 
         (rz_core, path)
@@ -114,8 +116,9 @@ mod tests {
         ]);
         let mut path = IntrpPath::from(v);
         path.push_info(0x08000070, AddrInfo::new_malloc_call());
+        path.push_info(0x08000074, AddrInfo::new_return_point());
         path.push_info(0x0800007c, AddrInfo::new_malloc_call());
-        path.push_info(0x080000c4, AddrInfo::new_return());
+        path.push_info(0x08000080, AddrInfo::new_return());
 
         (rz_core, path)
     }

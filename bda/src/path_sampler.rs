@@ -26,8 +26,6 @@ pub struct PathNodeInfo {
     calls_malloc: bool,
     /// True if the iword calls an input function.
     calls_input: bool,
-    /// Is an indirect call without any address defined yet.
-    doesnt_push_to_cs: bool,
     /// True if the iword is executed after a call from a subroutine.
     is_return_point: bool,
 }
@@ -86,13 +84,7 @@ impl Path {
         for (n, i) in self.node_info.iter() {
             ipath.push_info(
                 n.address,
-                AddrInfo::new(
-                    i.is_call,
-                    i.calls_malloc,
-                    i.calls_input,
-                    i.doesnt_push_to_cs,
-                    i.is_return_point,
-                ),
+                AddrInfo::new(i.is_call, i.calls_malloc, i.calls_input, i.is_return_point),
             )
         }
         ipath
@@ -227,7 +219,6 @@ fn sample_cfg_path(
             is_call: false,
             calls_malloc: false,
             calls_input: false,
-            doesnt_push_to_cs: false,
             is_return_point: node_follows_call,
         };
         if node_follows_call {
@@ -274,26 +265,24 @@ fn sample_cfg_path(
                     // or a malloc/input call which we don't sample.
                     // Treat it as unset icall, because it is executed normally
                     // but should not PUSH to the call stack.
-                    ninfo.doesnt_push_to_cs = true;
-                    return;
+                } else {
+                    // recurse into CFG to sample a new path.
+                    let entry = icfg
+                        .get_procedure(&ct)
+                        .read()
+                        .unwrap()
+                        .get_cfg()
+                        .get_entry();
+                    sample_cfg_path(
+                        icfg,
+                        icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
+                        entry,
+                        path,
+                        i + 1,
+                        wmap,
+                        addr_ranges,
+                    );
                 }
-                let entry = icfg
-                    .get_procedure(&ct)
-                    .read()
-                    .unwrap()
-                    .get_cfg()
-                    .get_entry();
-                sample_cfg_path(
-                    icfg,
-                    icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
-                    entry,
-                    path,
-                    i + 1,
-                    wmap,
-                    addr_ranges,
-                );
-            } else {
-                ninfo.doesnt_push_to_cs = true;
             }
         }
         path.add_info(cur, ninfo);

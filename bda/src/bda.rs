@@ -108,12 +108,7 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
                 setup_procedure_at_addr(&core.lock().unwrap(), proc_addr.address)
             };
             if procedure_from.is_none() && !icfg.has_procedure(&proc_addr) {
-                log_rz!(
-                    LOG_WARN,
-                    Some("BDA"),
-                    format!("Could not initialize procedure at {}", proc_addr)
-                );
-                continue;
+                panic!("Could not initialize procedure at {}", proc_addr);
             }
             let procedure_to: Option<Procedure> = if icfg.has_procedure(&to) {
                 None
@@ -121,15 +116,11 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
                 setup_procedure_at_addr(&core.lock().unwrap(), to.address)
             };
             if procedure_to.is_none() && !icfg.has_procedure(&to) {
-                log_rz!(
-                    LOG_WARN,
-                    Some("BDA"),
-                    format!("Could not initialize procedure at {}", to)
-                );
-                continue;
+                panic!("Could not initialize procedure at {}", to);
             }
-            icfg.add_edge((proc_addr, procedure_from), (to, procedure_to), Some(from));
-            call_added = true;
+            if !icfg.add_edge((proc_addr, procedure_from), (to, procedure_to), Some(from)) {
+                call_added = true;
+            }
         }
     });
     if call_added {
