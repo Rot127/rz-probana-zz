@@ -86,12 +86,13 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
 }
 
 fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts>) {
-    for product in products.iter() {
-        state.update_calls(&product.concrete_calls);
-        state.update_mem_xrefs(&product.mem_xrefs);
-        state.update_stack_xrefs(&product.stack_xrefs);
+    for _ in 0..products.len() {
+        let p = products.pop().unwrap();
+        state.update_calls(p.concrete_calls);
+        state.update_mem_xrefs(p.mem_xrefs);
+        state.update_stack_xrefs(p.stack_xrefs);
+        state.update_mos(p.mos);
     }
-    products.clear();
 }
 
 /// Updates the iCFG with newly discovered calls.

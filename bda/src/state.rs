@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rzil_abstr::interpreter::{ConcreteCall, MemOpSeq, MemXref, StackXref};
+use rzil_abstr::interpreter::{ConcreteCall, MemOp, MemOpSeq, MemXref, StackXref};
 
 use crate::weight::WeightMap;
 
@@ -60,21 +60,19 @@ impl BDAState {
         &self.weight_map
     }
 
-    pub fn update_calls(&mut self, icalls: &HashSet<ConcreteCall>) {
-        icalls.iter().for_each(|c| {
-            self.calls.insert(c.clone());
-        });
+    pub fn update_calls(&mut self, icalls: HashSet<ConcreteCall>) {
+        self.calls.extend(icalls);
     }
 
-    pub fn update_mem_xrefs(&mut self, xrefs: &HashSet<MemXref>) {
-        xrefs.iter().for_each(|c| {
-            self.mem_xrefs.insert((*c).clone());
-        });
+    pub fn update_mem_xrefs(&mut self, xrefs: HashSet<MemXref>) {
+        self.mem_xrefs.extend(xrefs);
     }
 
-    pub fn update_stack_xrefs(&mut self, xrefs: &HashSet<StackXref>) {
-        xrefs.iter().for_each(|c| {
-            self.stack_xrefs.insert((*c).clone());
-        });
+    pub fn update_stack_xrefs(&mut self, xrefs: HashSet<StackXref>) {
+        self.stack_xrefs.extend(xrefs);
+    }
+
+    pub fn update_mos(&mut self, mos: MemOpSeq) {
+        self.mos.extend(mos);
     }
 }
