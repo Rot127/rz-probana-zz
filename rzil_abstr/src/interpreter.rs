@@ -1276,10 +1276,12 @@ impl AbstrVM {
     }
 
     pub fn enqueue_mos(&mut self, v: &AbstrVal) {
-        self.mos.push(MemOp {
+        let mem_op = MemOp {
             addr: self.get_pc(),
             aval: v.clone(),
-        });
+        };
+        println!("ENQUEUE MOS: {}", &mem_op);
+        self.mos.push(mem_op);
     }
 
     fn get_sp(&self) -> AbstrVal {

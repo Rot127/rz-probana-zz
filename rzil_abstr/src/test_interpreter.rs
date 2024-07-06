@@ -363,16 +363,12 @@ mod tests {
         let mut expected_heap_mos = HashSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        expected_heap_mos.insert(MemOp::new(0x800008b, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
         expected_heap_mos.insert(MemOp::new(0x8000099, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
-        expected_heap_mos.insert(MemOp::new(0x800009c, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
-        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, Const::new_u64(0x8, 64), 0x8000074)));
-        expected_heap_mos.insert(MemOp::new(0x80000a7, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
         expected_heap_mos.insert(MemOp::new(0x80000ab, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
-        expected_heap_mos.insert(MemOp::new(0x80000b1, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
+        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, Const::new_u64(0x8, 64), 0x8000074)));
         expected_heap_mos.insert(MemOp::new(0x80000b5, AbstrVal::new_heap(1, Const::new_u64(0x4, 64), 0x8000082)));
         }
-        assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 8);
+        assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 4);
         for op in expected_heap_mos.iter() {
             assert!(products.mos.contains(op), "{} not in MOS", op);
         }
@@ -430,16 +426,12 @@ mod tests {
         let mut expected_heap_mos = HashSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        expected_heap_mos.insert(MemOp::new(0x8000084, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
         expected_heap_mos.insert(MemOp::new(0x8000098, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
-        expected_heap_mos.insert(MemOp::new(0x800009c, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
         expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, Const::new_u64(0x8, 32), 0x8000070)));
-        expected_heap_mos.insert(MemOp::new(0x80000a8, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
         expected_heap_mos.insert(MemOp::new(0x80000ac, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
-        expected_heap_mos.insert(MemOp::new(0x80000b4, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
         expected_heap_mos.insert(MemOp::new(0x80000b8, AbstrVal::new_heap(1, Const::new_u64(0x4, 32), 0x800007c)));
         }
-        assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 8);
+        assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 4);
         for op in expected_heap_mos.iter() {
             assert!(products.mos.contains(op), "{} not in MOS", op);
         }
