@@ -925,7 +925,7 @@ impl AbstrVM {
             return;
         }
         av.il_gvar = Some(name.to_string());
-        // println!("SET: {} -> {}", name, av);
+        println!("SET: {} -> {}", name, av);
         self.gvars.insert(name.to_owned(), av);
     }
 
@@ -998,6 +998,7 @@ impl AbstrVM {
             self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             if dont_execute {
+                // Push dummy value which gets popped in the next instruction.
                 self.call_stack_push(0);
                 self.move_heap_val_into_ret_reg();
                 result = true;
@@ -1306,7 +1307,6 @@ impl AbstrVM {
         };
         self.rebase_sp(proc_addr);
         println!("PUSH: {}", cf);
-        // self.skip_cs_pop.push(false);
         self.proc_entry.push(proc_addr);
         println!("{:?}", self.proc_entry);
         self.cs.push(cf);
@@ -1339,10 +1339,6 @@ impl AbstrVM {
 
     pub(crate) fn pc_is_call(&self) -> bool {
         self.pa.addr_info.get(&self.pc).is_some_and(|i| i.is_call)
-    }
-
-    pub(crate) fn peak_next(&self) -> Option<&Address> {
-        self.pa.peak_next()
     }
 
     fn is_return_point(&self) -> bool {
@@ -1406,7 +1402,6 @@ impl AbstrVM {
             sp: self.get_sp(),
         };
         println!("PUSH: {}", cf);
-        // self.skip_cs_pop.push(false);
         self.proc_entry.push(self.pc);
         println!("{:?}", self.proc_entry);
         self.cs.push(cf);

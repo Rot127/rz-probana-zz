@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rzil_abstr::interpreter::{ConcreteCall, MemOp, MemOpSeq, MemXref, StackXref};
+use rzil_abstr::interpreter::{ConcreteCall, MemOpSeq, MemXref, StackXref};
 
 use crate::weight::WeightMap;
 
