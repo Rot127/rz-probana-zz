@@ -11,16 +11,13 @@ mod tests {
         },
     };
 
-    use binding::{get_test_bin_path, init_rizin_instance, RzCoreWrapper};
+    use binding::{get_test_bin_path, init_rizin_instance, RzCoreWrapper, TEST_RIZIN_MUTEX};
     use num_bigint::{ToBigInt, ToBigUint};
 
     use crate::interpreter::{
         interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, IntrpProducts, MemOp,
         MemXref, StackXref,
     };
-
-    // Rizin is not thread safe. If multiple RzCore are initialized and used in parallel, everything breaks.
-    static TEST_RIZIN_MUTEX: Mutex<u64> = Mutex::new(0);
 
     fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
         let icall_o = get_test_bin_path().join("x86_icall.o");

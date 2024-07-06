@@ -26,6 +26,8 @@ pub struct PathNodeInfo {
     calls_malloc: bool,
     /// True if the iword calls an input function.
     calls_input: bool,
+    /// True if the iword calls an unmapped function.
+    calls_unmapped: bool,
     /// True if the iword is executed after a call from a subroutine.
     is_return_point: bool,
 }
@@ -84,7 +86,13 @@ impl Path {
         for (n, i) in self.node_info.iter() {
             ipath.push_info(
                 n.address,
-                AddrInfo::new(i.is_call, i.calls_malloc, i.calls_input, i.is_return_point),
+                AddrInfo::new(
+                    i.is_call,
+                    i.calls_malloc,
+                    i.calls_input,
+                    i.calls_unmapped,
+                    i.is_return_point,
+                ),
             )
         }
         ipath
@@ -219,6 +227,7 @@ fn sample_cfg_path(
             is_call: false,
             calls_malloc: false,
             calls_input: false,
+            calls_unmapped: false,
             is_return_point: node_follows_call,
         };
         if node_follows_call {
@@ -260,11 +269,18 @@ fn sample_cfg_path(
                 if icfg.is_input(&ct) {
                     ninfo.calls_input = true;
                 }
-                if !icfg.has_procedure(&ct) || ninfo.calls_malloc || ninfo.calls_input {
+                if icfg.is_unmapped(&ct) {
+                    ninfo.calls_unmapped = true;
+                }
+
+                if !icfg.has_procedure(&ct)
+                    || ninfo.calls_unmapped
+                    || ninfo.calls_malloc
+                    || ninfo.calls_input
+                {
                     // Either a dynamically linked procedure (without CFG)
                     // or a malloc/input call which we don't sample.
-                    // Treat it as unset icall, because it is executed normally
-                    // but should not PUSH to the call stack.
+                    // Treat it as indirect call without known target.
                 } else {
                     // recurse into CFG to sample a new path.
                     let entry = icfg

@@ -56,6 +56,12 @@ impl ICFG {
             .is_some_and(|p| p.read().expect("").is_malloc())
     }
 
+    pub fn is_unmapped(&self, node_id: &NodeId) -> bool {
+        self.procedures
+            .get(node_id)
+            .is_some_and(|p| p.read().expect("").is_unmapped())
+    }
+
     pub fn is_input(&self, node_id: &NodeId) -> bool {
         if !self.is_procedure(node_id) {
             return false;

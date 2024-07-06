@@ -743,16 +743,19 @@ pub struct Procedure {
     is_malloc: bool,
     /// Flag if this procedure provides unpredictable input.
     is_input: bool,
+    /// Procedure is not mapped, likely because it is dynamically linked.
+    is_unmapped: bool,
     /// Timestamp of the last change performed.
     last_change: Instant,
 }
 
 impl Procedure {
-    pub fn new(cfg: Option<CFG>, is_malloc: bool, is_input: bool) -> Procedure {
+    pub fn new(cfg: Option<CFG>, is_malloc: bool, is_input: bool, is_unmapped: bool) -> Procedure {
         Procedure {
             cfg,
             is_malloc,
             is_input,
+            is_unmapped,
             last_change: Instant::now(),
         }
     }
@@ -786,6 +789,7 @@ impl Procedure {
             cfg: Some(self.get_cfg().get_clone(icfg_clone_id)),
             is_malloc: self.is_malloc,
             is_input: self.is_input,
+            is_unmapped: self.is_unmapped,
             last_change: Instant::now(),
         }
     }
@@ -794,6 +798,12 @@ impl Procedure {
     /// False otherwise.
     pub fn is_malloc(&self) -> bool {
         self.is_malloc
+    }
+
+    /// True if this procedure is not mapped in memory.
+    /// False otherwise.
+    pub fn is_unmapped(&self) -> bool {
+        self.is_unmapped
     }
 
     /// Update the call target of instruction [i] of the node [nid] in the procedures CFG.

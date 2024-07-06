@@ -243,6 +243,8 @@ pub struct AddrInfo {
     calls_malloc: bool,
     /// IWord calls an input function.
     calls_input: bool,
+    /// True if the iword calls an unmapped function.
+    calls_unmapped: bool,
     /// IWord is executed on return of a procedure.
     is_return_point: bool,
 }
@@ -252,12 +254,14 @@ impl AddrInfo {
         is_call: bool,
         calls_malloc: bool,
         calls_input: bool,
+        calls_unmapped: bool,
         is_return_point: bool,
     ) -> AddrInfo {
         AddrInfo {
             is_call,
             calls_malloc,
             calls_input,
+            calls_unmapped,
             is_return_point,
         }
     }
@@ -267,6 +271,7 @@ impl AddrInfo {
             is_call: true,
             calls_malloc: false,
             calls_input: false,
+            calls_unmapped: false,
             is_return_point: false,
         }
     }
@@ -276,6 +281,7 @@ impl AddrInfo {
             is_call: true,
             calls_malloc: true,
             calls_input: false,
+            calls_unmapped: false,
             is_return_point: false,
         }
     }
@@ -285,6 +291,7 @@ impl AddrInfo {
             is_call: false,
             calls_malloc: false,
             calls_input: false,
+            calls_unmapped: false,
             is_return_point: true,
         }
     }
@@ -294,6 +301,7 @@ impl AddrInfo {
             is_call: true,
             calls_malloc: false,
             calls_input: true,
+            calls_unmapped: false,
             is_return_point: false,
         }
     }
@@ -303,6 +311,7 @@ impl AddrInfo {
             is_call: false,
             calls_malloc: false,
             calls_input: false,
+            calls_unmapped: false,
             is_return_point: true,
         }
     }
@@ -842,6 +851,13 @@ impl AbstrVM {
         false
     }
 
+    pub fn calls_unmapped(&self, addr: Address) -> bool {
+        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
+            return ainfo.calls_unmapped;
+        }
+        false
+    }
+
     pub fn calls_input(&self, addr: Address) -> bool {
         if let Some(ainfo) = self.pa.addr_info.get(&addr) {
             return ainfo.calls_input;
@@ -986,7 +1002,10 @@ impl AbstrVM {
 
         let mut dont_execute = false;
         // Not yet done for iwords. iwords must only skip the call part.
-        if self.calls_malloc(self.get_pc()) || self.calls_input(self.get_pc()) {
+        if self.calls_malloc(self.get_pc())
+            || self.calls_unmapped(self.get_pc())
+            || self.calls_input(self.get_pc())
+        {
             dont_execute = true;
         }
 
@@ -1238,7 +1257,7 @@ impl AbstrVM {
     /// Returns the new Abstract value and if it was sampled.
     pub fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, bool) {
         if let Some(v) = self.ms.get(key) {
-            // println!("LOAD: AT: {} -> {}", key, v);
+            println!("LOAD: AT: {} -> {}", key, v);
             return (v.clone(), false);
         }
         if n_bytes == 0 {
@@ -1259,7 +1278,7 @@ impl AbstrVM {
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
-        // println!("STORE: AT {} => {} ", key, val);
+        println!("STORE: AT {} => {} ", key, val);
         self.ms.insert(key.clone(), val);
     }
 

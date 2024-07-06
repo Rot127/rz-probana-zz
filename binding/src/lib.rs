@@ -19,6 +19,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+// Rizin is not thread safe. If multiple RzCore are initialized and used in parallel, everything breaks.
+pub static TEST_RIZIN_MUTEX: Mutex<u64> = Mutex::new(0);
+
 #[macro_export]
 macro_rules! log_rz {
     ($level:ident, $tag:expr, $msg:expr) => {{
@@ -320,6 +323,10 @@ impl RzCoreWrapper {
         pderef!(self.ptr).io
     }
 
+    pub fn get_flags(&self) -> *mut rz_flag_t {
+        pderef!(self.ptr).flags
+    }
+
     pub fn get_analysis(&self) -> *mut rz_analysis_t {
         pderef!(self.ptr).analysis
     }
@@ -395,6 +402,17 @@ impl RzCoreWrapper {
         }
         Some(unsafe { rz_il_reg_binding_derive(reg) })
     }
+
+    pub fn get_flag_name_at(&self, address: u64) -> Option<String> {
+        unsafe {
+            let flag = rz_flag_get_at(self.get_flags(), address, false);
+            if flag == std::ptr::null_mut() {
+                return None;
+            }
+            let name_ptr = uderef!(flag).name;
+            Some(c_to_str(name_ptr))
+        }
+    }
 }
 
 /// This allows us to pass the *mut GRzCore between threads.
@@ -432,7 +450,6 @@ pub fn get_pkg_path() -> PathBuf {
         Ok(v) => v,
         Err(_e) => {
             panic!("CARGO_MANIFEST_DIR must be set.");
-            std::process::exit(1)
         }
     };
     let path = PathBuf::from_str(repo_dir.as_str());

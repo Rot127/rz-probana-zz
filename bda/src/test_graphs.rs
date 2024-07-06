@@ -63,20 +63,20 @@ pub fn get_endless_loop_icfg() -> (ICFG, RwLock<WeightMap>) {
     );
 
     icfg.add_edge_test(
-        (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false)),
-        (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false, false)),
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false, false)),
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false, false, false)),
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, C_ADDR), Procedure::new(Some(cfg_c), false, false)),
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(Some(cfg_c), false, false, false)),
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false)),
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false)),
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false, false)),
     );
     }
     (icfg, wmapo)
@@ -127,20 +127,20 @@ pub fn get_endless_loop_icfg_branch() -> (ICFG, RwLock<WeightMap>) {
     );
 
     icfg.add_edge_test(
-        (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false)),
-        (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false, false)),
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false, false)),
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false, false, false)),
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, D_ADDR), Procedure::new(Some(cfg_d), false, false)),
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(Some(cfg_d), false, false, false)),
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false)),
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false, false)),
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false)),
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false, false)),
     );
     }
     (icfg, wmapo)
@@ -266,16 +266,16 @@ pub fn get_paper_example_icfg() -> (ICFG, RwLock<WeightMap>) {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     icfg.add_edge_test(
-        (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(Some(get_main_cfg()), false, false)),
-        (NodeId::new(0, 0, FOO_ADDR), Procedure::new(Some(get_foo_cfg()), false, false))
+        (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(Some(get_main_cfg()), false, false, false)),
+        (NodeId::new(0, 0, FOO_ADDR), Procedure::new(Some(get_foo_cfg()), false, false, false))
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, GEE_ADDR), Procedure::new(Some(get_gee_cfg()), false, false))
+        (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, GEE_ADDR), Procedure::new(Some(get_gee_cfg()), false, false, false))
     );
     icfg.add_edge_test(
-        (NodeId::new(0, 0, FOO_ADDR), Procedure::new(None, false, false)),
-        (NodeId::new(0, 0, GEE_ADDR), Procedure::new(None, false, false))
+        (NodeId::new(0, 0, FOO_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, GEE_ADDR), Procedure::new(None, false, false, false))
     );
     }
 
@@ -312,8 +312,8 @@ pub fn get_icfg_with_selfref_and_recurse_cfg() -> ICFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     icfg.add_edge_test(
-        (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false, false)),
-        (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false, false)),
+        (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false, false, false)),
+        (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false, false, false)),
     );
     }
 

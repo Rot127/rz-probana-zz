@@ -94,7 +94,7 @@ mod tests {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
             NodeId::from(0x99999999999999),
-            Procedure::new(Some(get_main_cfg()), false, false),
+            Procedure::new(Some(get_main_cfg()), false, false, false),
         )
     }
 
@@ -109,6 +109,7 @@ mod tests {
                 Some(get_unset_indirect_call_to_0_cfg()),
                 false,
                 false,
+                false,
             )),
         );
         proc_map_get_cfg_mut!(proc_map, &unset_0_entry).make_acyclic(wmap, None);
@@ -119,7 +120,7 @@ mod tests {
 
         let mut lcfg = get_cfg_simple_loop();
         lcfg.make_acyclic(wmap, None);
-        proc_map.insert(NodeId::from(SIMPLE_LOOP_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false)));
+        proc_map.insert(NodeId::from(SIMPLE_LOOP_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
         proc_map.get(&unset_0_entry).unwrap().write().unwrap()
             .update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
         assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap, true), 10, wmap);
@@ -128,7 +129,7 @@ mod tests {
             .update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
         lcfg = get_cfg_linear();
         lcfg.make_acyclic(wmap, None);
-        proc_map.insert(NodeId::from(LINEAR_CFG_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false)));
+        proc_map.insert(NodeId::from(LINEAR_CFG_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
         assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap, true), 1, wmap);
         }
     }
@@ -153,8 +154,8 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         icfg.add_edge_test(
-            (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(None, false, false)),
-            (NodeId::new(0, 0, FOO_ADDR), Procedure::new(None, false, false)),
+            (NodeId::new(0, 0, MAIN_ADDR), Procedure::new(None, false, false, false)),
+            (NodeId::new(0, 0, FOO_ADDR), Procedure::new(None, false, false, false)),
 );
         }
         assert_eq!(icfg.num_procedures(), 3);

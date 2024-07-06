@@ -4,11 +4,10 @@
 #![allow(non_snake_case)]
 
 use bda::bda_binding::rz_analysis_bda_handler;
-use binding::{get_rz_test_bin_path, init_rizin_instance, RzCoreWrapper};
-use std::sync::Mutex;
+use binding::{get_rz_test_bin_path, init_rizin_instance, RzCoreWrapper, TEST_RIZIN_MUTEX};
 
-// Rizin is not thread safe. If multiple RzCore are initialized and used in parallel, everything breaks.
-static TEST_RIZIN_MUTEX: Mutex<u64> = Mutex::new(0);
+/// General "run BDA from beginning to end" tests.
+/// Nothing should break or hang.
 
 #[test]
 fn test_aaaaPb_x86_cfg_test() {

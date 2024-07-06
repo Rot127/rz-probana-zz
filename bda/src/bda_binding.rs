@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use std::ffi::CString;
 use std::ptr::null;
 use std::{panic, ptr};
 
@@ -12,9 +13,10 @@ use crate::state::BDAState;
 
 use binding::{
     cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef,
-    rz_analysis_function_is_input, rz_analysis_function_is_malloc, rz_analysis_get_function_at,
-    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t,
-    rz_graph_free, rz_notify_error, GRzCore, RzBinAddr, RzBinFile, RzCmdStatus, RzCore,
+    rz_analysis_create_function, rz_analysis_function_is_input, rz_analysis_function_is_malloc,
+    rz_analysis_get_function_at, rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
+    rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error, str_to_c, GRzCore,
+    RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC, RzBinAddr, RzBinFile, RzCmdStatus, RzCore,
     RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
@@ -24,7 +26,7 @@ use binding::{
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, RzGraphNodeInfo,
     RzGraphNodeInfoDataCFG, RzGraphNodeType, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
     RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG,
-    LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    LOG_DEBUG, LOG_ERROR, LOG_INFO, LOG_WARN,
 };
 use helper::progress::ProgressBar;
 
@@ -250,17 +252,42 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
     let mut cfg = CFG::new_graph(get_graph(rz_cfg));
     set_cfg_node_data(&mut cfg, rz_cfg);
     unsafe {
-        let fcn_ptr = rz_analysis_get_function_at(core.get_analysis(), address);
+        let mut is_unmapped = false;
+        let mut fcn_ptr = rz_analysis_get_function_at(core.get_analysis(), address);
         if fcn_ptr == ptr::null_mut() {
-            panic!(
-                "Attempt to make a invalid procedure at: {:#x}. Symbol not defined in Rizin.",
-                address
-            )
+            log_rz!(
+                LOG_DEBUG,
+                Some("BDA"),
+                format!(
+                    "Attempt to make a invalid procedure at: {:#x}. Symbol not defined in Rizin.",
+                    address
+                )
+            );
+            let name;
+            if let Some(fname) = core.get_flag_name_at(address) {
+                name = fname;
+            } else {
+                name = format!("unmapped_{}", address);
+            }
+
+            fcn_ptr = rz_analysis_create_function(
+                core.get_analysis(),
+                str_to_c!(name.clone()),
+                address,
+                RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC,
+            );
+            log_rz!(
+                LOG_INFO,
+                Some("BDA"),
+                format!("Created unmapped loc.{}", name)
+            );
+            is_unmapped = true;
         }
         let proc = Procedure::new(
             Some(cfg.to_owned()),
             rz_analysis_function_is_malloc(fcn_ptr),
             rz_analysis_function_is_input(fcn_ptr),
+            is_unmapped,
         );
         rz_graph_free(rz_cfg);
         return Some(proc);
