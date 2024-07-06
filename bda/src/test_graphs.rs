@@ -19,9 +19,9 @@ pub const FOO_ADDR: Address = 6;
 pub const MAIN_ADDR: Address = 11;
 pub const RANDOM_FCN_ADDR: Address = 0x5a5a5a5a5a5a5a5a;
 
-/// A -> B -> C -> A
-///           \  
-///            +--> C -> C ....
+// A -> B -> C -> A
+//           \
+//            +--> C -> C ....
 pub fn get_endless_loop_icfg() -> (ICFG, RwLock<WeightMap>) {
     let mut icfg = ICFG::new();
     let wmapo = WeightMap::new();
@@ -282,9 +282,9 @@ pub fn get_paper_example_icfg() -> (ICFG, RwLock<WeightMap>) {
     (icfg, wmapo)
 }
 
-/// Entry node is part of loop
-/// 0 ---> 1 ----> 2
-///  <----
+// Entry node is part of loop
+// 0 ---> 1 ----> 2
+//  <----
 pub fn get_entry_loop_cfg() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -422,9 +422,9 @@ pub fn get_cfg_single_self_ref() -> CFG {
     cfg
 }
 
-///        Call     self
-///                 ref
-/// 0 ----> 1 -----> 2 -----> 3
+//        Call     self
+//                 ref
+// 0 ----> 1 -----> 2 -----> 3
 pub fn get_cfg_self_ref_call() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -488,9 +488,9 @@ pub fn get_cfg_linear_call() -> CFG {
 }
 
 pub const SIMPLE_LOOP_ENTRY: Address = 0;
-///
-///       <---+
-/// 0 -> 1 -> 2 -> 3
+//
+//       <---+
+// 0 -> 1 -> 2 -> 3
 pub fn get_cfg_simple_loop() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -567,18 +567,18 @@ pub fn get_cfg_self_ref_loop() -> CFG {
     cfg
 }
 
-///
-/// ```
-///  0
-///  |
-///  1     +--+
-/// | \    |  |
-/// |  4 <-+-+
-/// | /
-/// 2
-/// |
-/// 3
-/// ```
+//
+// ```
+//  0
+//  |
+//  1     +--+
+// | \    |  |
+// |  4 <-+-+
+// | /
+// 2
+// |
+// 3
+// ```
 pub fn get_cfg_loop_self_ref() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -688,7 +688,7 @@ pub fn get_unset_indirect_call_to_0_cfg() -> CFG {
     cfg
 }
 
-/// 0 ---> 1 <-----> 2
+// 0 ---> 1 <-----> 2
 pub fn get_endless_loop_cfg() -> CFG {
     let mut cfg = CFG::new();
 
@@ -714,7 +714,7 @@ pub fn get_endless_loop_cfg() -> CFG {
 pub const CFG_ENTRY_A: Address = 0xaaaaaa0;
 pub const CFG_ENTRY_A_CALL: Address = 0xaaaaaa1;
 
-/// 0xaaaaaa0 ----> ind. call ----> 0xaaaaaa2
+// 0xaaaaaa0 ----> ind. call ----> 0xaaaaaa2
 pub fn get_A() -> CFG {
     let mut cfg = CFG::new();
 
@@ -737,9 +737,9 @@ pub const CFG_ENTRY_B: Address = 0xbbbbbb0;
 pub const CFG_ENTRY_B_CALL_1: Address = 0xbbbbbb1;
 pub const CFG_ENTRY_B_CALL_2: Address = 0xbbbbbb2;
 
-///             +--> ind. call -->
-///             |
-/// 0xbbbbbb0 ----> ind. call ----> 0xbbbbbb3
+//             +--> ind. call -->
+//             |
+// 0xbbbbbb0 ----> ind. call ----> 0xbbbbbb3
 pub fn get_B() -> CFG {
     let mut cfg = CFG::new();
 
@@ -768,9 +768,9 @@ pub fn get_B() -> CFG {
 
 pub const CFG_ENTRY_C: Address = 0xcccccc0;
 
-///               +----> 0xcccccc1
-/// 0xcccccc0 ---->
-///               +----> 0xcccccc2
+//               +----> 0xcccccc1
+// 0xcccccc0 ---->
+//               +----> 0xcccccc2
 pub fn get_C() -> CFG {
     let mut cfg = CFG::new();
 
