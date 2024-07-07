@@ -24,7 +24,7 @@ use crate::op_handler::eval_effect;
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 pub type Address = u64;
 
-const MAX_ADDRESS: u64 = u64::MAX;
+const MAX_U64_ADDRESS: u64 = u64::MAX;
 
 #[derive(Clone, Debug, Hash)]
 pub struct Const {
@@ -746,6 +746,8 @@ impl IntrpProducts {
 pub struct AbstrVM {
     /// Program counter
     pc: PC,
+    /// PC size in bits
+    pc_bit_width: usize,
     /// Instruction sizes map
     is: HashMap<Address, u64>,
     /// Invocation count map
@@ -804,6 +806,7 @@ impl AbstrVM {
         let limit_repeat = rz_core.lock().unwrap().get_bda_max_iterations() as usize;
         AbstrVM {
             pc,
+            pc_bit_width: 0,
             is: HashMap::new(),
             ic: HashMap::new(),
             ms: HashMap::new(),
@@ -866,7 +869,7 @@ impl AbstrVM {
     }
 
     pub fn add_call_xref(&mut self, proc_addr: Address, to: Address) {
-        if to == MAX_ADDRESS {
+        if self.is_max_addr(to) {
             return;
         }
         self.calls_xref.insert(ConcreteCall {
@@ -1062,6 +1065,8 @@ impl AbstrVM {
             rz_core.clear_poison();
         }
         let core = rz_core.lock().unwrap();
+
+        self.pc_bit_width = core.get_arch_bits();
 
         // Set the register alias
         let alias = core.get_reg_alias();
@@ -1417,7 +1422,7 @@ impl AbstrVM {
         let cf = CallFrame {
             in_site: self.pc,
             instance: 0,
-            return_addr: MAX_ADDRESS,
+            return_addr: MAX_U64_ADDRESS,
             sp: self.get_sp(),
         };
         println!("PUSH: {}", cf);
@@ -1456,6 +1461,10 @@ impl AbstrVM {
 
     pub fn get_cur_entry(&self) -> u64 {
         return *self.proc_entry.last().expect("No entry in list");
+    }
+
+    fn is_max_addr(&self, to: u64) -> bool {
+        to == (u64::MAX >> 64 - self.pc_bit_width)
     }
 }
 

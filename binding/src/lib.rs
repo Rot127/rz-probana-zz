@@ -257,6 +257,10 @@ impl RzCoreWrapper {
         c as usize
     }
 
+    pub fn get_arch_bits(&self) -> usize {
+        pderef!(self.get_analysis()).bits as usize
+    }
+
     pub fn get_analysis_op(&self, addr: u64) -> *mut RzAnalysisOp {
         let iop: *mut RzAnalysisOp = unsafe {
             rz_core_analysis_op(
