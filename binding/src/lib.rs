@@ -352,8 +352,8 @@ impl RzCoreWrapper {
 
     pub fn run_cmd(&self, cmd: &str) -> bool {
         unsafe {
-            rz_core_cmd0_rzshell(self.ptr, str_to_c!(cmd.to_string()))
-                == rz_cmd_status_t_RZ_CMD_STATUS_OK
+            let c_cmd = CString::new(cmd).expect("Conversion failed.");
+            rz_core_cmd0_rzshell(self.ptr, c_cmd.as_ptr()) == rz_cmd_status_t_RZ_CMD_STATUS_OK
         }
     }
 
