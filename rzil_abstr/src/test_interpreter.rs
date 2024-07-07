@@ -11,7 +11,7 @@ mod tests {
         },
     };
 
-    use binding::{get_test_bin_path, init_rizin_instance, RzCoreWrapper, TEST_RIZIN_MUTEX};
+    use binding::{get_test_bin_path, init_rizin_instance, wait_for_exlusive_core, RzCoreWrapper};
     use num_bigint::{ToBigInt, ToBigUint};
 
     use crate::interpreter::{
@@ -122,10 +122,7 @@ mod tests {
 
     #[test]
     fn test_x86_icall_discover() {
-        let mut mr = TEST_RIZIN_MUTEX.try_lock();
-        while mr.is_err() {
-            mr = TEST_RIZIN_MUTEX.try_lock();
-        }
+        wait_for_exlusive_core!();
 
         let (core, path) = get_x86_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
@@ -195,10 +192,7 @@ mod tests {
 
     #[test]
     fn test_hexagon_icall_discover() {
-        let mut mr = TEST_RIZIN_MUTEX.try_lock();
-        while mr.is_err() {
-            mr = TEST_RIZIN_MUTEX.try_lock();
-        }
+        wait_for_exlusive_core!();
 
         let (core, path) = get_hexagon_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
@@ -245,10 +239,7 @@ mod tests {
 
     #[test]
     fn test_constant() {
-        let mut mr = TEST_RIZIN_MUTEX.try_lock();
-        while mr.is_err() {
-            mr = TEST_RIZIN_MUTEX.try_lock();
-        }
+        wait_for_exlusive_core!();
 
         let u_32_max = Const::new_u64(0xffffffff, 32);
         // Comparison tests. Due to our bit width limitation, we need to check
@@ -305,10 +296,7 @@ mod tests {
 
     #[test]
     fn test_x86_malloc() {
-        let mut mr = TEST_RIZIN_MUTEX.try_lock();
-        while mr.is_err() {
-            mr = TEST_RIZIN_MUTEX.try_lock();
-        }
+        wait_for_exlusive_core!();
 
         let (core, path) = get_x86_malloc_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
@@ -373,10 +361,7 @@ mod tests {
 
     #[test]
     fn test_hexagon_malloc() {
-        let mut mr = TEST_RIZIN_MUTEX.try_lock();
-        while mr.is_err() {
-            mr = TEST_RIZIN_MUTEX.try_lock();
-        }
+        wait_for_exlusive_core!();
 
         let (core, path) = get_hexagon_malloc_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();

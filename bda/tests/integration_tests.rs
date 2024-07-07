@@ -4,17 +4,14 @@
 #![allow(non_snake_case)]
 
 use bda::bda_binding::rz_analysis_bda_handler;
-use binding::{get_rz_test_bin_path, init_rizin_instance, RzCoreWrapper, TEST_RIZIN_MUTEX};
+use binding::{get_rz_test_bin_path, init_rizin_instance, wait_for_exlusive_core, RzCoreWrapper};
 
 /// General "run BDA from beginning to end" tests.
 /// Nothing should break or hang.
 
 #[test]
 fn test_aaaaPb_x86_cfg_test() {
-    let mut mr = TEST_RIZIN_MUTEX.try_lock();
-    while mr.is_err() {
-        mr = TEST_RIZIN_MUTEX.try_lock();
-    }
+    wait_for_exlusive_core!();
 
     let test_bin = get_rz_test_bin_path()
         .join("elf")
@@ -39,10 +36,7 @@ fn test_aaaaPb_x86_cfg_test() {
 
 #[test]
 fn test_aaaaPb_hexagon_test_jmp() {
-    let mut mr = TEST_RIZIN_MUTEX.try_lock();
-    while mr.is_err() {
-        mr = TEST_RIZIN_MUTEX.try_lock();
-    }
+    wait_for_exlusive_core!();
 
     let test_bin = get_rz_test_bin_path()
         .join("elf")
@@ -64,10 +58,7 @@ fn test_aaaaPb_hexagon_test_jmp() {
 
 #[test]
 fn test_aaaaPb_hexagon_hello_loop() {
-    let mut mr = TEST_RIZIN_MUTEX.try_lock();
-    while mr.is_err() {
-        mr = TEST_RIZIN_MUTEX.try_lock();
-    }
+    wait_for_exlusive_core!();
 
     let test_bin = get_rz_test_bin_path()
         .join("elf")
