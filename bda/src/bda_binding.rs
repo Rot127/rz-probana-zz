@@ -61,7 +61,7 @@ macro_rules! get_node_info_address {
 pub fn get_bin_entries(rz_core: GRzCore) -> Vec<Address> {
     let binfiles: Vec<*mut RzBinFile> = unsafe {
         let core = rz_core.lock().unwrap();
-        list_to_vec::<*mut RzBinFile>((*(pderef!(core.ptr)).bin).binfiles, |elem| {
+        list_to_vec::<*mut RzBinFile>((*(pderef!(core.get_ptr())).bin).binfiles, |elem| {
             elem as *mut RzBinFile
         })
     };
@@ -238,7 +238,7 @@ fn set_cfg_node_data(cfg: &mut CFG, rz_cfg: *mut RzGraph) {
 
 fn guarded_rz_core_graph_icfg(core: GRzCore) -> *mut RzGraph {
     let c = core.lock().unwrap();
-    unsafe { rz_core_graph_icfg(c.ptr) }
+    unsafe { rz_core_graph_icfg(c.get_ptr()) }
 }
 
 /// Sets up a procedure by pulling all relevant data

@@ -23,6 +23,16 @@ use std::{
 pub static TEST_RIZIN_MUTEX: Mutex<u64> = Mutex::new(0);
 
 #[macro_export]
+macro_rules! wait_for_exlusive_core {
+    () => {
+        let mut mr = binding::TEST_RIZIN_MUTEX.try_lock();
+        while mr.is_err() {
+            mr = binding::TEST_RIZIN_MUTEX.try_lock();
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! log_rz {
     ($level:ident, $tag:expr, $msg:expr) => {{
         let file = std::ffi::CString::new(file!().to_string()).expect("CString::new() failed");
@@ -194,7 +204,7 @@ macro_rules! str_to_c {
 /// Wrapper struct around a *mut rz_core_t
 /// Clone and Copy should definitely not be implemented for this struct.
 pub struct RzCoreWrapper {
-    pub ptr: *mut rz_core_t,
+    ptr: *mut rz_core_t,
 }
 
 /// Guraded RzCore
@@ -338,6 +348,17 @@ impl RzCoreWrapper {
         } else {
             unsafe { rz_core_graph_cfg(self.ptr, address) }
         }
+    }
+
+    pub fn run_cmd(&self, cmd: &str) -> bool {
+        unsafe {
+            rz_core_cmd0_rzshell(self.ptr, str_to_c!(cmd.to_string()))
+                == rz_cmd_status_t_RZ_CMD_STATUS_OK
+        }
+    }
+
+    pub fn get_ptr(&self) -> *mut rz_core_t {
+        self.ptr
     }
 
     pub fn get_cur(&self) -> *mut rz_analysis_plugin_t {
