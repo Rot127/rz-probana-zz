@@ -170,7 +170,12 @@ impl InsnNodeData {
                 // dynamically, we do not know at this sampling stage, where it will
                 // jump to.
                 let ct_nid = &self.call_targets.sample();
-                let has_procedure = procedure_map.get(ct_nid).is_some();
+                let p: Option<&RwLock<Procedure>> = procedure_map.get(ct_nid);
+                let mut has_procedure = p.is_some();
+                if has_procedure {
+                    // malloc, input and unmapped CFGs always have a weight of 1
+                    has_procedure &= !p.unwrap().read().unwrap().wont_execute();
+                }
                 let cw: WeightID = if has_procedure {
                     procedure_map
                         .get(ct_nid)
@@ -181,7 +186,7 @@ impl InsnNodeData {
                         .unwrap()
                         .get_cfg_mut()
                         .get_entry_weight_id(procedure_map, wmap)
-                        .expect("Entry have a weight.")
+                        .expect("Entry has a weight.")
                 } else {
                     *const_one
                 };
@@ -812,9 +817,16 @@ impl Procedure {
         self.is_unmapped
     }
 
+    /// True if this procedure is not executed.
+    /// False otherwise.
+    pub fn wont_execute(&self) -> bool {
+        self.is_malloc || self.is_input || self.is_unmapped
+    }
+
     /// Update the call target of instruction [i] of the node [nid] in the procedures CFG.
     /// If [i] is -1, it panics if there are more than one call instructions part of the node.
-    /// It panics of no call was updated.
+    /// Otherwise it updates the single call.
+    /// It panics if no call was updated.
     pub fn update_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
         self.last_change = Instant::now();
         let lc = self.last_change.clone();

@@ -238,6 +238,22 @@ impl NodeIdVec {
         }
     }
 
+    /// Returns true if any call target has a icfg or cfg clone id > 0.
+    /// This indicates that the node was cloned before.
+    pub fn contains_any_clone(&self) -> bool {
+        self.vec
+            .iter()
+            .any(|ct| ct.icfg_clone_id > 0 || ct.cfg_clone_id > 0)
+    }
+
+    /// Deletes all cloned nodes.
+    /// It returns true if the vector is empty afterwards.
+    pub fn delete_cloned_nodes(&mut self) -> bool {
+        self.vec
+            .retain(|ct| ct.icfg_clone_id == 0 && ct.cfg_clone_id == 0);
+        self.vec.is_empty()
+    }
+
     /// Samples a NodeId uniformily at random from the vector
     /// If the list is empty, it returns an INVALID_NODE_ID
     pub fn sample(&self) -> NodeId {

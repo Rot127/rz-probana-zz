@@ -59,7 +59,7 @@ impl ICFG {
     pub fn is_unmapped(&self, node_id: &NodeId) -> bool {
         self.procedures
             .get(node_id)
-            .is_some_and(|p| p.read().expect("").is_unmapped())
+            .is_some_and(|p| p.read().expect("").is_unmapped()) || !self.has_procedure(node_id)
     }
 
     pub fn is_input(&self, node_id: &NodeId) -> bool {
@@ -302,11 +302,19 @@ impl FlowGraphOperations for ICFG {
                         i.call_targets.set_next_icfg_clone_id();
                         continue;
                     }
-                    // This is the special case of the last clone.
-                    // Its call edge was not not duplicated in the iCFG (because it is the last clone),
-                    // so we need to transform the node to a normal node.
-                    i.call_targets.clear();
-                    i.itype.weight_type = InsnNodeWeightType::Normal;
+
+                    // These lines are reached for two special cases:
+                    // - The last clone of a node.
+                    //   Its call edge was not not duplicated in the iCFG (because it is the last clone),
+                    //   so we need to transform the node to a normal node.
+                    //   Otherwise the weight calculation won't work since it cannot assign a value.
+                    // - The the instruction calls an unmmaped procedure.
+                    //   If the call target is an unmapped procedure (e.g. a dynamically linked one),
+                    //   Rizin doesn't have a CFG for it.
+                    //   For this case we reset it to a normal node.
+                    if i.call_targets.delete_cloned_nodes() {
+                        i.itype.weight_type = InsnNodeWeightType::Normal;
+                    }
                 }
             }
         }
