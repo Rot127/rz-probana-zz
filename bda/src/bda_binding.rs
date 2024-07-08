@@ -284,7 +284,7 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
             is_unmapped = true;
         }
         let proc = Procedure::new(
-            Some(cfg.to_owned()),
+            Some(cfg),
             rz_analysis_function_is_malloc(fcn_ptr),
             rz_analysis_function_is_input(fcn_ptr),
             is_unmapped,

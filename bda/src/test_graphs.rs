@@ -309,11 +309,12 @@ pub fn get_icfg_with_selfref_and_recurse_cfg() -> ICFG {
     let mut icfg = ICFG::new();
     let cfg_recurse_selfref = get_cfg_self_ref_call();
 
+    let entry = cfg_recurse_selfref.get_entry();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     icfg.add_edge_test(
-        (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false, false, false)),
-        (cfg_recurse_selfref.get_entry(), Procedure::new(Some(cfg_recurse_selfref.to_owned()), false, false, false)),
+        (entry, Procedure::new(Some(cfg_recurse_selfref.get_clone(entry.icfg_clone_id)), false, false, false)),
+        (entry, Procedure::new(Some(cfg_recurse_selfref), false, false, false)),
     );
     }
 

@@ -312,7 +312,6 @@ impl CFGNodeData {
 }
 
 /// A control-flow graph of a procedure
-#[derive(Clone)]
 pub struct CFG {
     /// The graph.
     pub graph: FlowGraph,
@@ -382,7 +381,14 @@ impl CFG {
 
     /// Clones itself and updates the node IDs with the given iCFG clone id
     pub fn get_clone(&self, icfg_clone_id: u32) -> CFG {
-        let mut cloned_cfg: CFG = self.clone();
+        let mut cloned_cfg: CFG = CFG {
+            graph: self.graph.clone(),
+            nodes_meta: self.nodes_meta.clone(),
+            discovered_exits: self.discovered_exits.clone(),
+            rev_topograph: self.rev_topograph.clone(),
+            entry: self.entry.clone(),
+            dup_cnt: self.dup_cnt.clone(),
+        };
 
         // Update the node IDs for the meta information
         let mut new_meta_map: HashMap<NodeId, CFGNodeData> = HashMap::new();
@@ -404,7 +410,7 @@ impl CFG {
             from_new.icfg_clone_id = icfg_clone_id;
             let mut to_new: NodeId = to;
             to_new.icfg_clone_id = icfg_clone_id;
-            cloned_cfg.graph.add_edge(from_new, to_new, bias.clone());
+            cloned_cfg.graph.add_edge(from_new, to_new, *bias);
         }
         cloned_cfg.rev_topograph.clear();
 

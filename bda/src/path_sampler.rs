@@ -283,16 +283,10 @@ fn sample_cfg_path(
                     // Treat it as indirect call without known target.
                 } else {
                     // recurse into CFG to sample a new path.
-                    let entry = icfg
-                        .get_procedure(&ct)
-                        .read()
-                        .unwrap()
-                        .get_cfg()
-                        .get_entry();
                     sample_cfg_path(
                         icfg,
                         icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
-                        entry,
+                        ct,
                         path,
                         i + 1,
                         wmap,

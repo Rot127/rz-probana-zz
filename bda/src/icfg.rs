@@ -112,42 +112,42 @@ impl ICFG {
     /// Returns true if the edge was contained in the iCFG.
     pub fn add_edge(
         &mut self,
-        from: (NodeId, Option<Procedure>),
-        to: (NodeId, Option<Procedure>),
-        addr_to_update: Option<NodeId>,
+        from_proc_tuple: (NodeId, Option<Procedure>),
+        to_proc_tuple: (NodeId, Option<Procedure>),
+        call_insn_addr: Option<NodeId>,
     ) -> bool {
-        let from_nid = from.0;
-        let to_nid = to.0;
-        if !self.has_procedure(&from_nid) {
-            if from.1.is_none() {
+        let from_proc_nid = from_proc_tuple.0;
+        let to_proc_nid = to_proc_tuple.0;
+        if !self.has_procedure(&from_proc_nid) {
+            if from_proc_tuple.1.is_none() {
                 panic!(
                     "Cannot add edge ({} -> {}), no procedure given",
-                    from_nid, to_nid
+                    from_proc_nid, to_proc_nid
                 );
             }
-            self.add_procedure(from_nid, from.1.unwrap());
+            self.add_procedure(from_proc_nid, from_proc_tuple.1.unwrap());
         }
-        if let Some(call_addr) = addr_to_update {
-            self.get_procedure(&from_nid)
+        if let Some(call_addr) = call_insn_addr {
+            self.get_procedure(&from_proc_nid)
                 .write()
                 .unwrap()
-                .update_call_target(&call_addr, -1, &to_nid);
+                .update_call_target(&call_addr, -1, &to_proc_nid);
         }
-        if !self.has_procedure(&to_nid) {
-            if to.1.is_none() {
+        if !self.has_procedure(&to_proc_nid) {
+            if to_proc_tuple.1.is_none() {
                 panic!(
                     "Cannot add edge ({} -> {}), no procedure given",
-                    from_nid, to_nid
+                    from_proc_nid, to_proc_nid
                 );
             }
-            self.add_procedure(to_nid, to.1.unwrap());
+            self.add_procedure(to_proc_nid, to_proc_tuple.1.unwrap());
         }
 
         // Add actual edge
-        if self.graph.contains_edge(from_nid, to_nid) {
+        if self.graph.contains_edge(from_proc_nid, to_proc_nid) {
             return true;
         }
-        self.graph.add_edge(from_nid, to_nid, 0);
+        self.graph.add_edge(from_proc_nid, to_proc_nid, 0);
         return false;
     }
 

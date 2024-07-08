@@ -100,26 +100,30 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
     let mut call_added = false;
     products.iter().for_each(|prod| {
         for code_xref in prod.concrete_calls.iter() {
-            let proc_addr = NodeId::from(code_xref.get_proc_addr());
-            let from = NodeId::from(code_xref.get_from());
-            let to = NodeId::from(code_xref.get_to());
-            let procedure_from: Option<Procedure> = if icfg.has_procedure(&proc_addr) {
+            let from_proc_addr = NodeId::from(code_xref.get_proc_addr());
+            let call_insn_addr = NodeId::from(code_xref.get_from());
+            let to_proc_addr = NodeId::from(code_xref.get_to());
+            let procedure_from: Option<Procedure> = if icfg.has_procedure(&from_proc_addr) {
                 None
             } else {
-                setup_procedure_at_addr(&core.lock().unwrap(), proc_addr.address)
+                setup_procedure_at_addr(&core.lock().unwrap(), from_proc_addr.address)
             };
-            if procedure_from.is_none() && !icfg.has_procedure(&proc_addr) {
-                panic!("Could not initialize procedure at {}", proc_addr);
+            if procedure_from.is_none() && !icfg.has_procedure(&from_proc_addr) {
+                panic!("Could not initialize procedure at {}", from_proc_addr);
             }
-            let procedure_to: Option<Procedure> = if icfg.has_procedure(&to) {
+            let procedure_to: Option<Procedure> = if icfg.has_procedure(&to_proc_addr) {
                 None
             } else {
-                setup_procedure_at_addr(&core.lock().unwrap(), to.address)
+                setup_procedure_at_addr(&core.lock().unwrap(), to_proc_addr.address)
             };
-            if procedure_to.is_none() && !icfg.has_procedure(&to) {
-                panic!("Could not initialize procedure at {}", to);
+            if procedure_to.is_none() && !icfg.has_procedure(&to_proc_addr) {
+                panic!("Could not initialize procedure at {}", to_proc_addr);
             }
-            if !icfg.add_edge((proc_addr, procedure_from), (to, procedure_to), Some(from)) {
+            if !icfg.add_edge(
+                (from_proc_addr, procedure_from),
+                (to_proc_addr, procedure_to),
+                Some(call_insn_addr),
+            ) {
                 call_added = true;
             }
         }
