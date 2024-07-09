@@ -7,6 +7,7 @@ mod tests {
         get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
         GRzCore, RzCoreWrapper,
     };
+    use rzil_abstr::interpreter::{AbstrVal, Const, MemOp};
 
     use crate::{
         bda::run_bda,
@@ -234,5 +235,111 @@ mod tests {
             .get_cfg()
             .get_all_call_targets()
             .is_empty());
+    }
+
+    fn get_x86_icall_malloc() -> (GRzCore, ICFG) {
+        let discover_o = get_test_bin_path().join("x86_icall_malloc.o");
+        let rz_core = RzCoreWrapper::new(init_rizin_instance(
+            discover_o.to_str().expect("Path wrong"),
+        ));
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.entries", "0x08000040");
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.skip_questions", "true");
+        rz_core
+            .lock()
+            .unwrap()
+            .run_cmd("f+ calloc @ 0x080004a0 ; f+ malloc @ 0x080004a8 ; f+ realloc @ 0x080004b0");
+        let rz_icfg = unsafe { rz_core_graph_icfg(rz_core.lock().unwrap().get_ptr()) };
+        let mut icfg = ICFG::new_graph(get_graph(rz_icfg));
+        add_procedures_to_icfg(rz_core.clone(), &mut icfg);
+        (rz_core, icfg)
+    }
+
+    #[test]
+    fn test_x86_icall_malloc() {
+        wait_for_exlusive_core!();
+
+        let (core, mut icfg) = get_x86_icall_malloc();
+        let mut state = BDAState::new(1, 3);
+        assert_eq!(icfg.get_procedures().len(), 4, "Incomplete iCFG");
+        run_bda(core, &mut icfg, &mut state);
+
+        let mos = &state.mos;
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        let heap_val_0 = MemOp::new(0x08000078, AbstrVal::new_heap(1, Const::get_zero(64), 0x080000ac));
+        let heap_val_1 = MemOp::new(0x08000078, AbstrVal::new_heap(1, Const::get_zero(64), 0x080000c9));
+        let heap_val_2 = MemOp::new(0x08000078, AbstrVal::new_heap(1, Const::get_zero(64), 0x080000dd));
+        assert!(mos.contains(&heap_val_0), "HeapVal {} not in MOS", heap_val_0);
+        assert!(mos.contains(&heap_val_1), "HeapVal {} not in MOS", heap_val_1);
+        assert!(mos.contains(&heap_val_2), "HeapVal {} not in MOS", heap_val_2);
+        }
+    }
+
+    fn get_hexagon_icall_malloc() -> (GRzCore, ICFG) {
+        let discover_o = get_test_bin_path().join("hexagon_icall_malloc.o");
+        let rz_core = RzCoreWrapper::new(init_rizin_instance(
+            discover_o.to_str().expect("Path wrong"),
+        ));
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.entries", "0x08000040");
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.skip_questions", "true");
+        rz_core
+            .lock()
+            .unwrap()
+            .run_cmd("f+ calloc @ 0x080002dc ; f+ malloc @ 0x80002e0 ; f+ realloc @ 0x80002e4");
+        let rz_icfg = unsafe { rz_core_graph_icfg(rz_core.lock().unwrap().get_ptr()) };
+        let mut icfg = ICFG::new_graph(get_graph(rz_icfg));
+        add_procedures_to_icfg(rz_core.clone(), &mut icfg);
+        (rz_core, icfg)
+    }
+
+    #[test]
+    fn test_hexagon_icall_malloc() {
+        wait_for_exlusive_core!();
+
+        let (core, mut icfg) = get_hexagon_icall_malloc();
+        let mut state = BDAState::new(1, 3);
+        assert_eq!(icfg.get_procedures().len(), 4, "Incomplete iCFG");
+        run_bda(core, &mut icfg, &mut state);
+
+        let mos = &state.mos;
+        let heap_val_0 = MemOp::new(
+            0x08000084,
+            AbstrVal::new_heap(1, Const::get_zero(32), 0x080000bc),
+        );
+        let heap_val_1 = MemOp::new(
+            0x08000084,
+            AbstrVal::new_heap(1, Const::get_zero(32), 0x080000d8),
+        );
+        let heap_val_2 = MemOp::new(
+            0x08000084,
+            AbstrVal::new_heap(1, Const::get_zero(32), 0x080000ec),
+        );
+        assert!(
+            mos.contains(&heap_val_0),
+            "HeapVal {} not in MOS",
+            heap_val_0
+        );
+        assert!(
+            mos.contains(&heap_val_1),
+            "HeapVal {} not in MOS",
+            heap_val_1
+        );
+        assert!(
+            mos.contains(&heap_val_2),
+            "HeapVal {} not in MOS",
+            heap_val_2
+        );
     }
 }

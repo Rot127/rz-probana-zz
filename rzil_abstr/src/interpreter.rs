@@ -670,15 +670,15 @@ type AbstrOp1 = fn(v1: &Const) -> Const;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MemOp {
-    /// Address of the memory instruction
-    addr: Address,
+    /// Address of the memory instruction which references this value.
+    ref_addr: Address,
     /// The abstract memory value which is processed.
     aval: AbstrVal,
 }
 
 impl MemOp {
-    pub fn new(addr: Address, aval: AbstrVal) -> MemOp {
-        MemOp { addr, aval }
+    pub fn new(ref_addr: Address, aval: AbstrVal) -> MemOp {
+        MemOp { ref_addr, aval }
     }
 
     pub fn is_heap(&self) -> bool {
@@ -688,7 +688,7 @@ impl MemOp {
 
 impl std::fmt::Display for MemOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "MemOp: {:#x} -> {}", self.addr, self.aval)
+        write!(f, "MemOp: {:#x} -> {}", self.ref_addr, self.aval)
     }
 }
 
@@ -1275,7 +1275,7 @@ impl AbstrVM {
 
     pub fn enqueue_mos(&mut self, v: &AbstrVal) {
         let mem_op = MemOp {
-            addr: self.get_pc(),
+            ref_addr: self.get_pc(),
             aval: v.clone(),
         };
         println!("ENQUEUE MOS: {}", &mem_op);
