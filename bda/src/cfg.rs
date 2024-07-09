@@ -65,7 +65,7 @@ impl InsnNodeType {
 
 /// An instruction node which is always part of an
 /// instruction word node.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct InsnNodeData {
     /// The memory address the instruction is located.
     pub addr: Address,
@@ -123,6 +123,18 @@ impl InsnNodeData {
             orig_jump_target,
             orig_next,
             is_indirect_call,
+        }
+    }
+
+    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> InsnNodeData {
+        InsnNodeData {
+            addr: self.addr,
+            itype: self.itype.clone(),
+            call_targets: self.call_targets.get_clone(icfg_clone_id, cfg_clone_id),
+            ct_last_state: Some(Instant::now()),
+            orig_jump_target: self.orig_jump_target,
+            orig_next: self.orig_next,
+            is_indirect_call: self.is_indirect_call,
         }
     }
 
@@ -197,15 +209,53 @@ impl InsnNodeData {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct InsnNodeDataVec {
+    vec: Vec<InsnNodeData>,
+}
+
+impl InsnNodeDataVec {
+    pub fn new() -> InsnNodeDataVec {
+        InsnNodeDataVec { vec: Vec::new() }
+    }
+
+    pub fn push(&mut self, idata: InsnNodeData) {
+        self.vec.push(idata);
+    }
+
+    pub fn len(&self) -> usize {
+        self.vec.len()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, InsnNodeData> {
+        self.vec.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, InsnNodeData> {
+        self.vec.iter_mut()
+    }
+
+    pub fn last_mut(&mut self) -> Option<&mut InsnNodeData> {
+        self.vec.last_mut()
+    }
+
+    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> InsnNodeDataVec {
+        let mut clone = InsnNodeDataVec { vec: Vec::new() };
+        self.iter()
+            .for_each(|idata| clone.push(idata.get_clone(icfg_clone_id, cfg_clone_id)));
+        clone
+    }
+}
+
 /// A CFG node. This is equivalent to an instruction word.
 /// For most architectures this instruction word
 /// contains one instruction.
 /// For a few (e.g. Hexagon) it can contain more.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct CFGNodeData {
     pub nid: NodeId,
     weight_id: Option<WeightID>,
-    pub insns: Vec<InsnNodeData>,
+    pub insns: InsnNodeDataVec,
 }
 
 impl std::fmt::Display for CFGNodeData {
@@ -219,7 +269,7 @@ impl CFGNodeData {
         CFGNodeData {
             nid,
             weight_id: None,
-            insns: Vec::new(),
+            insns: InsnNodeDataVec::new(),
         }
     }
 
@@ -233,7 +283,7 @@ impl CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
             weight_id: None,
-            insns: Vec::new(),
+            insns: InsnNodeDataVec::new(),
         };
         node.insns.push(InsnNodeData {
             addr,
@@ -278,7 +328,7 @@ impl CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
             weight_id: None,
-            insns: Vec::new(),
+            insns: InsnNodeDataVec::new(),
         };
         node.insns.push(InsnNodeData::new_call(
             addr,
@@ -291,7 +341,11 @@ impl CFGNodeData {
     }
 
     pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> CFGNodeData {
-        let mut clone = self.clone();
+        let mut clone = CFGNodeData {
+            nid: self.nid,
+            weight_id: self.weight_id,
+            insns: self.insns.get_clone(icfg_clone_id, cfg_clone_id),
+        };
         clone.nid.icfg_clone_id = icfg_clone_id;
         clone.nid.cfg_clone_id = cfg_clone_id;
         clone
@@ -316,14 +370,81 @@ impl CFGNodeData {
     }
 }
 
+pub struct CFGNodeDataMap {
+    map: HashMap<NodeId, CFGNodeData>,
+}
+
+impl CFGNodeDataMap {
+    pub fn new() -> CFGNodeDataMap {
+        CFGNodeDataMap {
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> CFGNodeDataMap {
+        let mut clone = CFGNodeDataMap::new();
+        self.map.iter().for_each(|(k, v)| {
+            clone.map.insert(
+                k.get_clone(icfg_clone_id, cfg_clone_id),
+                v.get_clone(icfg_clone_id, cfg_clone_id),
+            );
+        });
+        clone
+    }
+
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, NodeId, CFGNodeData> {
+        self.map.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::collections::hash_map::IterMut<'_, NodeId, CFGNodeData> {
+        self.map.iter_mut()
+    }
+
+    pub fn values(&self) -> std::collections::hash_map::Values<'_, NodeId, CFGNodeData> {
+        self.map.values()
+    }
+
+    pub fn values_mut(&mut self) -> std::collections::hash_map::ValuesMut<'_, NodeId, CFGNodeData> {
+        self.map.values_mut()
+    }
+
+    pub fn insert(&mut self, key: NodeId, value: CFGNodeData) {
+        self.map.insert(key, value);
+    }
+
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
+    pub fn contains_key(&self, key: &NodeId) -> bool {
+        self.map.contains_key(key)
+    }
+
+    pub fn get(&self, nid: &NodeId) -> Option<&CFGNodeData> {
+        self.map.get(nid)
+    }
+
+    pub fn get_mut(&mut self, nid: &NodeId) -> Option<&mut CFGNodeData> {
+        self.map.get_mut(nid)
+    }
+
+    pub fn clear(&mut self) {
+        self.map.clear();
+    }
+
+    pub fn extend(&mut self, other: CFGNodeDataMap) {
+        self.map.extend(other.map);
+    }
+}
+
 /// A control-flow graph of a procedure
 pub struct CFG {
     /// The graph.
     pub graph: FlowGraph,
     /// Meta data for every node.
-    pub nodes_meta: HashMap<NodeId, CFGNodeData>,
+    pub nodes_meta: CFGNodeDataMap,
     /// Set of exit nodes, discovered while building the CFG.
-    discovered_exits: HashSet<NodeId>,
+    discovered_exits: NodeIdVec,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
     /// The node id of the entry node
@@ -347,9 +468,9 @@ impl CFG {
     pub fn new() -> CFG {
         CFG {
             graph: FlowGraph::new(),
-            nodes_meta: HashMap::new(),
+            nodes_meta: CFGNodeDataMap::new(),
             rev_topograph: Vec::new(),
-            discovered_exits: HashSet::new(),
+            discovered_exits: NodeIdVec::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
         }
@@ -358,9 +479,9 @@ impl CFG {
     pub fn new_graph(graph: FlowGraph) -> CFG {
         CFG {
             graph,
-            nodes_meta: HashMap::new(),
+            nodes_meta: CFGNodeDataMap::new(),
             rev_topograph: Vec::new(),
-            discovered_exits: HashSet::new(),
+            discovered_exits: NodeIdVec::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
         }
@@ -386,19 +507,20 @@ impl CFG {
 
     /// Clones itself and updates the node IDs with the given iCFG clone id
     pub fn get_clone(&self, icfg_clone_id: u32) -> CFG {
+        let cfg_clone_id = self.get_entry().cfg_clone_id;
         let mut cloned_cfg: CFG = CFG {
             graph: self.graph.clone(),
-            nodes_meta: self.nodes_meta.clone(),
-            discovered_exits: self.discovered_exits.clone(),
+            nodes_meta: self.nodes_meta.get_clone(icfg_clone_id, cfg_clone_id),
+            discovered_exits: self.discovered_exits.get_clone(icfg_clone_id, cfg_clone_id),
             rev_topograph: self.rev_topograph.clone(),
-            entry: self.entry.clone(),
+            entry: self.entry.get_clone(icfg_clone_id, cfg_clone_id),
             dup_cnt: self.dup_cnt.clone(),
         };
 
         // Update the node IDs for the meta information
-        let mut new_meta_map: HashMap<NodeId, CFGNodeData> = HashMap::new();
+        let mut new_meta_map = CFGNodeDataMap::new();
         for (nid, meta) in cloned_cfg.nodes_meta.iter() {
-            let mut new_nid = nid.clone();
+            let mut new_nid = nid.get_clone(icfg_clone_id, cfg_clone_id);
             new_nid.icfg_clone_id = icfg_clone_id;
             let new_meta = meta.get_clone(icfg_clone_id, meta.nid.cfg_clone_id);
             new_meta_map.insert(new_nid, new_meta);
@@ -472,7 +594,7 @@ impl CFG {
     }
 
     /// Returns the call targets and their last known state as timestamp as a vector.
-    fn get_all_call_targets(&self) -> Vec<(NodeId, Option<Instant>)> {
+    pub fn get_all_call_targets(&self) -> Vec<(NodeId, Option<Instant>)> {
         let mut targets: Vec<(NodeId, Option<Instant>)> = Vec::new();
         for ninfo in self.nodes_meta.values() {
             if !ninfo.has_type(InsnNodeWeightType::Call) {
@@ -650,7 +772,7 @@ impl FlowGraphOperations for CFG {
     }
 
     fn mark_exit_node(&mut self, nid: &NodeId) {
-        self.discovered_exits.insert(*nid);
+        self.discovered_exits.push(*nid);
     }
 
     /// Calculates the weight of the node with [nid].

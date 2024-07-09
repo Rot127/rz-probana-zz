@@ -286,7 +286,8 @@ impl FlowGraphOperations for ICFG {
                         continue;
                     }
                     // The call target cannot point backwards to a previous clone.
-                    i.call_targets.update_icfg_clone_ids(cfg_id.icfg_clone_id);
+                    i.call_targets
+                        .update_icfg_clone_ids(cfg_id.icfg_clone_id, cfg_id.cfg_clone_id);
                     if i.call_targets
                         .iter()
                         .any(|ct| self.get_graph().contains_edge(*cfg_id, *ct))

@@ -172,6 +172,14 @@ impl NodeId {
         clone.icfg_clone_id += 1;
         clone
     }
+
+    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> NodeId {
+        NodeId {
+            icfg_clone_id,
+            cfg_clone_id,
+            address: self.address,
+        }
+    }
 }
 
 impl std::fmt::Display for NodeId {
@@ -198,6 +206,14 @@ pub struct NodeIdVec {
 }
 
 impl NodeIdVec {
+    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> NodeIdVec {
+        let mut clone = NodeIdVec::new();
+        for n in self.vec.iter() {
+            clone.vec.push(n.get_clone(icfg_clone_id, cfg_clone_id));
+        }
+        clone
+    }
+
     pub fn from_nid(nid: NodeId) -> NodeIdVec {
         let mut nid_vec = NodeIdVec { vec: Vec::new() };
         nid_vec.push(nid);
@@ -222,9 +238,10 @@ impl NodeIdVec {
         self.vec.iter()
     }
 
-    pub fn update_icfg_clone_ids(&mut self, icfg_clone_id: u32) {
+    pub fn update_icfg_clone_ids(&mut self, icfg_clone_id: u32, cfg_clone_id: u32) {
         for ct in self.vec.iter_mut() {
             ct.icfg_clone_id = icfg_clone_id;
+            ct.cfg_clone_id = cfg_clone_id;
         }
     }
 
@@ -506,8 +523,8 @@ pub trait FlowGraphOperations {
             scc_groups.push((scc, edges));
         }
         // Resolve loops for each SCC
-        for group in scc_groups {
-            self.clone_nodes(&group.0, &group.1, wmap);
+        for (scc, scc_edges) in scc_groups {
+            self.clone_nodes(&scc, &scc_edges, wmap);
         }
         self.clean_up_acyclic(wmap);
         self.sort();
