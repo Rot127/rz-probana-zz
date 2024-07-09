@@ -100,6 +100,9 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
     let mut call_added = false;
     products.iter().for_each(|prod| {
         for code_xref in prod.concrete_calls.iter() {
+            if state.calls.contains(code_xref) {
+                continue;
+            }
             let from_proc_addr = NodeId::from(code_xref.get_proc_addr());
             let call_insn_addr = NodeId::from(code_xref.get_from());
             let to_proc_addr = NodeId::from(code_xref.get_to());

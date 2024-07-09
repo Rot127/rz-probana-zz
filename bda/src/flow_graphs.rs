@@ -263,9 +263,14 @@ impl NodeIdVec {
             .any(|ct| ct.icfg_clone_id > 0 || ct.cfg_clone_id > 0)
     }
 
-    /// Deletes all cloned nodes.
+    /// Deletes all cloned nodes with the given Ids
     /// It returns true if the vector is empty afterwards.
+    /// It returns false if it was empty before or still contains
+    /// call targets.
     pub fn delete_cloned_nodes(&mut self) -> bool {
+        if self.vec.is_empty() {
+            return false;
+        }
         self.vec
             .retain(|ct| ct.icfg_clone_id == 0 && ct.cfg_clone_id == 0);
         self.vec.is_empty()
