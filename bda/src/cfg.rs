@@ -13,7 +13,7 @@ use petgraph::Direction::Outgoing;
 
 use crate::{
     flow_graphs::{
-        Address, FlowGraph, FlowGraphOperations, NodeId, NodeIdVec, ProcedureMap, INVALID_NODE_ID,
+        Address, FlowGraph, FlowGraphOperations, NodeId, NodeIdSet, ProcedureMap, INVALID_NODE_ID,
     },
     weight::{NodeWeightIDRefMap, WeightID, WeightMap},
 };
@@ -73,7 +73,7 @@ pub struct InsnNodeData {
     pub itype: InsnNodeType,
     /// Node this instruction calls. The NodeIds point to other CFGs.
     /// Multiple call targets are possible, if a call target is dynamically calculated.
-    pub call_targets: NodeIdVec,
+    pub call_targets: NodeIdSet,
     /// The timestamp of the call target last used.
     /// If this timestamp is earlier then the procedures timestamp
     /// the procedure was edited and the weight of this node should be recaclulated.
@@ -91,7 +91,7 @@ pub struct InsnNodeData {
 impl InsnNodeData {
     pub fn new_call(
         addr: Address,
-        call_targets: NodeIdVec,
+        call_targets: NodeIdSet,
         is_indirect_call: bool,
         jump_target: NodeId,
         next: NodeId,
@@ -118,7 +118,7 @@ impl InsnNodeData {
         InsnNodeData {
             addr,
             itype,
-            call_targets: NodeIdVec::from_nid(call_target),
+            call_targets: NodeIdSet::from_nid(call_target),
             ct_last_state: None,
             orig_jump_target,
             orig_next,
@@ -288,7 +288,7 @@ impl CFGNodeData {
         node.insns.push(InsnNodeData {
             addr,
             itype: ntype,
-            call_targets: NodeIdVec::new(),
+            call_targets: NodeIdSet::new(),
             ct_last_state: None,
             orig_jump_target: jump_target,
             orig_next: next,
@@ -332,7 +332,7 @@ impl CFGNodeData {
         };
         node.insns.push(InsnNodeData::new_call(
             addr,
-            NodeIdVec::from_nid(call_target),
+            NodeIdSet::from_nid(call_target),
             is_indirect_call,
             INVALID_NODE_ID,
             next,
@@ -444,7 +444,7 @@ pub struct CFG {
     /// Meta data for every node.
     pub nodes_meta: CFGNodeDataMap,
     /// Set of exit nodes, discovered while building the CFG.
-    discovered_exits: NodeIdVec,
+    discovered_exits: NodeIdSet,
     /// Reverse topoloical sorted graph
     rev_topograph: Vec<NodeId>,
     /// The node id of the entry node
@@ -470,7 +470,7 @@ impl CFG {
             graph: FlowGraph::new(),
             nodes_meta: CFGNodeDataMap::new(),
             rev_topograph: Vec::new(),
-            discovered_exits: NodeIdVec::new(),
+            discovered_exits: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
         }
@@ -481,7 +481,7 @@ impl CFG {
             graph,
             nodes_meta: CFGNodeDataMap::new(),
             rev_topograph: Vec::new(),
-            discovered_exits: NodeIdVec::new(),
+            discovered_exits: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
         }
@@ -693,7 +693,7 @@ impl CFG {
                 if call_set {
                     panic!("Two calls exist, but it wasn't specifies which one to update.");
                 }
-                insn.call_targets.push(*call_target);
+                insn.call_targets.insert(*call_target);
                 insn.ct_last_state = Some(procedure_timestamp);
                 call_set = true;
             }
@@ -772,7 +772,7 @@ impl FlowGraphOperations for CFG {
     }
 
     fn mark_exit_node(&mut self, nid: &NodeId) {
-        self.discovered_exits.push(*nid);
+        self.discovered_exits.insert(*nid);
     }
 
     /// Calculates the weight of the node with [nid].

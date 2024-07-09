@@ -200,23 +200,23 @@ impl std::cmp::PartialEq<u128> for NodeId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct NodeIdVec {
+#[derive(Debug, PartialEq)]
+pub struct NodeIdSet {
     vec: Vec<NodeId>,
 }
 
-impl NodeIdVec {
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> NodeIdVec {
-        let mut clone = NodeIdVec::new();
+impl NodeIdSet {
+    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> NodeIdSet {
+        let mut clone = NodeIdSet::new();
         for n in self.vec.iter() {
             clone.vec.push(n.get_clone(icfg_clone_id, cfg_clone_id));
         }
         clone
     }
 
-    pub fn from_nid(nid: NodeId) -> NodeIdVec {
-        let mut nid_vec = NodeIdVec { vec: Vec::new() };
-        nid_vec.push(nid);
+    pub fn from_nid(nid: NodeId) -> NodeIdSet {
+        let mut nid_vec = NodeIdSet { vec: Vec::new() };
+        nid_vec.insert(nid);
         nid_vec
     }
 
@@ -224,9 +224,11 @@ impl NodeIdVec {
         self.vec.contains(nid)
     }
 
-    pub fn push(&mut self, nid: NodeId) {
+    /// Adds a node to the set.
+    /// But only nodes with a valid id, address and if the node is not already added.
+    pub fn insert(&mut self, nid: NodeId) {
         if nid != INVALID_NODE_ID && nid.address != MAX_ADDRESS && !self.vec.contains(&nid) {
-            self.vec.push(nid)
+            self.vec.push(nid);
         }
     }
 
@@ -243,6 +245,7 @@ impl NodeIdVec {
             ct.icfg_clone_id = icfg_clone_id;
             ct.cfg_clone_id = cfg_clone_id;
         }
+        self.remove_duplicates();
     }
 
     pub fn clear(&mut self) {
@@ -290,8 +293,20 @@ impl NodeIdVec {
         s
     }
 
-    pub fn new() -> NodeIdVec {
-        NodeIdVec { vec: Vec::new() }
+    pub fn new() -> NodeIdSet {
+        NodeIdSet { vec: Vec::new() }
+    }
+
+    pub fn clone(&self) -> NodeIdSet {
+        NodeIdSet {
+            vec: self.vec.clone(),
+        }
+    }
+
+    fn remove_duplicates(&mut self) -> HashSet<NodeId> {
+        let mut seen = HashSet::new();
+        self.vec.retain(|c| seen.insert(*c));
+        seen
     }
 }
 
