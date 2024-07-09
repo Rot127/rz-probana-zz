@@ -18,11 +18,11 @@ mod tests {
             get_cfg_no_loop_sub_routine, get_cfg_no_loop_sub_routine_loop_ret,
             get_cfg_self_ref_loop, get_cfg_simple_loop, get_cfg_simple_loop_extra_nodes,
             get_cfg_single_node, get_cfg_single_self_ref, get_endless_loop_cfg,
-            get_endless_loop_icfg, get_endless_loop_icfg_branch, get_entry_loop_cfg, get_gee_cfg,
-            get_icfg_with_selfref_and_recurse_cfg, get_main_cfg, get_paper_example_cfg_loop,
-            get_paper_example_icfg, get_unset_indirect_call_to_0_cfg, FOO_ADDR, GEE_ADDR,
-            LINEAR_CFG_ENTRY, MAIN_ADDR, SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL,
-            UNSET_INDIRECT_CALL_TO_0_ENTRY,
+            get_endless_loop_icfg, get_endless_loop_icfg_branch, get_endless_recurse_icfg,
+            get_entry_loop_cfg, get_gee_cfg, get_icfg_with_selfref_and_recurse_cfg, get_main_cfg,
+            get_paper_example_cfg_loop, get_paper_example_icfg, get_unset_indirect_call_to_0_cfg,
+            A_ADDR, C_ADDR, FOO_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, SIMPLE_LOOP_ENTRY,
+            UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::{WeightID, WeightMap},
     };
@@ -543,6 +543,48 @@ mod tests {
     }
 
     #[test]
+    fn test_icfg_endless_recurse_acyclic() {
+        let (mut icfg, wmap) = get_endless_recurse_icfg();
+        let wmap = &wmap;
+        icfg.resolve_loops(1, wmap);
+        assert_eq!(icfg.get_procedures().len(), 12, "Mismatch procedures");
+        assert_eq!(icfg.get_graph().edge_count(), 11, "Mismatch edges");
+        assert_eq!(icfg.get_graph().node_count(), 12, "Mismatch nodes");
+
+        // Add the removed back edge again and do the resolve loop again.
+        // It should prduce the same graph
+        icfg.add_edge(
+            (NodeId::new(0, 0, C_ADDR), None),
+            (NodeId::new(0, 0, A_ADDR), None),
+            Some(NodeId::new_original(0xc1)),
+        );
+        icfg.resolve_loops(1, wmap);
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(icfg.get_procedures().len(), 12, "Re-resolve loops mismatch procedures");
+        assert_eq!(icfg.get_graph().edge_count(), 11, "Re-resolve loops mismatch edges");
+        assert_eq!(icfg.get_graph().node_count(), 12, "Re-resolve loops mismatch nodes");
+        // In this edge case, we can resolve a loop, but each path has the weight of 1.
+        // Sincen no CFG has a branch.
+        assert_p_weight(&icfg, &NodeId::new(0, 0, 0xa0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(0, 0, 0xb0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(0, 0, 0xc0), 1, wmap);
+
+        assert_p_weight(&icfg, &NodeId::new(1, 0, 0xa0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(1, 0, 0xb0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(1, 0, 0xc0), 1, wmap);
+
+        assert_p_weight(&icfg, &NodeId::new(2, 0, 0xa0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(2, 0, 0xb0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(2, 0, 0xc0), 1, wmap);
+
+        assert_p_weight(&icfg, &NodeId::new(3, 0, 0xa0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(3, 0, 0xb0), 1, wmap);
+        assert_p_weight(&icfg, &NodeId::new(3, 0, 0xc0), 1, wmap);
+        }
+    }
+
+    #[test]
     fn test_icfg_endless_with_branch_acyclic() {
         let (mut icfg, wmap) = get_endless_loop_icfg_branch();
         icfg.resolve_loops(1, &wmap);
@@ -571,6 +613,7 @@ mod tests {
         let wmap = &WeightMap::new();
         icfg.resolve_loops(4, wmap);
         assert_eq!(icfg.num_procedures(), 4);
+        assert_eq!(icfg.get_graph().edge_count(), 3);
     }
 
     #[test]

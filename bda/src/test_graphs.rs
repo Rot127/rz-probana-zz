@@ -82,6 +82,59 @@ pub fn get_endless_loop_icfg() -> (ICFG, RwLock<WeightMap>) {
     (icfg, wmapo)
 }
 
+// A -> B -> C -> A
+pub fn get_endless_recurse_icfg() -> (ICFG, RwLock<WeightMap>) {
+    let mut icfg = ICFG::new();
+    let wmapo = WeightMap::new();
+    let mut cfg_a = CFG::new();
+    let mut cfg_b = CFG::new();
+    let mut cfg_c = CFG::new();
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    cfg_a.add_edge(
+        (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2))),
+    );
+    cfg_a.add_edge(
+        (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2))),
+        (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+    );
+
+    cfg_b.add_edge(
+        (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2))),
+    );
+    cfg_b.add_edge(
+        (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2))),
+        (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+    );
+
+    cfg_c.add_edge(
+        (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xc1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2))),
+    );
+    cfg_c.add_edge(
+        (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2))),
+        (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+    );
+
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false, false)),
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(Some(cfg_c), false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false, false)),
+    );
+    }
+    (icfg, wmapo)
+}
+
 pub fn get_endless_loop_icfg_branch() -> (ICFG, RwLock<WeightMap>) {
     let mut icfg = ICFG::new();
     let wmapo = WeightMap::new();

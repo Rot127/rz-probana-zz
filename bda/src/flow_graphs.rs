@@ -522,8 +522,21 @@ pub trait FlowGraphOperations {
             }
             scc_groups.push((scc, edges));
         }
+        // Remove any edge which points to the previous clone (smaller clone id).
+        // These are back-edges, which has been already resolved, and should not be added again.
+        // They are not detected as back-edges in `clone_nodes`, but as Outsider edges
+        // (due to the different clone id). Due to this, they remain in the graph
+        // and produce a loop.
+        for (_, edges) in scc_groups.iter_mut() {
+            edges.retain(|(f, t)| {
+                f.icfg_clone_id >= t.icfg_clone_id && f.cfg_clone_id >= t.cfg_clone_id
+            })
+        }
         // Resolve loops for each SCC
         for (scc, scc_edges) in scc_groups {
+            if scc_edges.is_empty() {
+                continue;
+            }
             self.clone_nodes(&scc, &scc_edges, wmap);
         }
         self.clean_up_acyclic(wmap);
