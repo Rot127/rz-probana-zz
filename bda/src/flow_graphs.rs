@@ -554,11 +554,6 @@ pub trait FlowGraphOperations {
     /// Specific clean up tasks after making the graph acyclic.
     fn clean_up_acyclic(&mut self, wmap: &RwLock<WeightMap>);
 
-    /// Update weights of graph
-    fn update_weights(&mut self, _wmap: &RwLock<WeightMap>) {
-        todo!()
-    }
-
     /// Calculates and returns the weight of the node. And if it wasn't determined yet, it calculates it.
     fn calc_node_weight(
         &mut self,

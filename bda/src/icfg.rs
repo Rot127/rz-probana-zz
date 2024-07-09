@@ -59,7 +59,8 @@ impl ICFG {
     pub fn is_unmapped(&self, node_id: &NodeId) -> bool {
         self.procedures
             .get(node_id)
-            .is_some_and(|p| p.read().expect("").is_unmapped()) || !self.has_procedure(node_id)
+            .is_some_and(|p| p.read().expect("").is_unmapped())
+            || !self.has_procedure(node_id)
     }
 
     pub fn is_input(&self, node_id: &NodeId) -> bool {
