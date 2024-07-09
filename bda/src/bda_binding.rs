@@ -80,7 +80,7 @@ pub fn get_bin_entries(rz_core: GRzCore) -> Vec<Address> {
 }
 
 /// Converts a graph from Rizin to our internal FlowGraph representation.
-fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
+pub fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
     let nodes: Vec<(*mut RzGraphNode, *mut RzGraphNodeInfo)> =
         list_to_vec::<(*mut RzGraphNode, *mut RzGraphNodeInfo)>(
             pderef!(rz_graph).nodes,
@@ -306,12 +306,6 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
     unsafe {
         rz_graph_free(rz_icfg);
     }
-    // TODO: Consider moving both loops into a method of the iCFG.
-    // So we can get rid of the copying the node IDs.
-    let mut nodes: Vec<NodeId> = Vec::new();
-    for n in icfg.get_graph().nodes().into_iter() {
-        nodes.push(n);
-    }
     let mut state = BDAState::new(
         1,
         core.lock()
@@ -319,7 +313,19 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
             .get_bda_runtime()
             .expect("Should have been checked before."),
     );
-    let mut progress_bar = ProgressBar::new(String::from("Transfer CFGs"), nodes.len());
+    add_procedures_to_icfg(core.clone(), &mut icfg);
+    run_bda(core, &mut icfg, &mut state);
+}
+
+pub fn add_procedures_to_icfg(core: GRzCore, icfg: &mut ICFG) {
+    let mut progress_bar = ProgressBar::new(
+        String::from("Transfer CFGs"),
+        icfg.get_graph().nodes().len(),
+    );
+    let mut nodes: Vec<NodeId> = Vec::new();
+    for n in icfg.get_graph().nodes().into_iter() {
+        nodes.push(n);
+    }
     let mut done = 0;
     for n in nodes {
         if let Some(proc) = setup_procedure_at_addr(&core.lock().unwrap(), n.address) {
@@ -339,7 +345,6 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
     for (_, p) in icfg.procedures.iter_mut() {
         p.write().unwrap().get_cfg_mut().set_node_dup_count(dup_cnt);
     }
-    run_bda(core, &mut icfg, &mut state);
 }
 
 pub extern "C" fn rz_analysis_bda_handler(
