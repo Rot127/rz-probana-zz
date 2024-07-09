@@ -3,9 +3,8 @@
 
 echo "Compile x86 binaries"
 clang -c -o x86_unmapped_fcn_in_loop.o unmapped_fcn_in_loop.c
-clang -c -o x86_discover_recurse_cfg.o discover_recurse_cfg.c
+clang -c -o x86_discover_recurse.o discover_recurse.c
 
 echo "Compile Hexagon binaries"
 hexagon-unknown-linux-musl-clang -c -O0 -o hexagon_unmapped_fcn_in_loop.o unmapped_fcn_in_loop.c
-hexagon-unknown-linux-musl-clang -c -O0 -o hexagon_discover_recurse_cfg.o discover_recurse_cfg.c
-
+hexagon-unknown-linux-musl-clang -c -O0 -o hexagon_discover_recurse.o discover_recurse.c

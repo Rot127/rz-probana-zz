@@ -6,8 +6,7 @@
 mod test {
     use bda::bda_binding::rz_analysis_bda_handler;
     use binding::{
-        get_rz_test_bin_path, get_test_bin_path, init_rizin_instance, wait_for_exlusive_core,
-        GRzCore, RzCoreWrapper,
+        get_rz_test_bin_path, init_rizin_instance, wait_for_exlusive_core, RzCoreWrapper,
     };
 
     /// General "run BDA from beginning to end" tests.

@@ -21,7 +21,7 @@ void recurse() {
 }
 
 // The unmapped functions should be called and not ignored.
-// But the last clone of the run() calling instruction must be set to normal
+// But the last clone of the recurse() call must be set to normal
 int run() {
   unsigned x = 0;
   for (size_t i = 0; i < 2; ++i) {
