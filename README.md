@@ -39,10 +39,16 @@ mkdir -p <RZ_USER_PLUGINS>
 ln -s target/lib_out/debug/libprobana_zz.so <RZ_USER_PLUGINS>/libprobana_zz.so
 ```
 
-## Dev
+## Devolvement
 
 ```
 python3 -m venv .venv
 source .venv/bin/activate
 pip3 install -r py_requirements.txt
+```
+
+It is advisable to run `reuse` and the tests before every commit:
+
+```
+echo "reuse lint && cargo test" >> $(git rev-parse --show-toplevel)/.git/hooks/pre-commit
 ```
