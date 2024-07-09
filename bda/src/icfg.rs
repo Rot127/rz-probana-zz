@@ -310,10 +310,11 @@ impl FlowGraphOperations for ICFG {
                     //   Its call edge was not not duplicated in the iCFG (because it is the last clone),
                     //   so we need to transform the node to a normal node.
                     //   Otherwise the weight calculation won't work since it cannot assign a value.
+                    //   For this case we reset it to a normal node.
                     // - The the instruction calls an unmmaped procedure.
                     //   If the call target is an unmapped procedure (e.g. a dynamically linked one),
                     //   Rizin doesn't have a CFG for it.
-                    //   For this case we reset it to a normal node.
+                    //   For this one we keep it a Call node. It might get resolved during interpretation.
                     if i.call_targets.delete_cloned_nodes() {
                         i.itype.weight_type = InsnNodeWeightType::Normal;
                     }

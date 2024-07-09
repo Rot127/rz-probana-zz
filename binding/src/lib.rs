@@ -27,6 +27,9 @@ macro_rules! wait_for_exlusive_core {
     () => {
         let mut mr = binding::TEST_RIZIN_MUTEX.try_lock();
         while mr.is_err() {
+            if binding::TEST_RIZIN_MUTEX.is_poisoned() {
+                binding::TEST_RIZIN_MUTEX.clear_poison();
+            }
             mr = binding::TEST_RIZIN_MUTEX.try_lock();
         }
     };

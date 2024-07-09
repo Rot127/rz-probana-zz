@@ -32,6 +32,18 @@ pub struct PathNodeInfo {
     is_return_point: bool,
 }
 
+impl PathNodeInfo {
+    fn as_addr_info(&self) -> AddrInfo {
+        AddrInfo::new(
+            self.is_call,
+            self.calls_malloc,
+            self.calls_input,
+            self.calls_unmapped,
+            self.is_return_point,
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct Path {
     path: Vec<NodeId>,
@@ -81,19 +93,10 @@ impl Path {
     pub fn to_addr_path(&self) -> IntrpPath {
         let mut ipath: IntrpPath = IntrpPath::new();
         for n in self.path.iter() {
-            ipath.push(n.address);
-        }
-        for (n, i) in self.node_info.iter() {
-            ipath.push_info(
+            ipath.push(
                 n.address,
-                AddrInfo::new(
-                    i.is_call,
-                    i.calls_malloc,
-                    i.calls_input,
-                    i.calls_unmapped,
-                    i.is_return_point,
-                ),
-            )
+                Some(self.node_info.get(n).unwrap().as_addr_info()),
+            );
         }
         ipath
     }

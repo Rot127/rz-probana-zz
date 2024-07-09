@@ -235,7 +235,15 @@ impl Const {
 
 type PC = Address;
 
-#[derive(PartialEq, Eq)]
+pub const NO_ADDR_INFO: AddrInfo = AddrInfo {
+    is_call: false,
+    calls_malloc: false,
+    calls_input: false,
+    calls_unmapped: false,
+    is_return_point: false,
+};
+
+#[derive(Clone, PartialEq, Eq)]
 pub struct AddrInfo {
     /// IWord calls a procedure.
     is_call: bool,
@@ -306,56 +314,47 @@ impl AddrInfo {
         }
     }
 
-    pub fn new_return() -> AddrInfo {
-        AddrInfo {
-            is_call: false,
-            calls_malloc: false,
-            calls_input: false,
-            calls_unmapped: false,
-            is_return_point: true,
-        }
+    fn none() -> AddrInfo {
+        NO_ADDR_INFO
     }
 }
 
 pub struct IntrpPath {
     /// Execution path of instructions.
-    path: VecDeque<Address>,
-    /// Function addresses which are in the path.
-    addr_info: HashMap<Address, AddrInfo>,
+    path: VecDeque<(Address, AddrInfo)>,
 }
 
 impl IntrpPath {
     pub fn new() -> IntrpPath {
         IntrpPath {
             path: VecDeque::new(),
-            addr_info: HashMap::new(),
         }
     }
 
-    pub fn from(vec: VecDeque<Address>) -> IntrpPath {
-        IntrpPath {
-            path: vec,
-            addr_info: HashMap::new(),
-        }
+    pub fn from(vec: VecDeque<(Address, AddrInfo)>) -> IntrpPath {
+        IntrpPath { path: vec }
     }
 
-    pub fn push_info(&mut self, addr: Address, info: AddrInfo) {
-        self.addr_info.insert(addr, info);
+    pub fn push(&mut self, addr: Address, info: Option<AddrInfo>) {
+        self.path.push_back((
+            addr,
+            if let Some(i) = info {
+                i
+            } else {
+                AddrInfo::none()
+            },
+        ));
     }
 
-    pub fn push(&mut self, addr: Address) {
-        self.path.push_back(addr);
-    }
-
-    pub fn next(&mut self) -> Option<Address> {
+    pub fn next(&mut self) -> Option<(Address, AddrInfo)> {
         self.path.pop_front()
     }
 
-    pub fn peak_next(&self) -> Option<&Address> {
+    pub fn peak_next(&self) -> Option<&(Address, AddrInfo)> {
         self.path.get(0)
     }
 
-    pub fn get(&self, i: usize) -> Address {
+    pub fn get(&self, i: usize) -> (Address, AddrInfo) {
         self.path
             .get(i)
             .expect(&format!("Index i = {} out of range", i))
@@ -746,6 +745,8 @@ impl IntrpProducts {
 pub struct AbstrVM {
     /// Program counter
     pc: PC,
+    /// Information about the instruction at the current PC
+    insn_info: AddrInfo,
     /// PC size in bits
     pc_bit_width: usize,
     /// Instruction sizes map
@@ -806,6 +807,7 @@ impl AbstrVM {
         let limit_repeat = rz_core.lock().unwrap().get_bda_max_iterations() as usize;
         AbstrVM {
             pc,
+            insn_info: NO_ADDR_INFO,
             pc_bit_width: 0,
             is: HashMap::new(),
             ic: HashMap::new(),
@@ -836,36 +838,6 @@ impl AbstrVM {
 
     pub fn get_rz_core(&self) -> &GRzCore {
         &self.rz_core
-    }
-
-    /// Returns true if the instruction at [addr] is calssified as call.
-    pub fn is_call(&self, addr: Address) -> bool {
-        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
-            return ainfo.is_call;
-        }
-        false
-    }
-
-    /// Returns true if the instruction at [addr] is calssified as a call to malloc.
-    pub fn calls_malloc(&self, addr: Address) -> bool {
-        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
-            return ainfo.calls_malloc;
-        }
-        false
-    }
-
-    pub fn calls_unmapped(&self, addr: Address) -> bool {
-        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
-            return ainfo.calls_unmapped;
-        }
-        false
-    }
-
-    pub fn calls_input(&self, addr: Address) -> bool {
-        if let Some(ainfo) = self.pa.addr_info.get(&addr) {
-            return ainfo.calls_input;
-        }
-        false
     }
 
     pub fn add_call_xref(&mut self, proc_addr: Address, to: Address) {
@@ -990,8 +962,9 @@ impl AbstrVM {
     }
 
     fn step(&mut self) -> bool {
-        if let Some(pc) = self.pa.next() {
+        if let Some((pc, addr_info)) = self.pa.next() {
             self.pc = pc;
+            self.insn_info = addr_info;
         } else {
             return false;
         }
@@ -1005,9 +978,9 @@ impl AbstrVM {
 
         let mut dont_execute = false;
         // Not yet done for iwords. iwords must only skip the call part.
-        if self.calls_malloc(self.get_pc())
-            || self.calls_unmapped(self.get_pc())
-            || self.calls_input(self.get_pc())
+        if self.insn_info.calls_malloc
+            || self.insn_info.calls_unmapped
+            || self.insn_info.calls_input
         {
             dont_execute = true;
         }
@@ -1362,14 +1335,11 @@ impl AbstrVM {
     }
 
     pub(crate) fn pc_is_call(&self) -> bool {
-        self.pa.addr_info.get(&self.pc).is_some_and(|i| i.is_call)
+        self.insn_info.is_call
     }
 
     fn is_return_point(&self) -> bool {
-        self.pa
-            .addr_info
-            .get(&self.pc)
-            .is_some_and(|i| i.is_return_point)
+        self.insn_info.is_return_point
     }
 
     pub(crate) fn get_pc(&self) -> Address {
@@ -1470,7 +1440,7 @@ impl AbstrVM {
 
 /// Interprets the given path with the given interpreter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
-    let mut vm = AbstrVM::new(rz_core, path.get(0), path);
+    let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
     if !vm.init_register_file(vm.get_rz_core().clone()) {
         return;
     }

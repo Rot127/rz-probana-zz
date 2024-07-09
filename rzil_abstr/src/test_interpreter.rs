@@ -16,7 +16,7 @@ mod tests {
 
     use crate::interpreter::{
         interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, IntrpProducts, MemOp,
-        MemXref, StackXref,
+        MemXref, StackXref, NO_ADDR_INFO,
     };
 
     fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
@@ -28,22 +28,56 @@ mod tests {
             .unwrap()
             .set_conf_val("plugins.bda.entries", "0x08000040");
         let v = VecDeque::from(vec![
-            0x08000040, 0x08000041, 0x08000044, 0x08000048, 0x0800004f, 0x08000056, 0x08000059,
-            0x0800005b, 0x0800005d, 0x080000b0, 0x080000b1, 0x080000b4, 0x080000b6, 0x080000b7,
-            0x08000064, 0x08000067, 0x0800006a, 0x0800006d, 0x08000070, 0x08000073, 0x08000076,
-            0x08000078, 0x0800007a, 0x080000c0, 0x080000c1, 0x080000c4, 0x080000c9, 0x080000ca,
-            0x08000081, 0x08000084, 0x08000087, 0x0800008a, 0x0800008d, 0x08000090, 0x08000093,
-            0x08000095, 0x08000097, 0x080000d0, 0x080000d1, 0x080000d4, 0x080000d9, 0x080000da,
-            0x0800009e, 0x080000a1, 0x080000a4, 0x080000a7, 0x080000ab, 0x080000ac,
+            (0x08000040, NO_ADDR_INFO),
+            (0x08000041, NO_ADDR_INFO),
+            (0x08000044, NO_ADDR_INFO),
+            (0x08000048, NO_ADDR_INFO),
+            (0x0800004f, NO_ADDR_INFO),
+            (0x08000056, NO_ADDR_INFO),
+            (0x08000059, NO_ADDR_INFO),
+            (0x0800005b, NO_ADDR_INFO),
+            (0x0800005d, AddrInfo::new_call()),
+            (0x080000b0, NO_ADDR_INFO),
+            (0x080000b1, NO_ADDR_INFO),
+            (0x080000b4, NO_ADDR_INFO),
+            (0x080000b6, NO_ADDR_INFO),
+            (0x080000b7, AddrInfo::new_return_point()),
+            (0x08000064, NO_ADDR_INFO),
+            (0x08000067, NO_ADDR_INFO),
+            (0x0800006a, NO_ADDR_INFO),
+            (0x0800006d, NO_ADDR_INFO),
+            (0x08000070, NO_ADDR_INFO),
+            (0x08000073, NO_ADDR_INFO),
+            (0x08000076, NO_ADDR_INFO),
+            (0x08000078, NO_ADDR_INFO),
+            (0x0800007a, AddrInfo::new_call()),
+            (0x080000c0, NO_ADDR_INFO),
+            (0x080000c1, NO_ADDR_INFO),
+            (0x080000c4, NO_ADDR_INFO),
+            (0x080000c9, NO_ADDR_INFO),
+            (0x080000ca, AddrInfo::new_return_point()),
+            (0x08000081, NO_ADDR_INFO),
+            (0x08000084, NO_ADDR_INFO),
+            (0x08000087, NO_ADDR_INFO),
+            (0x0800008a, NO_ADDR_INFO),
+            (0x0800008d, NO_ADDR_INFO),
+            (0x08000090, NO_ADDR_INFO),
+            (0x08000093, NO_ADDR_INFO),
+            (0x08000095, NO_ADDR_INFO),
+            (0x08000097, AddrInfo::new_call()),
+            (0x080000d0, NO_ADDR_INFO),
+            (0x080000d1, NO_ADDR_INFO),
+            (0x080000d4, NO_ADDR_INFO),
+            (0x080000d9, NO_ADDR_INFO),
+            (0x080000da, AddrInfo::new_return_point()),
+            (0x0800009e, NO_ADDR_INFO),
+            (0x080000a1, NO_ADDR_INFO),
+            (0x080000a4, NO_ADDR_INFO),
+            (0x080000a7, NO_ADDR_INFO),
+            (0x080000ab, NO_ADDR_INFO),
+            (0x080000ac, AddrInfo::new_return_point()),
         ]);
-        let mut path = IntrpPath::from(v);
-        path.push_info(0x0800005d, AddrInfo::new_call());
-        path.push_info(0x0800007a, AddrInfo::new_call());
-        path.push_info(0x08000097, AddrInfo::new_call());
-        path.push_info(0x080000b7, AddrInfo::new_return());
-        path.push_info(0x080000ca, AddrInfo::new_return());
-        path.push_info(0x080000da, AddrInfo::new_return());
-        path.push_info(0x080000ac, AddrInfo::new_return());
+        let path = IntrpPath::from(v);
 
         (rz_core, path)
     }
@@ -57,17 +91,19 @@ mod tests {
             .unwrap()
             .set_conf_val("plugins.bda.entries", "0x08000040");
         let v = VecDeque::from(vec![
-            0x08000040, 0x0800004c, 0x08000050, 0x08000070, 0x08000054, 0x08000058, 0x08000080,
-            0x0800005c, 0x08000060, 0x08000090, 0x08000064,
+            (0x08000040, NO_ADDR_INFO),
+            (0x0800004c, NO_ADDR_INFO),
+            (0x08000050, AddrInfo::new_call()),
+            (0x08000070, AddrInfo::new_return_point()),
+            (0x08000054, NO_ADDR_INFO),
+            (0x08000058, AddrInfo::new_call()),
+            (0x08000080, AddrInfo::new_return_point()),
+            (0x0800005c, NO_ADDR_INFO),
+            (0x08000060, AddrInfo::new_call()),
+            (0x08000090, AddrInfo::new_return_point()),
+            (0x08000064, AddrInfo::new_return_point()),
         ]);
-        let mut path = IntrpPath::from(v);
-        path.push_info(0x08000050, AddrInfo::new_call());
-        path.push_info(0x08000058, AddrInfo::new_call());
-        path.push_info(0x08000060, AddrInfo::new_call());
-        path.push_info(0x08000070, AddrInfo::new_return());
-        path.push_info(0x08000080, AddrInfo::new_return());
-        path.push_info(0x08000090, AddrInfo::new_return());
-        path.push_info(0x08000064, AddrInfo::new_return());
+        let path = IntrpPath::from(v);
 
         (rz_core, path)
     }
@@ -82,17 +118,31 @@ mod tests {
             .set_conf_val("plugins.bda.entries", "0x08000060");
         // Path over main. Not entering dummy_malloc()
         let v = VecDeque::from(vec![
-            0x08000060, 0x08000061, 0x08000064, 0x08000068, 0x0800006f, 0x08000074, 0x08000079,
-            0x0800007d, 0x08000082, 0x08000087, 0x0800008b, 0x0800008f, 0x08000099, 0x0800009c,
-            0x080000a0, 0x080000a7, 0x080000ab, 0x080000b1, 0x080000b5, 0x080000bb, 0x080000bd,
-            0x080000c1, 0x080000c2,
+            (0x08000060, NO_ADDR_INFO),
+            (0x08000061, NO_ADDR_INFO),
+            (0x08000064, NO_ADDR_INFO),
+            (0x08000068, NO_ADDR_INFO),
+            (0x0800006f, NO_ADDR_INFO),
+            (0x08000074, AddrInfo::new_malloc_call()),
+            (0x08000079, AddrInfo::new_return_point()),
+            (0x0800007d, NO_ADDR_INFO),
+            (0x08000082, AddrInfo::new_malloc_call()),
+            (0x08000087, AddrInfo::new_return_point()),
+            (0x0800008b, NO_ADDR_INFO),
+            (0x0800008f, NO_ADDR_INFO),
+            (0x08000099, NO_ADDR_INFO),
+            (0x0800009c, NO_ADDR_INFO),
+            (0x080000a0, NO_ADDR_INFO),
+            (0x080000a7, NO_ADDR_INFO),
+            (0x080000ab, NO_ADDR_INFO),
+            (0x080000b1, NO_ADDR_INFO),
+            (0x080000b5, NO_ADDR_INFO),
+            (0x080000bb, NO_ADDR_INFO),
+            (0x080000bd, NO_ADDR_INFO),
+            (0x080000c1, NO_ADDR_INFO),
+            (0x080000c2, AddrInfo::new_return_point()),
         ]);
-        let mut path = IntrpPath::from(v);
-        path.push_info(0x08000074, AddrInfo::new_malloc_call());
-        path.push_info(0x08000079, AddrInfo::new_return_point());
-        path.push_info(0x08000082, AddrInfo::new_malloc_call());
-        path.push_info(0x08000087, AddrInfo::new_return_point());
-        path.push_info(0x080000c2, AddrInfo::new_return());
+        let path = IntrpPath::from(v);
 
         (rz_core, path)
     }
@@ -107,16 +157,29 @@ mod tests {
             .set_conf_val("plugins.bda.entries", "0x08000060");
         // Path over main. Not entering dummy_malloc()
         let v = VecDeque::from(vec![
-            0x08000060, 0x08000064, 0x08000068, 0x0800006c, 0x08000070, 0x08000074, 0x08000078,
-            0x0800007c, 0x08000080, 0x08000084, 0x08000088, 0x08000090, 0x08000098, 0x0800009c,
-            0x080000a0, 0x080000a8, 0x080000ac, 0x080000b4, 0x080000b8, 0x080000c0, 0x080000c4,
+            (0x08000060, NO_ADDR_INFO),
+            (0x08000064, NO_ADDR_INFO),
+            (0x08000068, NO_ADDR_INFO),
+            (0x0800006c, NO_ADDR_INFO),
+            (0x08000070, AddrInfo::new_malloc_call()),
+            (0x08000074, AddrInfo::new_return_point()),
+            (0x08000078, NO_ADDR_INFO),
+            (0x0800007c, AddrInfo::new_malloc_call()),
+            (0x08000080, AddrInfo::new_return_point()),
+            (0x08000084, NO_ADDR_INFO),
+            (0x08000088, NO_ADDR_INFO),
+            (0x08000090, NO_ADDR_INFO),
+            (0x08000098, NO_ADDR_INFO),
+            (0x0800009c, NO_ADDR_INFO),
+            (0x080000a0, NO_ADDR_INFO),
+            (0x080000a8, NO_ADDR_INFO),
+            (0x080000ac, NO_ADDR_INFO),
+            (0x080000b4, NO_ADDR_INFO),
+            (0x080000b8, NO_ADDR_INFO),
+            (0x080000c0, NO_ADDR_INFO),
+            (0x080000c4, AddrInfo::new_return_point()),
         ]);
-        let mut path = IntrpPath::from(v);
-        path.push_info(0x08000070, AddrInfo::new_malloc_call());
-        path.push_info(0x08000074, AddrInfo::new_return_point());
-        path.push_info(0x0800007c, AddrInfo::new_malloc_call());
-        path.push_info(0x08000080, AddrInfo::new_return());
-
+        let path = IntrpPath::from(v);
         (rz_core, path)
     }
 
