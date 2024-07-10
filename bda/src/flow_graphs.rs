@@ -597,4 +597,8 @@ pub trait FlowGraphOperations {
 
     /// Marks the node with [nid] as an Exit node (if applicable).
     fn mark_exit_node(&mut self, _nid: &NodeId) {}
+
+    fn print_dot_graph(&self) {
+        petgraph_evcxr::draw_graph(self.get_graph());
+    }
 }
