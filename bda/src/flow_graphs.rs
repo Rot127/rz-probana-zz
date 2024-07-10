@@ -11,7 +11,7 @@ use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
-use crate::cfg::Procedure;
+use crate::cfg::{self, Procedure};
 use crate::weight::{WeightID, WeightMap};
 
 pub type FlowGraph = DiGraphMap<NodeId, usize>;
@@ -105,10 +105,10 @@ pub const MAX_ADDRESS: Address = u64::MAX;
 pub struct NodeId {
     /// The i'th iCFG clone this node belongs to.
     /// If 0 it is the original node, i means it is part of the i'th clone.
-    pub icfg_clone_id: u32,
+    pub icfg_clone_id: i32,
     /// The i'th CFG clone this node belongs to.
     /// If 0 it is the original node, i means it is part of the i'th clone.
-    pub cfg_clone_id: u32,
+    pub cfg_clone_id: i32,
     /// The memory address of the procedure or instruction word this node represents.
     pub address: Address,
 }
@@ -119,8 +119,8 @@ impl std::convert::From<Address> for NodeId {
     }
 }
 
-impl std::convert::From<(u32, u32, u64)> for NodeId {
-    fn from(v: (u32, u32, u64)) -> NodeId {
+impl std::convert::From<(i32, i32, u64)> for NodeId {
+    fn from(v: (i32, i32, u64)) -> NodeId {
         NodeId::new(v.0, v.1, v.2)
     }
 }
@@ -132,13 +132,13 @@ impl std::fmt::Debug for NodeId {
 }
 
 pub const INVALID_NODE_ID: NodeId = NodeId {
-    icfg_clone_id: u32::MAX,
-    cfg_clone_id: u32::MAX,
+    icfg_clone_id: i32::MAX,
+    cfg_clone_id: i32::MAX,
     address: u64::MAX,
 };
 
 impl NodeId {
-    pub fn new(icfg_clone_id: u32, cfg_clone_id: u32, address: u64) -> NodeId {
+    pub fn new(icfg_clone_id: i32, cfg_clone_id: i32, address: u64) -> NodeId {
         NodeId {
             icfg_clone_id,
             cfg_clone_id,
@@ -173,10 +173,20 @@ impl NodeId {
         clone
     }
 
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> NodeId {
+    /// Returns a clone of the node id. If one of the given clone ids is smaller 0,
+    /// it sets the clone ID of the original node.
+    pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> NodeId {
         NodeId {
-            icfg_clone_id,
-            cfg_clone_id,
+            icfg_clone_id: if icfg_clone_id < 0 {
+                self.icfg_clone_id
+            } else {
+                icfg_clone_id
+            },
+            cfg_clone_id: if cfg_clone_id < 0 {
+                self.cfg_clone_id
+            } else {
+                cfg_clone_id
+            },
             address: self.address,
         }
     }
@@ -194,8 +204,8 @@ impl std::fmt::Display for NodeId {
 
 impl std::cmp::PartialEq<u128> for NodeId {
     fn eq(&self, other: &u128) -> bool {
-        self.icfg_clone_id == (*other >> 96) as u32
-            && self.cfg_clone_id == ((*other >> 64) as u32 & u32::MAX)
+        self.icfg_clone_id == (*other >> 96) as i32
+            && self.cfg_clone_id == ((*other >> 64) as i32 & i32::MAX)
             && self.address == *other as u64
     }
 }
@@ -206,7 +216,7 @@ pub struct NodeIdSet {
 }
 
 impl NodeIdSet {
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> NodeIdSet {
+    pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> NodeIdSet {
         let mut clone = NodeIdSet::new();
         for n in self.vec.iter() {
             clone.vec.push(n.get_clone(icfg_clone_id, cfg_clone_id));
@@ -240,7 +250,7 @@ impl NodeIdSet {
         self.vec.iter()
     }
 
-    pub fn update_icfg_clone_ids(&mut self, icfg_clone_id: u32, cfg_clone_id: u32) {
+    pub fn update_icfg_clone_ids(&mut self, icfg_clone_id: i32, cfg_clone_id: i32) {
         for ct in self.vec.iter_mut() {
             ct.icfg_clone_id = icfg_clone_id;
             ct.cfg_clone_id = cfg_clone_id;
@@ -341,7 +351,7 @@ pub trait FlowGraphOperations {
     fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, wmap: &RwLock<WeightMap>);
 
     /// Returns the next (incremented) clone of [id] by returning a copy of [id].
-    fn get_next_node_id_clone(increment: u32, nid: NodeId) -> NodeId;
+    fn get_next_node_id_clone(increment: i32, nid: NodeId) -> NodeId;
 
     /// Adds clones of an edge to the graph of [self].
     /// The edge [from] -> [to] is duplicated [dup_bound] times.
@@ -368,7 +378,8 @@ pub trait FlowGraphOperations {
 
         let mut new_edge: (NodeId, NodeId) = (INVALID_NODE_ID, INVALID_NODE_ID);
         for i in 0..=dup_bound {
-            if flow == EdgeFlow::BackEdge && i == dup_bound {
+            let i = i as i32;
+            if flow == EdgeFlow::BackEdge && i == dup_bound as i32 {
                 break;
             }
             new_edge = match flow {
@@ -598,7 +609,9 @@ pub trait FlowGraphOperations {
     /// Marks the node with [nid] as an Exit node (if applicable).
     fn mark_exit_node(&mut self, _nid: &NodeId) {}
 
+    fn get_name(&self) -> String;
+
     fn print_dot_graph(&self) {
-        petgraph_evcxr::draw_graph(self.get_graph());
+        petgraph_evcxr::draw_graph(self.get_graph(), self.get_name());
     }
 }

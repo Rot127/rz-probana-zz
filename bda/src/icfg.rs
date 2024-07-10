@@ -240,6 +240,10 @@ impl ICFG {
 }
 
 impl FlowGraphOperations for ICFG {
+    fn get_name(&self) -> String {
+        "ICFG".to_owned()
+    }
+
     fn set_node_dup_count(&mut self, dup_cnt: usize) {
         self.dup_cnt = dup_cnt;
     }
@@ -332,7 +336,7 @@ impl FlowGraphOperations for ICFG {
     }
 
     /// Increments [nid.icfg_clone_count] by [increment].
-    fn get_next_node_id_clone(increment: u32, nid: NodeId) -> NodeId {
+    fn get_next_node_id_clone(increment: i32, nid: NodeId) -> NodeId {
         let mut clone: NodeId = nid.clone();
         clone.icfg_clone_id += increment;
         clone
@@ -343,22 +347,20 @@ impl FlowGraphOperations for ICFG {
             self.graph.add_edge(from, to, 0);
         }
         if !self.procedures.contains_key(&from) {
-            let mut cloned_proc = self
+            let cloned_proc = self
                 .get_procedure(&from.get_orig_node_id())
                 .read()
                 .unwrap()
                 .get_clone(from.icfg_clone_id);
-            cloned_proc.get_cfg_mut().make_acyclic(wmap, None);
             self.add_procedure(from, cloned_proc);
         }
 
         if !self.procedures.contains_key(&to) {
-            let mut cloned_proc = self
+            let cloned_proc = self
                 .get_procedure(&to.get_orig_node_id())
                 .read()
                 .unwrap()
                 .get_clone(to.icfg_clone_id);
-            cloned_proc.get_cfg_mut().make_acyclic(wmap, None);
             self.add_procedure(to, cloned_proc);
         }
     }

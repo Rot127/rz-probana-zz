@@ -126,7 +126,7 @@ impl InsnNodeData {
         }
     }
 
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> InsnNodeData {
+    pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> InsnNodeData {
         InsnNodeData {
             addr: self.addr,
             itype: self.itype.clone(),
@@ -239,7 +239,7 @@ impl InsnNodeDataVec {
         self.vec.last_mut()
     }
 
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> InsnNodeDataVec {
+    pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> InsnNodeDataVec {
         let mut clone = InsnNodeDataVec { vec: Vec::new() };
         self.iter()
             .for_each(|idata| clone.push(idata.get_clone(icfg_clone_id, cfg_clone_id)));
@@ -340,7 +340,7 @@ impl CFGNodeData {
         node
     }
 
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> CFGNodeData {
+    pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> CFGNodeData {
         let mut clone = CFGNodeData {
             nid: self.nid,
             weight_id: self.weight_id,
@@ -381,14 +381,14 @@ impl CFGNodeDataMap {
         }
     }
 
-    pub fn get_clone(&self, icfg_clone_id: u32, cfg_clone_id: u32) -> CFGNodeDataMap {
+    pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> CFGNodeDataMap {
         let mut clone = CFGNodeDataMap::new();
-        self.map.iter().for_each(|(k, v)| {
+        for (k, v) in self.map.iter() {
             clone.map.insert(
                 k.get_clone(icfg_clone_id, cfg_clone_id),
                 v.get_clone(icfg_clone_id, cfg_clone_id),
             );
-        });
+        }
         clone
     }
 
@@ -457,7 +457,7 @@ impl std::fmt::Display for CFG {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (nid, info) in self.nodes_meta.iter() {
             if info.has_entry() {
-                return write!(f, "CFG{}", nid);
+                return write!(f, "CFG({})", nid);
             }
         }
         write!(f, "CFG(empty)")
@@ -506,29 +506,15 @@ impl CFG {
     }
 
     /// Clones itself and updates the node IDs with the given iCFG clone id
-    pub fn get_clone(&self, icfg_clone_id: u32) -> CFG {
-        let cfg_clone_id = self.get_entry().cfg_clone_id;
+    pub fn get_clone(&self, icfg_clone_id: i32) -> CFG {
         let mut cloned_cfg: CFG = CFG {
-            graph: self.graph.clone(),
-            nodes_meta: self.nodes_meta.get_clone(icfg_clone_id, cfg_clone_id),
-            discovered_exits: self.discovered_exits.get_clone(icfg_clone_id, cfg_clone_id),
+            graph: FlowGraph::new(),
+            nodes_meta: self.nodes_meta.get_clone(icfg_clone_id, -1),
+            discovered_exits: self.discovered_exits.get_clone(icfg_clone_id, -1),
             rev_topograph: self.rev_topograph.clone(),
-            entry: self.entry.get_clone(icfg_clone_id, cfg_clone_id),
+            entry: self.entry.get_clone(icfg_clone_id, -1),
             dup_cnt: self.dup_cnt.clone(),
         };
-
-        // Update the node IDs for the meta information
-        let mut new_meta_map = CFGNodeDataMap::new();
-        for (nid, meta) in cloned_cfg.nodes_meta.iter() {
-            let mut new_nid = nid.get_clone(icfg_clone_id, cfg_clone_id);
-            new_nid.icfg_clone_id = icfg_clone_id;
-            let new_meta = meta.get_clone(icfg_clone_id, meta.nid.cfg_clone_id);
-            new_meta_map.insert(new_nid, new_meta);
-        }
-        cloned_cfg.nodes_meta.clear();
-        cloned_cfg.nodes_meta.extend(new_meta_map);
-
-        cloned_cfg.entry.icfg_clone_id = icfg_clone_id;
 
         // Lastly update the graph nodes.
         cloned_cfg.graph.clear();
@@ -539,7 +525,10 @@ impl CFG {
             to_new.icfg_clone_id = icfg_clone_id;
             cloned_cfg.graph.add_edge(from_new, to_new, *bias);
         }
-        cloned_cfg.rev_topograph.clear();
+        cloned_cfg
+            .rev_topograph
+            .iter_mut()
+            .for_each(|n| n.icfg_clone_id = icfg_clone_id);
 
         cloned_cfg
     }
@@ -705,6 +694,10 @@ impl CFG {
 }
 
 impl FlowGraphOperations for CFG {
+    fn get_name(&self) -> String {
+        self.to_string()
+    }
+
     fn set_node_dup_count(&mut self, dup_cnt: usize) {
         self.dup_cnt = dup_cnt;
     }
@@ -740,7 +733,7 @@ impl FlowGraphOperations for CFG {
     }
 
     /// Increments [nid.cfg_clone_count] by [increment].
-    fn get_next_node_id_clone(increment: u32, nid: NodeId) -> NodeId {
+    fn get_next_node_id_clone(increment: i32, nid: NodeId) -> NodeId {
         let mut clone: NodeId = nid.clone();
         clone.cfg_clone_id += increment;
         clone
@@ -757,6 +750,12 @@ impl FlowGraphOperations for CFG {
             None,
             format!("Add cloned edge: {} -> {}", cloned_from, cloned_to)
         );
+        if self.nodes_meta.contains_key(&cloned_from)
+            && self.nodes_meta.contains_key(&cloned_to)
+            && self.graph.contains_edge(cloned_from, cloned_to)
+        {
+            return;
+        }
         self.add_edge(
             (
                 cloned_from,
@@ -841,7 +840,10 @@ impl FlowGraphOperations for CFG {
                     .for_each(|w| {
                         total_weight = total_weight.add(&w, wmap);
                     }),
-                None => panic!("The CFG has no meta info for node {}.", curr_nid),
+                None => {
+                    self.print_dot_graph();
+                    panic!("The CFG has no meta info for node {}.", curr_nid)
+                }
             };
             meta.get_mut(&curr_nid)
                 .expect("Node id not in meta.")
@@ -917,7 +919,7 @@ impl Procedure {
         }
     }
 
-    pub fn get_clone(&self, icfg_clone_id: u32) -> Procedure {
+    pub fn get_clone(&self, icfg_clone_id: i32) -> Procedure {
         Procedure {
             cfg: Some(self.get_cfg().get_clone(icfg_clone_id)),
             is_malloc: self.is_malloc,
