@@ -1,0 +1,3 @@
+[submodule "petgraph-evcxr"]
+	path = petgraph-evcxr
+	url = https://github.com/timthelion/petgraph-evcxr.git
