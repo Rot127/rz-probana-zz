@@ -25,8 +25,10 @@ void recurse() {
 int run() {
   unsigned x = 0;
   for (size_t i = 0; i < 2; ++i) {
-    recurse();
     unsigned *ptr = fcn_arr[i]();
+    if (i == 3) {
+      recurse();
+    }
     x += ptr[0];
   }
   return x;
