@@ -27,7 +27,6 @@ impl Spinner {
     }
 
     pub fn update(&mut self, status: Option<String>) {
-        return;
         let now = Instant::now();
         if now - self.last_spin_change > self.spin_interval {
             self.spin_idx = (self.spin_idx + 1) % self.spin_symbols.len();
