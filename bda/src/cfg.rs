@@ -517,7 +517,6 @@ impl CFG {
         };
 
         // Lastly update the graph nodes.
-        cloned_cfg.graph.clear();
         for (from, to, bias) in self.graph.all_edges() {
             let mut from_new: NodeId = from;
             from_new.icfg_clone_id = icfg_clone_id;

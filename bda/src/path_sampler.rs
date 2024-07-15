@@ -1,18 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::{
-    collections::{HashMap, VecDeque},
-    sync::RwLock,
-};
+use std::{collections::VecDeque, sync::RwLock};
 
-use binding::{log_rizin, log_rz, LOG_DEBUG};
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
 
 use crate::{
-    cfg::CFG,
+    cfg::{InsnNodeWeightType, CFG},
     flow_graphs::{Address, FlowGraphOperations, NodeId},
     icfg::ICFG,
     weight::{WeightID, WeightMap},
@@ -47,7 +43,7 @@ impl PathNodeInfo {
 #[derive(Debug)]
 pub struct Path {
     path: Vec<NodeId>,
-    node_info: HashMap<NodeId, PathNodeInfo>,
+    node_info: Vec<PathNodeInfo>,
 }
 
 impl std::hash::Hash for Path {
@@ -68,7 +64,7 @@ impl Path {
     pub fn new() -> Path {
         Path {
             path: Vec::new(),
-            node_info: HashMap::new(),
+            node_info: Vec::new(),
         }
     }
 
@@ -77,26 +73,24 @@ impl Path {
     pub fn from(path: Vec<NodeId>) -> Path {
         Path {
             path,
-            node_info: HashMap::new(),
+            node_info: Vec::new(),
         }
     }
 
-    pub fn push(&mut self, nid: NodeId) {
+    pub fn push(&mut self, nid: NodeId, info: PathNodeInfo) {
         self.path.push(nid);
-    }
-
-    pub fn add_info(&mut self, nid: NodeId, info: PathNodeInfo) {
-        self.node_info.insert(nid, info);
+        self.node_info.push(info);
     }
 
     /// Translates the path to an interpreter path.
-    pub fn to_addr_path(&self) -> IntrpPath {
+    pub fn to_addr_path(self) -> IntrpPath {
+        assert!(
+            self.path.len() == self.node_info.len(),
+            "Length of node and info vector don't match"
+        );
         let mut ipath: IntrpPath = IntrpPath::new();
-        for n in self.path.iter() {
-            ipath.push(
-                n.address,
-                Some(self.node_info.get(n).unwrap().as_addr_info()),
-            );
+        for (n, info) in self.path.into_iter().zip(self.node_info) {
+            ipath.push(n.address, Some(info.as_addr_info()));
         }
         ipath
     }
@@ -215,7 +209,7 @@ fn sample_cfg_path(
     wmap: &RwLock<WeightMap>,
     addr_ranges: &Vec<(Address, Address)>,
 ) {
-    // Flag if the instruction ad the previous neighbor address was a call.
+    // Flag if the instruction at the previous neighbor address was a call.
     let mut node_follows_call = false;
     let mut cur = start;
     loop {
@@ -237,12 +231,11 @@ fn sample_cfg_path(
             node_follows_call = false;
         }
 
-        path.push(cur);
-        log_rz!(LOG_DEBUG, None, format!("{} -> {}", " ".repeat(i), cur));
+        // println!("{}", format!("{}-> {}", " ".repeat(i), cur));
         if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
             meta.insns
                 .iter()
-                .any(|i| !i.call_targets.is_empty() || i.is_indirect_call)
+                .any(|i| i.itype.weight_type == InsnNodeWeightType::Call)
         }) {
             // For indirect calls without an set address we do not recuse into it to sample a path.
             // Put we set the meta information for the path node (marking it as call).
@@ -276,16 +269,13 @@ fn sample_cfg_path(
                     ninfo.calls_unmapped = true;
                 }
 
-                if !icfg.has_procedure(&ct)
-                    || ninfo.calls_unmapped
-                    || ninfo.calls_malloc
-                    || ninfo.calls_input
-                {
+                if ninfo.calls_unmapped || ninfo.calls_malloc || ninfo.calls_input {
                     // Either a dynamically linked procedure (without CFG)
-                    // or a malloc/input call which we don't sample.
-                    // Treat it as indirect call without known target.
+                    // or a malloc/input call. We don't recurse in those.
+                    path.push(cur, ninfo);
                 } else {
                     // recurse into CFG to sample a new path.
+                    path.push(cur, ninfo);
                     sample_cfg_path(
                         icfg,
                         icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
@@ -296,9 +286,12 @@ fn sample_cfg_path(
                         addr_ranges,
                     );
                 }
+            } else {
+                path.push(cur, ninfo);
             }
+        } else {
+            path.push(cur, ninfo);
         }
-        path.add_info(cur, ninfo);
 
         // Visit all neighbors and decide which one to add to the path
         let mut neigh_ids: Vec<NodeId> = Vec::new();

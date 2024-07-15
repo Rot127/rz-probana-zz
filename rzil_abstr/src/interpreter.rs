@@ -1430,7 +1430,10 @@ impl AbstrVM {
     }
 
     pub fn get_cur_entry(&self) -> u64 {
-        return *self.proc_entry.last().expect("No entry in list");
+        return *self
+            .proc_entry
+            .last()
+            .expect("No entry in list, PUSH and POP go out of sync");
     }
 
     fn is_max_addr(&self, to: u64) -> bool {
