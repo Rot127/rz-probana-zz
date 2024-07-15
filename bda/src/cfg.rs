@@ -840,7 +840,6 @@ impl FlowGraphOperations for CFG {
                         total_weight = total_weight.add(&w, wmap);
                     }),
                 None => {
-                    self.print_dot_graph();
                     panic!("The CFG has no meta info for node {}.", curr_nid)
                 }
             };

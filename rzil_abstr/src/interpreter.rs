@@ -916,7 +916,7 @@ impl AbstrVM {
             return;
         }
         av.il_gvar = Some(name.to_string());
-        println!("SET: {} -> {}", name, av);
+        // println!("SET: {} -> {}", name, av);
         self.gvars.insert(name.to_owned(), av);
     }
 
@@ -968,7 +968,7 @@ impl AbstrVM {
         } else {
             return false;
         }
-        println!("pc = {:#x}", self.pc);
+        // println!("pc = {:#x} ({:?})", self.pc, self.insn_info);
 
         *self.ic.entry(self.pc).or_default() += 1;
 
@@ -1235,7 +1235,7 @@ impl AbstrVM {
     /// Returns the new Abstract value and if it was sampled.
     pub fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, bool) {
         if let Some(v) = self.ms.get(key) {
-            println!("LOAD: AT: {} -> {}", key, v);
+            // println!("LOAD: AT: {} -> {}", key, v);
             return (v.clone(), false);
         }
         if n_bytes == 0 {
@@ -1256,7 +1256,7 @@ impl AbstrVM {
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
-        println!("STORE: AT {} => {} ", key, val);
+        // println!("STORE: AT {} => {} ", key, val);
         self.ms.insert(key.clone(), val);
     }
 
@@ -1278,7 +1278,7 @@ impl AbstrVM {
             ref_addr: self.get_pc(),
             aval: v.clone(),
         };
-        println!("ENQUEUE MOS: {}", &mem_op);
+        // println!("ENQUEUE MOS: {}", &mem_op);
         self.mos.push(mem_op);
     }
 
@@ -1303,18 +1303,18 @@ impl AbstrVM {
             sp: self.get_sp(),
         };
         self.rebase_sp(proc_addr);
-        println!("PUSH: {}", cf);
+        // println!("PUSH: {}", cf);
         self.proc_entry.push(proc_addr);
-        println!("{:?}", self.proc_entry);
+        // println!("{:?}", self.proc_entry);
         self.cs.push(cf);
     }
 
     /// Pops a call frame from the call stack.
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
         let cf = self.cs.pop();
-        println!("POP: {}", cf.as_ref().unwrap());
+        // println!("POP: {}", cf.as_ref().unwrap());
         self.proc_entry.pop();
-        println!("{:?}", self.proc_entry);
+        // println!("{:?}", self.proc_entry);
         self.set_sp(cf.as_ref().unwrap().sp.clone());
         cf
     }
@@ -1395,9 +1395,9 @@ impl AbstrVM {
             return_addr: MAX_U64_ADDRESS,
             sp: self.get_sp(),
         };
-        println!("PUSH: {}", cf);
+        // println!("PUSH: {}", cf);
         self.proc_entry.push(self.pc);
-        println!("{:?}", self.proc_entry);
+        // println!("{:?}", self.proc_entry);
         self.cs.push(cf);
     }
 
