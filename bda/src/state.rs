@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::RwLock,
     time::{Duration, Instant},
 };
@@ -13,6 +13,46 @@ use crate::weight::WeightMap;
 
 pub fn run_condition_fulfilled(state: &BDAState) -> bool {
     !state.bda_timed_out()
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub enum StatisticID {
+    /// Data points of the path sampler, time it takes to sample a single path.
+    PSSampleTime,
+}
+
+pub struct RuntimeStats {
+    /// Measured durations of the PathSampler sampling a single path
+    stats: HashMap<StatisticID, Vec<Duration>>,
+}
+
+impl RuntimeStats {
+    pub fn new() -> RuntimeStats {
+        RuntimeStats {
+            stats: HashMap::new(),
+        }
+    }
+
+    /// Add a data point.
+    pub fn add_dp(&mut self, set_id: StatisticID, dp: Duration) {
+        if let Some(v) = self.stats.get_mut(&set_id) {
+            v.push(dp);
+            return;
+        }
+        let mut v = Vec::<Duration>::new();
+        v.push(dp);
+        self.stats.insert(set_id, v);
+    }
+
+    /// Returns the average duration of the requested statistic.
+    pub fn get_avg_duration(&self, stat_id: StatisticID) -> Option<Duration> {
+        if let Some(set) = self.stats.get(&stat_id) {
+            let mut sum = Duration::ZERO;
+            set.iter().for_each(|d| sum += *d);
+            return Some(sum / set.len() as u32);
+        }
+        None
+    }
 }
 
 pub struct BDAState {
@@ -32,6 +72,8 @@ pub struct BDAState {
     pub stack_xrefs: HashSet<StackXref>,
     /// Memory op sequences
     pub mos: MemOpSeq,
+    /// Runtime statistics
+    pub runtime_stats: RuntimeStats,
 }
 
 impl BDAState {
@@ -45,6 +87,7 @@ impl BDAState {
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
             mos: MemOpSeq::new(),
+            runtime_stats: RuntimeStats::new(),
         }
     }
 

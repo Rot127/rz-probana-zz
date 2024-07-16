@@ -1450,7 +1450,7 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
 
     while vm.step() {}
 
-    println!("EXIT\n");
+    // println!("EXIT\n");
     // Replace with Channel and send/rcv
     let products = IntrpProducts {
         concrete_calls: vm.calls_xref.into(),

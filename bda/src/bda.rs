@@ -19,7 +19,7 @@ use crate::{
     flow_graphs::{Address, NodeId},
     icfg::ICFG,
     path_sampler::sample_path,
-    state::{run_condition_fulfilled, BDAState},
+    state::{run_condition_fulfilled, BDAState, StatisticID},
 };
 
 fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
@@ -39,14 +39,22 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
         .unwrap()
         .join(",");
 
+    let ps_time_ms = match state
+        .runtime_stats
+        .get_avg_duration(StatisticID::PSSampleTime)
+    {
+        Some(dp) => dp.as_millis() as i32,
+        None => -1,
+    };
     format!(
-        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interpreted: {} Discovered icalls: {}",
+        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interpreted: {} Discovered icalls: {} Avg. sampling time: {}",
         state.num_threads,
         hours,
         minutes,
         passed,
         formatted_path_num,
-        state.calls.len()
+        state.calls.len(),
+        if ps_time_ms > 1000 { format!("{}s", ps_time_ms / 1000) } else { format!("{}ms", ps_time_ms) }
     )
 }
 
@@ -188,6 +196,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads
         for tid in 0..state.num_threads {
+            let ts_sampling_start = Instant::now();
             let path = sample_path(
                 icfg,
                 // Choose a random entry point.
@@ -196,6 +205,10 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
                     .unwrap(),
                 state.get_weight_map(),
                 &ranges,
+            );
+            state.runtime_stats.add_dp(
+                StatisticID::PSSampleTime,
+                Instant::now().duration_since(ts_sampling_start),
             );
             if threads.get(&tid).is_none() {
                 let core_ref = core.clone();
