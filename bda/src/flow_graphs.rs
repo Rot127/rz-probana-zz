@@ -11,7 +11,7 @@ use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
-use crate::cfg::{self, Procedure};
+use crate::cfg::Procedure;
 use crate::weight::{WeightID, WeightMap};
 
 pub type FlowGraph = DiGraphMap<NodeId, usize>;

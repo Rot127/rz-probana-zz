@@ -342,7 +342,7 @@ impl FlowGraphOperations for ICFG {
         clone
     }
 
-    fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, wmap: &RwLock<WeightMap>) {
+    fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, _wmap: &RwLock<WeightMap>) {
         if !self.graph.contains_edge(from, to) {
             self.graph.add_edge(from, to, 0);
         }
