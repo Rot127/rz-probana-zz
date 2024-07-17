@@ -811,9 +811,12 @@ impl FlowGraphOperations for CFG {
             if !unvisited.is_empty() {
                 // Calculate successors' node weights.
                 let succ = unvisited.pop_back().unwrap();
-                if curr_nid == succ || prev_nids.contains(&succ) {
-                    assert_ne!(curr_nid, succ, "Loops should have been resolved.");
-                }
+                debug_assert!(
+                    curr_nid != succ
+                        && !prev_nids.contains(&succ)
+                        && !prev_nids.contains(&curr_nid),
+                    "Loops should have been resolved."
+                );
                 prev_nids.push_back(curr_nid);
                 curr_nid = succ;
                 continue;

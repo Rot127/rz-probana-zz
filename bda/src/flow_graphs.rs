@@ -611,6 +611,13 @@ pub trait FlowGraphOperations {
 
     fn get_name(&self) -> String;
 
+    fn dot_graph_to_stdout(&self) {
+        println!(
+            "{:?}",
+            petgraph::dot::Dot::with_config(&self.get_graph(), &[])
+        );
+    }
+
     fn print_dot_graph(&self) {
         petgraph_evcxr::draw_graph(self.get_graph(), self.get_name());
     }
