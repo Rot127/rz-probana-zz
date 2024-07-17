@@ -12,12 +12,12 @@ use crate::icfg::ICFG;
 use crate::state::BDAState;
 
 use binding::{
-    cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef,
-    rz_analysis_create_function, rz_analysis_function_is_input, rz_analysis_function_is_malloc,
-    rz_analysis_get_function_at, rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
-    rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error, str_to_c, GRzCore,
-    RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC, RzBinAddr, RzBinFile, RzCmdStatus, RzCore,
-    RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
+    cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef, rz_analysis_create_block,
+    rz_analysis_create_function, rz_analysis_function_add_block, rz_analysis_function_is_input,
+    rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_bin_object_get_entries,
+    rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t, rz_graph_free,
+    rz_notify_error, str_to_c, GRzCore, RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC, RzBinAddr,
+    RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
@@ -269,6 +269,8 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
                 address,
                 RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC,
             );
+            let block_ptr = rz_analysis_create_block(core.get_analysis(), address, 1);
+            rz_analysis_function_add_block(fcn_ptr, block_ptr);
             log_rz!(
                 LOG_INFO,
                 Some("BDA"),
