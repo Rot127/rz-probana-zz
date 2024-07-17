@@ -94,6 +94,10 @@ impl Path {
         }
         ipath
     }
+
+    pub(crate) fn len(&self) -> usize {
+        self.path.len()
+    }
 }
 
 impl std::fmt::Display for Path {

@@ -24,12 +24,15 @@ pub enum StatisticID {
 pub struct RuntimeStats {
     /// Measured durations of the PathSampler sampling a single path
     stats: HashMap<StatisticID, Vec<Duration>>,
+    /// Maximal path length seen so far.
+    max_path_len: usize,
 }
 
 impl RuntimeStats {
     pub fn new() -> RuntimeStats {
         RuntimeStats {
             stats: HashMap::new(),
+            max_path_len: 0,
         }
     }
 
@@ -52,6 +55,16 @@ impl RuntimeStats {
             return Some(sum / set.len() as u32);
         }
         None
+    }
+
+    pub fn add_path_len(&mut self, path_len: usize) {
+        if self.max_path_len < path_len {
+            self.max_path_len = path_len;
+        }
+    }
+
+    pub fn get_max_path_len(&self) -> usize {
+        self.max_path_len
     }
 }
 
