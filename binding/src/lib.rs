@@ -248,6 +248,18 @@ impl RzCoreWrapper {
         parse_bda_timeout(c_to_str(c))
     }
 
+    pub fn get_bda_threads(&self) -> Option<usize> {
+        let n = CString::new("plugins.bda.threads").expect("Conversion failed.");
+        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        match c_to_str(c).parse::<usize>() {
+            Ok(tn) => Some(tn),
+            Err(_) => {
+                println!("{} is not a valid u64 number", c_to_str(c));
+                None
+            }
+        }
+    }
+
     pub fn get_bda_max_iterations(&self) -> u64 {
         let n = CString::new("plugins.bda.repeat_iterations").expect("Conversion failed.");
         let c = unsafe { rz_config_get_i(uderef!(self.ptr).config, n.as_ptr()) };

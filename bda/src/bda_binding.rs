@@ -306,13 +306,17 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
     unsafe {
         rz_graph_free(rz_icfg);
     }
-    let mut state = BDAState::new(
-        1,
-        core.lock()
-            .unwrap()
-            .get_bda_runtime()
-            .expect("Should have been checked before."),
-    );
+    let nthreads = core
+        .lock()
+        .unwrap()
+        .get_bda_threads()
+        .expect("Should been set before.");
+    let runtime = core
+        .lock()
+        .unwrap()
+        .get_bda_runtime()
+        .expect("Should have been checked before.");
+    let mut state = BDAState::new(nthreads, runtime);
     add_procedures_to_icfg(core.clone(), &mut icfg);
     run_bda(core, &mut icfg, &mut state);
 }

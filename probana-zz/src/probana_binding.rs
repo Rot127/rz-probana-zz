@@ -161,6 +161,21 @@ pub extern "C" fn rz_set_bda_iterations(core: *mut c_void, node: *mut c_void) ->
     true
 }
 
+pub extern "C" fn rz_set_bda_threads(core: *mut c_void, node: *mut c_void) -> bool {
+    let _ = core as *mut RzCore;
+    let rz_node = node as *mut RzConfigNode;
+    // Just perform a check on the given value.
+    if (1..=128).contains(&pderef!(rz_node).i_value) {
+        return true;
+    }
+    log_rz!(
+        LOG_ERROR,
+        None,
+        "At a minimum BDA has to spawn a single thread. Maximum is capped at 128 (you cn change it in code)."
+    );
+    return false;
+}
+
 pub extern "C" fn rz_set_bda_node_dups(core: *mut c_void, node: *mut c_void) -> bool {
     let _ = core as *mut RzCore;
     let rz_node = node as *mut RzConfigNode;
@@ -238,6 +253,15 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
                 Some(rz_set_bda_timeout),
             ),
             str_to_c!("Maximum runtime. Allowed formats: DD:HH:MM:SS, HH:MM:SS, MM:SS, SS"),
+        );
+        rz_config_node_desc(
+            rz_config_set_i_cb(
+                pderef!(core).config,
+                str_to_c!("plugins.bda.threads"),
+                8,
+                Some(rz_set_bda_threads),
+            ),
+            str_to_c!("Number of threads BDA should spawn."),
         );
         rz_config_node_desc(
             rz_config_set_i_cb(
