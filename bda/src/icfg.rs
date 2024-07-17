@@ -295,31 +295,45 @@ impl FlowGraphOperations for ICFG {
                         .update_icfg_clone_ids(cfg_id.icfg_clone_id, cfg_id.cfg_clone_id);
                     if i.call_targets
                         .iter()
-                        .any(|ct| self.get_graph().contains_edge(*cfg_id, *ct))
+                        .all(|ct| self.get_graph().contains_edge(*cfg_id, *ct))
                     {
-                        // Call target edge is within the original CFG.
-                        continue;
-                    }
-                    if i.call_targets.iter().any(|ct| {
-                        self.get_graph()
-                            .contains_edge(*cfg_id, ct.clone().get_next_icfg_clone())
-                    }) {
-                        // Call target edge points to the next CFG clone in the iCFG.
-                        i.call_targets.set_next_icfg_clone_id();
+                        // Call target edge is within the original iCFG.
                         continue;
                     }
 
-                    // These lines are reached for two special cases:
-                    // - The last clone of a node.
-                    //   Its call edge was not not duplicated in the iCFG (because it is the last clone),
-                    //   so we need to transform the node to a normal node.
-                    //   Otherwise the weight calculation won't work since it cannot assign a value.
-                    //   For this case we reset it to a normal node.
-                    // - The the instruction calls an unmmaped procedure.
-                    //   If the call target is an unmapped procedure (e.g. a dynamically linked one),
-                    //   Rizin doesn't have a CFG for it.
-                    //   For this one we keep it a Call node. It might get resolved during interpretation.
-                    if i.call_targets.delete_cloned_nodes() {
+                    i.call_targets.retain_mut(|ct| {
+                        if self.get_graph().contains_edge(*cfg_id, *ct) {
+                            // Call target in iCFG. NodeId needs no update.
+                            return true;
+                        }
+                        let next_ct_icfg_clone = ct.clone().get_next_icfg_clone();
+                        if self.get_graph()
+                            .contains_edge(*cfg_id, next_ct_icfg_clone) {
+                            // Call target edge points to the next CFG clone in the iCFG.
+                            ct.set_next_icfg_clone_id();
+                            return true;
+                        }
+                        // These lines should be only reached for two special cases:
+                        // - The last clone of a node.
+                        //   Its call edge was not not duplicated in the iCFG (because it is the last clone),
+                        //   so remove the call target.
+                        //   Otherwise the weight calculation won't work since it cannot assign a value.
+                        let max_dup = self.get_node_dup_count();
+                        if ct.get_icfg_clone_id() >= max_dup as i32 || ct.get_cfg_clone_id() >= max_dup as i32 {
+                            return false;
+                        }
+                        // - The the instruction calls an unmmaped procedure.
+                        //   If the call target is an unmapped procedure (e.g. a dynamically linked one),
+                        //   Rizin doesn't have a CFG for it.
+                        //   For this one we keep it a Call node. It might get resolved during interpretation.
+                        debug_assert!(!self.get_graph().contains_edge(*cfg_id, *ct));
+                        debug_assert!(!self.get_graph().contains_edge(*cfg_id, ct.get_next_icfg_clone()));
+                        debug_assert!(!self.get_graph().contains_edge(*cfg_id, ct.get_next_icfg_clone().get_next_icfg_clone()));
+                        //debug_assert!(!self.has_procedure(ct));
+                        return true;
+                    });
+                    if i.call_targets.is_empty() {
+                        // No all target left. Make it a normal node.
                         i.itype.weight_type = InsnNodeWeightType::Normal;
                     }
                 }

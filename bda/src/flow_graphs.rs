@@ -190,6 +190,18 @@ impl NodeId {
             address: self.address,
         }
     }
+
+    pub fn set_next_icfg_clone_id(&mut self) {
+        self.icfg_clone_id += 1;
+    }
+
+    pub fn get_cfg_clone_id(&self) -> i32 {
+        self.cfg_clone_id
+    }
+
+    pub fn get_icfg_clone_id(&self) -> i32 {
+        self.icfg_clone_id
+    }
 }
 
 impl std::fmt::Display for NodeId {
@@ -248,6 +260,10 @@ impl NodeIdSet {
 
     pub fn iter(&self) -> std::slice::Iter<'_, NodeId> {
         self.vec.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, NodeId> {
+        self.vec.iter_mut()
     }
 
     pub fn update_icfg_clone_ids(&mut self, icfg_clone_id: i32, cfg_clone_id: i32) {
@@ -317,6 +333,13 @@ impl NodeIdSet {
         let mut seen = HashSet::new();
         self.vec.retain(|c| seen.insert(*c));
         seen
+    }
+
+    pub fn retain_mut<F>(&mut self, f: F)
+    where
+        F: FnMut(&mut NodeId) -> bool,
+    {
+        self.vec.retain_mut(f)
     }
 }
 
