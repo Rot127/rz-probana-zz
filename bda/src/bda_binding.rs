@@ -244,13 +244,6 @@ fn guarded_rz_core_graph_icfg(core: GRzCore) -> *mut RzGraph {
 /// Sets up a procedure by pulling all relevant data
 /// from Rizin and initializing the Procedure struct.
 pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option<Procedure> {
-    let rz_cfg = core.get_rz_cfg(address);
-    if rz_cfg.is_null() {
-        log_rz!(LOG_WARN, Some("BDA"), "A value for an CFG was NULL");
-        return None;
-    }
-    let mut cfg = CFG::new_graph(get_graph(rz_cfg));
-    set_cfg_node_data(&mut cfg, rz_cfg);
     unsafe {
         let mut is_unmapped = false;
         let mut fcn_ptr = rz_analysis_get_function_at(core.get_analysis(), address);
@@ -283,6 +276,13 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
             );
             is_unmapped = true;
         }
+        let rz_cfg = core.get_rz_cfg(address);
+        if rz_cfg.is_null() {
+            log_rz!(LOG_WARN, Some("BDA"), "A value for an CFG was NULL");
+            return None;
+        }
+        let mut cfg = CFG::new_graph(get_graph(rz_cfg));
+        set_cfg_node_data(&mut cfg, rz_cfg);
         let proc = Procedure::new(
             Some(cfg),
             rz_analysis_function_is_malloc(fcn_ptr),
