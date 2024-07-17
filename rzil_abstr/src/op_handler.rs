@@ -1177,12 +1177,8 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
-    log_rz!(
-        LOG_WARN,
-        None,
-        "rz_il_handler_goto not yet implemented".to_string()
-    );
-    false
+    // Ignore labels for now.
+    true
 }
 
 fn rz_il_handler_seq(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
