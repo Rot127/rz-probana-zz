@@ -77,9 +77,12 @@ impl WeightID {
             lhs: Some(self.clone()),
             rhs: Some(rhs.clone()),
         };
-        let lhs_c = wmap.write().unwrap().get_const(self).clone();
-        let rhs_c = wmap.write().unwrap().get_const(rhs).clone();
-        let wid = wmap.write().unwrap().add_expr(lhs_c + rhs_c, expr);
+        wmap.try_write().unwrap().touch_const(self);
+        wmap.try_write().unwrap().touch_const(rhs);
+        let res = (wmap.try_read().unwrap().get_const(self)
+            + wmap.try_read().unwrap().get_const(rhs))
+        .complete();
+        let wid = wmap.try_write().unwrap().add_expr(res, expr);
         wid
     }
 
@@ -89,9 +92,12 @@ impl WeightID {
             lhs: Some(self.clone()),
             rhs: Some(rhs.clone()),
         };
-        let lhs_c = wmap.write().unwrap().get_const(self).clone();
-        let rhs_c = wmap.write().unwrap().get_const(rhs).clone();
-        let wid = wmap.write().unwrap().add_expr(lhs_c * rhs_c, expr);
+        wmap.try_write().unwrap().touch_const(self);
+        wmap.try_write().unwrap().touch_const(rhs);
+        let res = (wmap.try_read().unwrap().get_const(self)
+            * wmap.try_read().unwrap().get_const(rhs))
+        .complete();
+        let wid = wmap.try_write().unwrap().add_expr(res, expr);
         wid
     }
 
@@ -112,6 +118,7 @@ impl WeightID {
     }
 
     /// Returns the constant of the weight identified by this WeightID.
+    /// Careful, this performes a clone().
     pub fn get_weight_const(&self, wmap: &RwLock<WeightMap>) -> Integer {
         wmap.write().unwrap().get_weight_const(self)
     }
@@ -171,10 +178,27 @@ impl WeightMap {
         wid
     }
 
+    fn touch_const(&mut self, wid: &WeightID) {
+        if self.cmap.contains_key(wid) {
+            return;
+        }
+
+        let weight = self
+            .wmap
+            .get(wid)
+            .expect("WeightMap is inconsistent! WeightID should have been in the map.")
+            .clone();
+        self.eval_w(&weight);
+    }
+
+    fn get_const(&self, wid: &WeightID) -> &Integer {
+        return self.cmap.get(wid).expect("Did not contain weight");
+    }
+
     /// Returns the constant value for the given Weight id.
     /// If the Weight needs to be evaluated, it is done so.
     /// It will panic, if there is no weight for the given weight id.
-    fn get_const(&mut self, wid: &WeightID) -> &Integer {
+    fn touch_get_const(&mut self, wid: &WeightID) -> &Integer {
         if self.cmap.contains_key(wid) {
             return self.cmap.get(wid).unwrap();
         }
@@ -194,7 +218,7 @@ impl WeightMap {
     }
 
     pub fn significant_bits(&mut self, wid: &WeightID) -> u32 {
-        self.get_const(wid).significant_bits()
+        self.touch_get_const(wid).significant_bits()
     }
 
     /// Get the wight id a weight of 0.
@@ -251,7 +275,7 @@ impl WeightMap {
 
     /// Returns the constant number of the WeightID.
     pub fn get_weight_const(&mut self, wid: &WeightID) -> Integer {
-        self.get_const(wid).clone()
+        self.touch_get_const(wid).clone()
     }
 
     pub fn contains_wid(&self, wid: &WeightID) -> bool {
