@@ -10,6 +10,7 @@ use crate::{
     weight::WeightMap,
 };
 
+pub const NULL_ADDR: Address = 0x00;
 pub const A_ADDR: Address = 0xa0;
 pub const B_ADDR: Address = 0xb0;
 pub const C_ADDR: Address = 0xc0;
@@ -135,6 +136,8 @@ pub fn get_endless_recurse_icfg() -> (ICFG, RwLock<WeightMap>) {
     (icfg, wmapo)
 }
 
+//  0 <-   -> D
+//      \/
 // B -> C -> A -> C ...
 // Middle address CFG to high, to low, to high.
 // This tests the back edge defintion of High to low address is a back-edge.
@@ -144,6 +147,8 @@ pub fn get_endless_recurse_icfg_nonlinear_address() -> (ICFG, RwLock<WeightMap>)
     let mut cfg_a = CFG::new();
     let mut cfg_b = CFG::new();
     let mut cfg_c = CFG::new();
+    let mut cfg_d = CFG::new();
+    let mut cfg_0 = CFG::new();
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
@@ -162,7 +167,15 @@ pub fn get_endless_recurse_icfg_nonlinear_address() -> (ICFG, RwLock<WeightMap>)
     );
     cfg_c.add_edge(
         (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2))),
-        (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single_call(0xc2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xc3))),
+    );
+    cfg_c.add_edge(
+        (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single_call(0xc2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xc3))),
+        (NodeId::new(0, 0, 0xc3), CFGNodeData::new_test_single_call(0xc3, NodeId::new(0, 0, NULL_ADDR), false, NodeId::new(0, 0, 0xc4))),
+    );
+    cfg_c.add_edge(
+        (NodeId::new(0, 0, 0xc3), CFGNodeData::new_test_single_call(0xc3, NodeId::new(0, 0, NULL_ADDR), false, NodeId::new(0, 0, 0xc4))),
+        (NodeId::new(0, 0, 0xc4), CFGNodeData::new_test_single(0xc4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
     );
 
     cfg_a.add_edge(
@@ -174,6 +187,16 @@ pub fn get_endless_recurse_icfg_nonlinear_address() -> (ICFG, RwLock<WeightMap>)
         (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
     );
 
+    cfg_d.add_edge(
+        (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0xd1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xd1), CFGNodeData::new_test_single(0xd1, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+    );
+
+    cfg_0.add_edge(
+        (NodeId::new(0, 0, 0x00), CFGNodeData::new_test_single(0x00, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0x01), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0x01), CFGNodeData::new_test_single(0x01, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+    );
+
 
     icfg.add_edge_test(
         (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false, false, false)),
@@ -182,6 +205,14 @@ pub fn get_endless_recurse_icfg_nonlinear_address() -> (ICFG, RwLock<WeightMap>)
     icfg.add_edge_test(
         (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
         (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(Some(cfg_d), false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, NULL_ADDR), Procedure::new(Some(cfg_0), false, false, false)),
     );
     icfg.add_edge_test(
         (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false, false)),

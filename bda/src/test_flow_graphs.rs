@@ -21,8 +21,8 @@ mod tests {
             get_endless_loop_icfg, get_endless_loop_icfg_branch, get_endless_recurse_icfg,
             get_endless_recurse_icfg_nonlinear_address, get_entry_loop_cfg, get_gee_cfg,
             get_icfg_with_selfref_and_recurse_cfg, get_main_cfg, get_paper_example_cfg_loop,
-            get_paper_example_icfg, get_unset_indirect_call_to_0_cfg, A_ADDR, C_ADDR, FOO_ADDR,
-            GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, SIMPLE_LOOP_ENTRY,
+            get_paper_example_icfg, get_unset_indirect_call_to_0_cfg, A_ADDR, C_ADDR, D_ADDR,
+            FOO_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, NULL_ADDR, SIMPLE_LOOP_ENTRY,
             UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::{WeightID, WeightMap},
@@ -41,7 +41,8 @@ mod tests {
                 .unwrap()
                 .get_cfg_mut()
                 .weight_eq_usize(val, icfg.get_procedures(), wmap),
-            "Proc weight {} != {}",
+            "Proc weight {}: {} != {} (expected)",
+            proc,
             icfg.get_procedure(proc)
                 .read()
                 .unwrap()
@@ -591,9 +592,33 @@ mod tests {
         let wmap = &wmap;
         icfg.resolve_loops(1, wmap);
         icfg.dot_graph_to_stdout();
-        assert_eq!(icfg.get_procedures().len(), 9, "Mismatch procedures");
-        assert_eq!(icfg.get_graph().edge_count(), 11, "Mismatch edges");
-        assert_eq!(icfg.get_graph().node_count(), 9, "Mismatch nodes");
+        assert_eq!(icfg.get_procedures().len(), 11, "Mismatch procedures");
+        assert_eq!(icfg.get_graph().edge_count(), 19, "Mismatch edges");
+        assert_eq!(icfg.get_graph().node_count(), 11, "Mismatch nodes");
+
+        let c_nodes = vec![
+            NodeId::new(0, 0, C_ADDR),
+            NodeId::new(1, 0, C_ADDR),
+            NodeId::new(2, 0, C_ADDR),
+            NodeId::new(3, 0, C_ADDR),
+        ];
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        // Assert incomming edges of D and 0 CFG come always from all C clones
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Outgoing).count(), 0);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).count(), 4);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Outgoing).count(), 0);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).count(), 4);
+        assert!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).all(|e| e.0.address == C_ADDR));
+        assert!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).all(|e| e.0.address == C_ADDR));
+
+        let in_d_nodes = Vec::from_iter(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).map(|e| e.0).into_iter());
+        let in_0_nodes = Vec::from_iter(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).map(|e| e.0).into_iter());
+        for n in c_nodes.iter() {
+            assert!(in_d_nodes.contains(&n));
+            assert!(in_0_nodes.contains(&n));
+        }
+        }
 
         // Add the removed back edge again and do the resolve loop again.
         // It should prduce the same graph
@@ -605,23 +630,25 @@ mod tests {
         icfg.resolve_loops(1, wmap);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_eq!(icfg.get_procedures().len(), 9, "Re-resolve loops mismatch procedures");
-        assert_eq!(icfg.get_graph().edge_count(), 11, "Re-resolve loops mismatch edges");
-        assert_eq!(icfg.get_graph().node_count(), 9, "Re-resolve loops mismatch nodes");
-        // In this edge case, we can resolve a loop, but each path has the weight of 1.
-        // Sincen no CFG has a branch.
-        assert_p_weight(&icfg, &NodeId::new(0, 0, 0xa0), 1, wmap);
-        assert_p_weight(&icfg, &NodeId::new(0, 0, 0xb0), 1, wmap);
-        assert_p_weight(&icfg, &NodeId::new(0, 0, 0xc0), 1, wmap);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Outgoing).count(), 0);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).count(), 4);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Outgoing).count(), 0);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).count(), 4);
+        assert!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).all(|e| e.0.address == C_ADDR));
+        assert!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).all(|e| e.0.address == C_ADDR));
+        let in_d_nodes = Vec::from_iter(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).map(|e| e.0).into_iter());
+        let in_0_nodes = Vec::from_iter(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).map(|e| e.0).into_iter());
+        for n in c_nodes.iter() {
+            assert!(in_d_nodes.contains(&n));
+            assert!(in_0_nodes.contains(&n));
+        }
 
-        assert_p_weight(&icfg, &NodeId::new(1, 0, 0xa0), 1, wmap);
-        assert_p_weight(&icfg, &NodeId::new(1, 0, 0xc0), 1, wmap);
-
-        assert_p_weight(&icfg, &NodeId::new(2, 0, 0xa0), 1, wmap);
-        assert_p_weight(&icfg, &NodeId::new(2, 0, 0xc0), 1, wmap);
-
-        assert_p_weight(&icfg, &NodeId::new(3, 0, 0xa0), 1, wmap);
-        assert_p_weight(&icfg, &NodeId::new(3, 0, 0xc0), 1, wmap);
+        }
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(icfg.get_procedures().len(), 11, "Re-resolve loops mismatch procedures");
+        assert_eq!(icfg.get_graph().edge_count(), 19, "Re-resolve loops mismatch edges");
+        assert_eq!(icfg.get_graph().node_count(), 11, "Re-resolve loops mismatch nodes");
         }
     }
 

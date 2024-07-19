@@ -307,8 +307,7 @@ impl FlowGraphOperations for ICFG {
                             return true;
                         }
                         let next_ct_icfg_clone = ct.clone().get_next_icfg_clone();
-                        if self.get_graph()
-                            .contains_edge(*cfg_id, next_ct_icfg_clone) {
+                        if self.get_graph().contains_edge(*cfg_id, next_ct_icfg_clone) {
                             // Call target edge points to the next CFG clone in the iCFG.
                             ct.set_next_icfg_clone_id();
                             return true;
@@ -319,7 +318,9 @@ impl FlowGraphOperations for ICFG {
                         //   so remove the call target.
                         //   Otherwise the weight calculation won't work since it cannot assign a value.
                         let max_dup = self.get_node_dup_count();
-                        if ct.get_icfg_clone_id() >= max_dup as i32 || ct.get_cfg_clone_id() >= max_dup as i32 {
+                        if ct.get_icfg_clone_id() >= max_dup as i32
+                            || ct.get_cfg_clone_id() >= max_dup as i32
+                        {
                             return false;
                         }
                         // - The the instruction calls an unmmaped procedure.
@@ -327,9 +328,16 @@ impl FlowGraphOperations for ICFG {
                         //   Rizin doesn't have a CFG for it.
                         //   For this one we keep it a Call node. It might get resolved during interpretation.
                         debug_assert!(!self.get_graph().contains_edge(*cfg_id, *ct));
-                        debug_assert!(!self.get_graph().contains_edge(*cfg_id, ct.get_next_icfg_clone()));
-                        debug_assert!(!self.get_graph().contains_edge(*cfg_id, ct.get_next_icfg_clone().get_next_icfg_clone()));
-                        //debug_assert!(!self.has_procedure(ct));
+                        debug_assert!(!self
+                            .get_graph()
+                            .contains_edge(*cfg_id, ct.get_next_icfg_clone()));
+                        debug_assert!(!self.get_graph().contains_edge(
+                            *cfg_id,
+                            ct.get_next_icfg_clone().get_next_icfg_clone()
+                        ));
+                        print!("CFG: {}", cfg_id);
+                        print!(" - call {} -> {}", i.addr, ct);
+                        debug_assert!(!self.has_procedure(ct));
                         return true;
                     });
                     if i.call_targets.is_empty() {
