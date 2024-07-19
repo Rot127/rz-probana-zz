@@ -195,6 +195,11 @@ impl NodeId {
         self.icfg_clone_id += 1;
     }
 
+    pub fn reset_to_original(&mut self) {
+        self.icfg_clone_id = 0;
+        self.cfg_clone_id = 0;
+    }
+
     pub fn get_cfg_clone_id(&self) -> i32 {
         self.cfg_clone_id
     }

@@ -290,7 +290,8 @@ impl FlowGraphOperations for ICFG {
                     if i.itype.weight_type != InsnNodeWeightType::Call {
                         continue;
                     }
-                    // The call target cannot point backwards to a previous clone.
+                    // Update all call targets to use the same icfg clone id.
+                    // Reset it down below, if the target procedure doesn't exists.
                     i.call_targets
                         .update_icfg_clone_ids(cfg_id.icfg_clone_id, cfg_id.cfg_clone_id);
                     if i.call_targets
@@ -312,6 +313,15 @@ impl FlowGraphOperations for ICFG {
                             ct.set_next_icfg_clone_id();
                             return true;
                         }
+
+                        if self
+                            .get_graph()
+                            .contains_edge(*cfg_id, ct.get_orig_node_id())
+                        {
+                            // Call target edge points to the original node id. Reset the call target to this one.
+                            ct.reset_to_original();
+                            return true;
+                        }
                         // These lines should be only reached for two special cases:
                         // - The last clone of a node.
                         //   Its call edge was not not duplicated in the iCFG (because it is the last clone),
@@ -325,7 +335,7 @@ impl FlowGraphOperations for ICFG {
                         }
                         // - The the instruction calls an unmmaped procedure.
                         //   If the call target is an unmapped procedure (e.g. a dynamically linked one),
-                        //   Rizin doesn't have a CFG for it.
+                        //   Rizin and our iCFG don't have a CFG for it.
                         //   For this one we keep it a Call node. It might get resolved during interpretation.
                         debug_assert!(!self.get_graph().contains_edge(*cfg_id, *ct));
                         debug_assert!(!self
@@ -335,9 +345,17 @@ impl FlowGraphOperations for ICFG {
                             *cfg_id,
                             ct.get_next_icfg_clone().get_next_icfg_clone()
                         ));
-                        print!("CFG: {}", cfg_id);
-                        print!(" - call {} -> {}", i.addr, ct);
-                        debug_assert!(!self.has_procedure(ct));
+                        if self.has_procedure(ct) {
+                            print!("CFG: {}", cfg_id);
+                            println!(" - call {:#x} -> {}", i.addr, ct);
+                            for e in self
+                                .get_graph()
+                                .edges_directed(*ct, petgraph::Direction::Incoming)
+                            {
+                                println!("IN:  {} -> {}", e.0, e.1);
+                            }
+                        }
+                        debug_assert!(!self.has_procedure(ct)); // If this fails, the rocedure exits, but the edge was not updated.
                         return true;
                     });
                     if i.call_targets.is_empty() {

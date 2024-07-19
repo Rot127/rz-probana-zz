@@ -618,6 +618,24 @@ mod tests {
             assert!(in_d_nodes.contains(&n));
             assert!(in_0_nodes.contains(&n));
         }
+        // Check saved call targets
+        assert_eq!(icfg.get_procedure(&NodeId::new(0, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().len(), 3);
+
+        let c0_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(0, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c0_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(1, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c0_ct.intersection(&c0_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c0_ct, c0_expected_ct);
+
+        let c1_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(1, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c1_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(2, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c1_ct.intersection(&c1_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c1_ct, c1_expected_ct);
+
+        let c2_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(2, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c2_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(3, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c2_ct.intersection(&c2_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c2_ct, c2_expected_ct);
+
+        let c3_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(3, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c3_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR)].to_vec().into_iter());
+        assert!(c3_ct.intersection(&c3_expected_ct).count() == 2, "Mistmatch in calltargets. {:?} != {:?}", c3_ct, c3_expected_ct);
         }
 
         // Add the removed back edge again and do the resolve loop again.
@@ -649,6 +667,74 @@ mod tests {
         assert_eq!(icfg.get_procedures().len(), 11, "Re-resolve loops mismatch procedures");
         assert_eq!(icfg.get_graph().edge_count(), 19, "Re-resolve loops mismatch edges");
         assert_eq!(icfg.get_graph().node_count(), 11, "Re-resolve loops mismatch nodes");
+
+        // Check saved call targets
+        assert_eq!(icfg.get_procedure(&NodeId::new(0, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().len(), 3);
+
+        let c0_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(0, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c0_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(1, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c0_ct.intersection(&c0_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c0_ct, c0_expected_ct);
+
+        let c1_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(1, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c1_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(2, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c1_ct.intersection(&c1_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c1_ct, c1_expected_ct);
+
+        let c2_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(2, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c2_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(3, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c2_ct.intersection(&c2_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c2_ct, c2_expected_ct);
+
+        let c3_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(3, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c3_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR)].to_vec().into_iter());
+        assert!(c3_ct.intersection(&c3_expected_ct).count() == 2, "Mistmatch in calltargets. {:?} != {:?}", c3_ct, c3_expected_ct);
+        }
+
+        // Add one between clones and check everything again.
+        icfg.add_edge(
+            (NodeId::new(1, 0, A_ADDR), None),
+            (NodeId::new(1, 0, C_ADDR), None),
+            Some(NodeId::new(1, 0, 0xa1)),
+        );
+        icfg.resolve_loops(1, wmap);
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Outgoing).count(), 0);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).count(), 4);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Outgoing).count(), 0);
+        assert_eq!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).count(), 4);
+        assert!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).all(|e| e.0.address == C_ADDR));
+        assert!(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).all(|e| e.0.address == C_ADDR));
+        let in_d_nodes = Vec::from_iter(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Incoming).map(|e| e.0).into_iter());
+        let in_0_nodes = Vec::from_iter(icfg.get_graph().edges_directed(NodeId::from(NULL_ADDR), petgraph::Direction::Incoming).map(|e| e.0).into_iter());
+        for n in c_nodes.iter() {
+            assert!(in_d_nodes.contains(&n));
+            assert!(in_0_nodes.contains(&n));
+        }
+
+        }
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert_eq!(icfg.get_procedures().len(), 11, "Re-resolve loops mismatch procedures");
+        assert_eq!(icfg.get_graph().edge_count(), 19, "Re-resolve loops mismatch edges");
+        assert_eq!(icfg.get_graph().node_count(), 11, "Re-resolve loops mismatch nodes");
+
+        // Check saved call targets
+        assert_eq!(icfg.get_procedure(&NodeId::new(0, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().len(), 3);
+
+        let c0_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(0, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c0_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(1, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c0_ct.intersection(&c0_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c0_ct, c0_expected_ct);
+
+        let c1_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(1, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c1_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(2, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c1_ct.intersection(&c1_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c1_ct, c1_expected_ct);
+
+        let c2_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(2, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c2_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR), NodeId::new(3, 0, A_ADDR)].to_vec().into_iter());
+        assert!(c2_ct.intersection(&c2_expected_ct).count() == 3, "Mistmatch in calltargets. {:?} != {:?}", c2_ct, c2_expected_ct);
+
+        let c3_ct = HashSet::<NodeId>::from_iter(icfg.get_procedure(&NodeId::new(3, 0, C_ADDR)).read().unwrap().get_cfg().get_all_call_targets().iter().map(|ct| ct.0));
+        let c3_expected_ct = HashSet::from_iter([NodeId::from(NULL_ADDR), NodeId::from(D_ADDR)].to_vec().into_iter());
+        assert!(c3_ct.intersection(&c3_expected_ct).count() == 2, "Mistmatch in calltargets. {:?} != {:?}", c3_ct, c3_expected_ct);
         }
     }
 
