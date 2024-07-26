@@ -356,6 +356,32 @@ pub fn add_procedures_to_icfg(core: GRzCore, icfg: &mut ICFG) {
         done += 1;
         progress_bar.update_print(done, None);
     }
+    // Iterate over all call xrefs and ensure they are added at as procedures.
+    let mut not_added = Vec::<(NodeId, NodeId)>::new();
+    for p in icfg.get_procedures().iter() {
+        p.1.read()
+            .unwrap()
+            .get_cfg()
+            .get_all_call_targets()
+            .iter()
+            .for_each(|ct| {
+                if icfg.has_procedure(&ct.0) {
+                    return;
+                }
+                not_added.push((p.0.clone(), ct.0));
+            });
+    }
+    for (pid, ct) in not_added {
+        if let Some(proc) = setup_procedure_at_addr(&core.lock().unwrap(), ct.address) {
+            icfg.add_procedure(ct, proc);
+            icfg.get_graph_mut().add_edge(pid, ct, 0);
+        } else {
+            panic!(
+                "A valid call target to {} could be initialized as procedure.",
+                ct
+            )
+        }
+    }
     let dup_cnt = core.lock().unwrap().get_bda_node_duplicates();
     icfg.set_node_dup_count(dup_cnt);
     for (_, p) in icfg.procedures.iter_mut() {
