@@ -14,11 +14,11 @@ use crate::state::BDAState;
 use binding::{
     cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef, rz_analysis_create_block,
     rz_analysis_create_function, rz_analysis_function_add_block, rz_analysis_function_is_input,
-    rz_analysis_function_is_malloc, rz_analysis_get_function_at, rz_bin_object_get_entries,
-    rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t, rz_graph_free,
-    rz_notify_error, str_to_c, GRzCore, RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC, RzBinAddr,
-    RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode, RzGraphNodeCFGSubType,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    rz_analysis_function_is_malloc, rz_analysis_get_block_at, rz_analysis_get_function_at,
+    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t,
+    rz_graph_free, rz_notify_error, str_to_c, GRzCore, RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC,
+    RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode,
+    RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
     RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
@@ -269,17 +269,27 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
                 address,
                 RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC,
             );
-            let block_ptr = rz_analysis_create_block(core.get_analysis(), address, 1);
+            is_unmapped = true;
+            let mut block_ptr = rz_analysis_create_block(core.get_analysis(), address, 1);
+            if block_ptr == std::ptr::null_mut() {
+                is_unmapped = false;
+                block_ptr = rz_analysis_get_block_at(core.get_analysis(), address);
+                assert_ne!(
+                    block_ptr,
+                    std::ptr::null_mut(),
+                    "Function block at {:#x} is miss aligned.",
+                    address
+                )
+            }
             rz_analysis_function_add_block(fcn_ptr, block_ptr);
             log_rz!(
                 LOG_INFO,
                 Some("BDA"),
-                format!("Created unmapped loc.{}", name)
+                format!("Added new function {}", name)
             );
-            is_unmapped = true;
         }
         let rz_cfg = core.get_rz_cfg(address);
-        if rz_cfg.is_null() {
+        if rz_cfg == std::ptr::null_mut() {
             log_rz!(LOG_WARN, Some("BDA"), "A value for an CFG was NULL");
             return None;
         }
