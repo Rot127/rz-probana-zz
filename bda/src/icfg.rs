@@ -237,6 +237,26 @@ impl ICFG {
         });
         self.make_acyclic(wmap, Some("Make iCFG acyclic".to_owned()));
     }
+
+    // Check if the call targets are alligned to the actual iCFG.
+    fn call_target_check(&self) -> bool {
+        for proc in self.get_procedures().iter() {
+            for ct in proc.1.read().unwrap().get_cfg().get_all_call_targets() {
+                if !self.get_graph().contains_edge(*proc.id(), ct.0) {
+                    self.get_graph()
+                        .neighbors_directed(proc.id().clone(), Outgoing)
+                        .for_each(|n| println!("{} -> {}", *proc.id(), n));
+                }
+                debug_assert!(
+                    self.get_graph().contains_edge(*proc.id(), ct.0),
+                    "Call target {} -> {} not in iCFG",
+                    proc.id(),
+                    ct.0
+                )
+            }
+        }
+        true
+    }
 }
 
 impl FlowGraphOperations for ICFG {
@@ -345,8 +365,9 @@ impl FlowGraphOperations for ICFG {
                             *cfg_id,
                             ct.get_next_icfg_clone().get_next_icfg_clone()
                         ));
+                        // If this fails, the procedure exists, but the edge was not updated.
                         if self.has_procedure(ct) {
-                            print!("CFG: {}", cfg_id);
+                            print!("\nCFG: {}", cfg_id);
                             println!(" - call {:#x} -> {}", i.addr, ct);
                             for e in self
                                 .get_graph()
@@ -355,7 +376,7 @@ impl FlowGraphOperations for ICFG {
                                 println!("IN:  {} -> {}", e.0, e.1);
                             }
                         }
-                        debug_assert!(!self.has_procedure(ct)); // If this fails, the rocedure exits, but the edge was not updated.
+                        debug_assert!({ !self.has_procedure(ct) });
                         return true;
                     });
                     if i.call_targets.is_empty() {
@@ -365,6 +386,8 @@ impl FlowGraphOperations for ICFG {
                 }
             }
         }
+        // Assert that all call_target point to an existing CFG.
+        debug_assert!(self.call_target_check());
     }
 
     fn get_graph(&self) -> &FlowGraph {
