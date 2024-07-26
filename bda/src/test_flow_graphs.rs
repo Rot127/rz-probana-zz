@@ -21,9 +21,9 @@ mod tests {
             get_endless_loop_icfg, get_endless_loop_icfg_branch, get_endless_recurse_icfg,
             get_endless_recurse_icfg_nonlinear_address, get_entry_loop_cfg, get_gee_cfg,
             get_icfg_with_selfref_and_recurse_cfg, get_main_cfg, get_paper_example_cfg_loop,
-            get_paper_example_icfg, get_unset_indirect_call_to_0_cfg, A_ADDR, C_ADDR, D_ADDR,
-            FOO_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, NULL_ADDR, SIMPLE_LOOP_ENTRY,
-            UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
+            get_paper_example_icfg, get_scc_refs_scc, get_unset_indirect_call_to_0_cfg, A_ADDR,
+            C_ADDR, D_ADDR, FOO_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, NULL_ADDR,
+            SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::{WeightID, WeightMap},
     };
@@ -821,5 +821,13 @@ mod tests {
         cfg.make_acyclic(wmap, None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 1, wmap);
+    }
+
+    #[test]
+    fn test_interconnected_sccs() {
+        let (mut icfg, wmap) = get_scc_refs_scc();
+        let wmap = &wmap;
+        icfg.resolve_loops(1, wmap);
+        icfg.dot_graph_to_stdout();
     }
 }

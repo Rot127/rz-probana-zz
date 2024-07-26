@@ -15,6 +15,8 @@ pub const A_ADDR: Address = 0xa0;
 pub const B_ADDR: Address = 0xb0;
 pub const C_ADDR: Address = 0xc0;
 pub const D_ADDR: Address = 0xd0;
+pub const E_ADDR: Address = 0xe0;
+pub const F_ADDR: Address = 0xf0;
 pub const GEE_ADDR: Address = 0;
 pub const FOO_ADDR: Address = 6;
 pub const MAIN_ADDR: Address = 11;
@@ -928,4 +930,94 @@ pub fn get_C() -> CFG {
     }
 
     cfg
+}
+
+// Two closly connected components in the ICFG, reference each other.
+// A <----> B
+//
+//     C
+//   /   \
+//  D --> E
+//
+// A --> D; E --> B
+pub fn get_scc_refs_scc() -> (ICFG, RwLock<WeightMap>) {
+    let mut icfg = ICFG::new();
+    let wmapo = WeightMap::new();
+    let mut cfg_a = CFG::new();
+    let mut cfg_b = CFG::new();
+    let mut cfg_c = CFG::new();
+    let mut cfg_d = CFG::new();
+    let mut cfg_e = CFG::new();
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    let cfg_a_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_a_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
+    let cfg_a_n2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single_call(0xa2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xa3)));
+    let cfg_a_n3 = (NodeId::new(0, 0, 0xa3), CFGNodeData::new_test_single(0xa3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+
+    cfg_a.add_edge(cfg_a_n0, cfg_a_n1.clone());
+    cfg_a.add_edge(cfg_a_n1, cfg_a_n2.clone());
+    cfg_a.add_edge(cfg_a_n2, cfg_a_n3);
+
+    let cfg_b_n0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
+    let cfg_b_n1 = (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xb2)));
+    let cfg_b_n2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+
+    cfg_b.add_edge(cfg_b_n0, cfg_b_n1.clone());
+    cfg_b.add_edge(cfg_b_n1, cfg_b_n2);
+
+    let cfg_c_n0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
+    let cfg_c_n1 = (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xc2)));
+    let cfg_c_n2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+
+    cfg_c.add_edge(cfg_c_n0, cfg_c_n1.clone());
+    cfg_c.add_edge(cfg_c_n1, cfg_c_n2);
+
+    let cfg_d_n0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xd1), INVALID_NODE_ID));
+    let cfg_d_n1 = (NodeId::new(0, 0, 0xd1), CFGNodeData::new_test_single_call(0xd1, NodeId::new(0, 0, E_ADDR), false, NodeId::new(0, 0, 0xd2)));
+    let cfg_d_n2 = (NodeId::new(0, 0, 0xd2), CFGNodeData::new_test_single(0xd2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+
+    cfg_d.add_edge(cfg_d_n0, cfg_d_n1.clone());
+    cfg_d.add_edge(cfg_d_n1, cfg_d_n2);
+
+    let cfg_e_n0 = (NodeId::new(0, 0, 0xe0), CFGNodeData::new_test_single(0xe0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xe1), INVALID_NODE_ID));
+    let cfg_e_n1 = (NodeId::new(0, 0, 0xe1), CFGNodeData::new_test_single_call(0xe1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xe2)));
+    let cfg_e_n2 = (NodeId::new(0, 0, 0xe2), CFGNodeData::new_test_single_call(0xe2, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xe3)));
+    let cfg_e_n3 = (NodeId::new(0, 0, 0xe3), CFGNodeData::new_test_single(0xe3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+
+    cfg_e.add_edge(cfg_e_n0, cfg_e_n1.clone());
+    cfg_e.add_edge(cfg_e_n1, cfg_e_n2.clone());
+    cfg_e.add_edge(cfg_e_n2, cfg_e_n3);
+
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false, false)),
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(Some(cfg_b), false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, A_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(Some(cfg_d), false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(Some(cfg_c), false, false, false)),
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, D_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, E_ADDR), Procedure::new(Some(cfg_e), false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, E_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, C_ADDR), Procedure::new(None, false, false, false)),
+    );
+    icfg.add_edge_test(
+        (NodeId::new(0, 0, E_ADDR), Procedure::new(None, false, false, false)),
+        (NodeId::new(0, 0, B_ADDR), Procedure::new(None, false, false, false)),
+    );
+    }
+    (icfg, wmapo)
 }
