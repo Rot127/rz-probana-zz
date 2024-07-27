@@ -335,6 +335,9 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
 }
 
 pub fn add_procedures_to_icfg(core: GRzCore, icfg: &mut ICFG) {
+    let dup_cnt = core.lock().unwrap().get_bda_node_duplicates();
+    icfg.set_node_dup_count(dup_cnt);
+
     let mut progress_bar = ProgressBar::new(
         String::from("Transfer CFGs"),
         icfg.get_graph().nodes().len(),
@@ -357,6 +360,10 @@ pub fn add_procedures_to_icfg(core: GRzCore, icfg: &mut ICFG) {
         done += 1;
         progress_bar.update_print(done, None);
     }
+    add_called_procedures(icfg, core.clone());
+}
+
+fn add_called_procedures(icfg: &mut ICFG, core: GRzCore) {
     // Iterate over all call xrefs and ensure they are added as procedures.
     let mut undisc_procs = Vec::<NodeId>::new();
     let mut undisc_edges = Vec::<(NodeId, NodeId)>::new();
@@ -426,12 +433,6 @@ pub fn add_procedures_to_icfg(core: GRzCore, icfg: &mut ICFG) {
         "New call edges: {} -- New functions: {}",
         new_edges, new_procs
     ));
-
-    let dup_cnt = core.lock().unwrap().get_bda_node_duplicates();
-    icfg.set_node_dup_count(dup_cnt);
-    for (_, p) in icfg.procedures.iter_mut() {
-        p.write().unwrap().get_cfg_mut().set_node_dup_count(dup_cnt);
-    }
 }
 
 pub extern "C" fn rz_analysis_bda_handler(

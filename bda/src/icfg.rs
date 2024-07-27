@@ -102,10 +102,11 @@ impl ICFG {
         &self.procedures
     }
 
-    pub fn add_procedure(&mut self, node_id: NodeId, proc: Procedure) -> bool {
+    pub fn add_procedure(&mut self, node_id: NodeId, mut proc: Procedure) -> bool {
         if self.has_procedure(&node_id) {
             return false;
         }
+        proc.get_cfg_mut().set_node_dup_count(self.dup_cnt);
         self.procedures.insert(node_id, RwLock::new(proc));
         return true;
     }
