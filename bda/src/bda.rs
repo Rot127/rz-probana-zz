@@ -182,6 +182,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         }
     }
 
+    debug_assert!(icfg.call_target_check());
     icfg.resolve_loops(state.num_threads, state.get_weight_map());
 
     let mut nothing_happened = 0;

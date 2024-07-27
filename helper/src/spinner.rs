@@ -47,6 +47,6 @@ impl Spinner {
     }
 
     pub fn done(&self, status: String) {
-        println!("\r[x] {}", status);
+        println!("\r[x] {}{}", self.main_desc, status);
     }
 }

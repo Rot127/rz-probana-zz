@@ -29,6 +29,7 @@ use binding::{
     LOG_DEBUG, LOG_ERROR, LOG_INFO, LOG_WARN,
 };
 use helper::progress::ProgressBar;
+use helper::spinner::Spinner;
 
 fn list_elem_to_graph_node_tuple(
     elem: *mut ::std::os::raw::c_void,
@@ -356,32 +357,76 @@ pub fn add_procedures_to_icfg(core: GRzCore, icfg: &mut ICFG) {
         done += 1;
         progress_bar.update_print(done, None);
     }
-    // Iterate over all call xrefs and ensure they are added at as procedures.
-    let mut not_added = Vec::<(NodeId, NodeId)>::new();
-    for p in icfg.get_procedures().iter() {
-        p.1.read()
+    // Iterate over all call xrefs and ensure they are added as procedures.
+    let mut undisc_procs = Vec::<NodeId>::new();
+    let mut undisc_edges = Vec::<(NodeId, NodeId)>::new();
+    for (pid, p) in icfg.get_procedures().iter() {
+        p.read()
             .unwrap()
             .get_cfg()
             .get_all_call_targets()
             .iter()
             .for_each(|ct| {
-                if icfg.has_procedure(&ct.0) {
-                    return;
+                let pair = (pid.clone(), ct.0);
+                if !icfg.has_procedure(&ct.0) {
+                    undisc_procs.push(ct.0);
                 }
-                not_added.push((p.0.clone(), ct.0));
+                if !icfg.has_edge(pair.0, pair.1) {
+                    undisc_edges.push(pair);
+                }
             });
     }
-    for (pid, ct) in not_added {
-        if let Some(proc) = setup_procedure_at_addr(&core.lock().unwrap(), ct.address) {
-            icfg.add_procedure(ct, proc);
-            icfg.get_graph_mut().add_edge(pid, ct, 0);
-        } else {
-            panic!(
-                "A valid call target to {} could be initialized as procedure.",
-                ct
-            )
+    let mut status = Spinner::new("Follow call refernces:\t".to_owned());
+    let mut new_procs = 0;
+    let mut new_edges = undisc_edges.len();
+
+    // Drain them, for the edge case that we have no procedures.
+    undisc_edges.drain(0..).for_each(|(from, to)| {
+        icfg.get_graph_mut().add_edge(from, to, 0);
+    });
+
+    while !undisc_procs.is_empty() {
+        let call_target = undisc_procs.pop().unwrap().clone();
+        if let Some(called_proc) =
+            setup_procedure_at_addr(&core.lock().unwrap(), call_target.address)
+        {
+            // Get the calls of the undiscovered procedure.
+            called_proc
+                .get_cfg()
+                .get_all_call_targets()
+                .iter()
+                .for_each(|cp_ct| {
+                    if !icfg.has_procedure(&cp_ct.0) {
+                        undisc_procs.push(cp_ct.0);
+                    }
+                    if !icfg.has_edge(call_target, cp_ct.0) {
+                        undisc_edges.push((call_target, cp_ct.0));
+                    }
+                });
+            if icfg.add_procedure(call_target, called_proc) {
+                new_procs += 1;
+            }
+            new_edges += undisc_edges.len();
+            undisc_edges.drain(0..).for_each(|(from, to)| {
+                new_edges += 1;
+                icfg.get_graph_mut().add_edge(from, to, 0);
+            });
+            status.update(Some(format!(
+                "New call edges: {} -- New functions: {}",
+                new_edges, new_procs
+            )));
+            continue;
         }
+        panic!(
+            "A valid call target to {} could be initialized as procedure.",
+            call_target
+        );
     }
+    status.done(format!(
+        "New call edges: {} -- New functions: {}",
+        new_edges, new_procs
+    ));
+
     let dup_cnt = core.lock().unwrap().get_bda_node_duplicates();
     icfg.set_node_dup_count(dup_cnt);
     for (_, p) in icfg.procedures.iter_mut() {

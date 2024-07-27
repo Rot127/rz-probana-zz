@@ -8,6 +8,7 @@ use std::{
 };
 
 use helper::progress::ProgressBar;
+use petgraph::Direction::Outgoing;
 
 use crate::{
     cfg::{InsnNodeWeightType, Procedure},
@@ -101,8 +102,12 @@ impl ICFG {
         &self.procedures
     }
 
-    pub fn add_procedure(&mut self, node_id: NodeId, proc: Procedure) {
+    pub fn add_procedure(&mut self, node_id: NodeId, proc: Procedure) -> bool {
+        if self.has_procedure(&node_id) {
+            return false;
+        }
         self.procedures.insert(node_id, RwLock::new(proc));
+        return true;
     }
 
     /// Adds an edge [from] -> [to]. The procedures can be passed optionally. If a procedure given
@@ -239,23 +244,29 @@ impl ICFG {
     }
 
     // Check if the call targets are alligned to the actual iCFG.
-    fn call_target_check(&self) -> bool {
-        for proc in self.get_procedures().iter() {
-            for ct in proc.1.read().unwrap().get_cfg().get_all_call_targets() {
-                if !self.get_graph().contains_edge(*proc.id(), ct.0) {
+    pub(crate) fn call_target_check(&self) -> bool {
+        for (pid, proc) in self.get_procedures().iter() {
+            for ct in proc.read().unwrap().get_cfg().get_all_call_targets() {
+                if !self.get_graph().contains_edge(*pid, ct.0) {
                     self.get_graph()
-                        .neighbors_directed(proc.id().clone(), Outgoing)
-                        .for_each(|n| println!("{} -> {}", *proc.id(), n));
+                        .neighbors_directed(pid.clone(), Outgoing)
+                        .for_each(|n| println!("{} -> {}", *pid, n));
                 }
+                debug_assert!(self.has_procedure(pid), "Misses proc {}", pid);
+                debug_assert!(self.has_procedure(&ct.0), "Misses proc {}", ct.0);
                 debug_assert!(
-                    self.get_graph().contains_edge(*proc.id(), ct.0),
+                    self.get_graph().contains_edge(*pid, ct.0),
                     "Call target {} -> {} not in iCFG",
-                    proc.id(),
+                    pid,
                     ct.0
                 )
             }
         }
         true
+    }
+
+    pub(crate) fn has_edge(&self, from: NodeId, to: NodeId) -> bool {
+        self.get_graph().contains_edge(from, to)
     }
 }
 
@@ -367,7 +378,11 @@ impl FlowGraphOperations for ICFG {
                         ));
                         // If this fails, the procedure exists, but the edge was not updated.
                         if self.has_procedure(ct) {
-                            print!("\nCFG: {}", cfg_id);
+                            print!(
+                                "\nInconsistency detected: The iCFG edge is missing, but the CFG and code xref exits:\n\
+                                CFG: {}",
+                                cfg_id
+                            );
                             println!(" - call {:#x} -> {}", i.addr, ct);
                             for e in self
                                 .get_graph()
