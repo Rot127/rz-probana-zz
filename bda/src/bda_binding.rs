@@ -331,6 +331,8 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
         .expect("Should have been checked before.");
     let mut state = BDAState::new(nthreads, runtime);
     add_procedures_to_icfg(core.clone(), &mut icfg);
+    icfg.make_icfg_consistent();
+    debug_assert!(icfg.icfg_consistency_check());
     run_bda(core, &mut icfg, &mut state);
 }
 

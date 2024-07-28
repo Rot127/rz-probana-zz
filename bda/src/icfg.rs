@@ -244,8 +244,10 @@ impl ICFG {
         self.make_acyclic(wmap, Some("Make iCFG acyclic".to_owned()));
     }
 
-    // Check if the call targets are alligned to the actual iCFG.
-    pub(crate) fn call_target_check(&self) -> bool {
+    /// Check if the call targets are alligned to the actual iCFG.
+    /// And if the iCFG only contains edges by calls
+    pub(crate) fn icfg_consistency_check(&self) -> bool {
+        let mut seen_call_edges = HashSet::<(NodeId, NodeId)>::new();
         for (pid, proc) in self.get_procedures().iter() {
             for ct in proc.read().unwrap().get_cfg().get_all_call_targets() {
                 if !self.get_graph().contains_edge(*pid, ct.0) {
@@ -253,8 +255,9 @@ impl ICFG {
                         .neighbors_directed(pid.clone(), Outgoing)
                         .for_each(|n| println!("{} -> {}", *pid, n));
                 }
-                debug_assert!(self.has_procedure(pid), "Misses proc {}", pid);
-                debug_assert!(self.has_procedure(&ct.0), "Misses proc {}", ct.0);
+                seen_call_edges.insert((*pid, ct.0));
+                debug_assert!(self.has_procedure(pid), "iCFG misses procedure {}", pid);
+                debug_assert!(self.has_procedure(&ct.0), "iCFG misses procedure {}", ct.0);
                 debug_assert!(
                     self.get_graph().contains_edge(*pid, ct.0),
                     "Call target {} -> {} not in iCFG",
@@ -263,7 +266,43 @@ impl ICFG {
                 )
             }
         }
+        if self.get_graph().edge_count() != seen_call_edges.len() {
+            for e in self.get_graph().all_edges() {
+                if seen_call_edges.contains(&(e.0, e.1)) {
+                    continue;
+                }
+                println!("no call {} -> {}", e.0, e.1);
+            }
+        }
+
+        assert_eq!(
+            self.get_graph().edge_count(),
+            seen_call_edges.len(),
+            "iCFG edge count is off: iCFG edges: {} expected edge count: {}",
+            self.get_graph().edge_count(),
+            seen_call_edges.len(),
+        );
         true
+    }
+
+    /// Removes all iCFG edges which have no calls in the CFGs.
+    /// See: https://github.com/Rot127/rz-probana-zz/issues/28
+    pub(crate) fn make_icfg_consistent(&mut self) {
+        let mut to_keep = HashSet::<(NodeId, NodeId)>::new();
+        for (pid, proc) in self.get_procedures().iter() {
+            for ct in proc.read().unwrap().get_cfg().get_all_call_targets() {
+                to_keep.insert((*pid, ct.0));
+            }
+        }
+        let mut to_remove = HashSet::<(NodeId, NodeId)>::new();
+        for e in self.get_graph().all_edges() {
+            if !to_keep.contains(&(e.0, e.1)) {
+                to_remove.insert((e.0, e.1));
+            }
+        }
+        for (from, to) in to_remove {
+            self.get_graph_mut().remove_edge(from, to);
+        }
     }
 
     pub(crate) fn has_edge(&self, from: NodeId, to: NodeId) -> bool {
@@ -403,7 +442,7 @@ impl FlowGraphOperations for ICFG {
             }
         }
         // Assert that all call_target point to an existing CFG.
-        debug_assert!(self.call_target_check());
+        debug_assert!(self.icfg_consistency_check());
     }
 
     fn get_graph(&self) -> &FlowGraph {
