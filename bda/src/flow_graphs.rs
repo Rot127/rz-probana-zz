@@ -3,6 +3,7 @@
 
 use helper::spinner::Spinner;
 use petgraph::algo::{is_cyclic_directed, kosaraju_scc, toposort};
+use petgraph::dot::{Config, Dot};
 use petgraph::prelude::DiGraphMap;
 use petgraph::Direction::{Incoming, Outgoing};
 use rand::{thread_rng, Rng};
@@ -210,6 +211,16 @@ impl NodeId {
 
     pub fn get_icfg_clone_id(&self) -> i32 {
         self.icfg_clone_id
+    }
+
+    pub fn get_dot_style(&self) -> String {
+        match self.icfg_clone_id {
+            0 => "style=filled fillcolor=\"blue\"".to_string(),
+            1 => "style=filled fillcolor=\"yellow;0.3:blue\"".to_string(),
+            2 => "style=filled fillcolor=\"yellow;0.6:blue\"".to_string(),
+            3 => "style=filled fillcolor=\"yellow\"".to_string(),
+            _ => panic!("No color defined."),
+        }
     }
 }
 
@@ -644,7 +655,19 @@ pub trait FlowGraphOperations {
     fn dot_graph_to_stdout(&self) {
         println!(
             "{:?}",
-            petgraph::dot::Dot::with_config(&self.get_graph(), &[])
+            Dot::with_attr_getters(
+                &self.get_graph(),
+                &[Config::NodeNoLabel, Config::EdgeNoLabel],
+                &|_graph, edge| { format!("label = \"{} -> {}\"", edge.0, edge.1) },
+                &|_graph, node| {
+                    format!(
+                        "label = \"{}\" {} layer = {}",
+                        node.1,
+                        node.1.get_dot_style(),
+                        node.1.icfg_clone_id
+                    )
+                },
+            )
         );
     }
 

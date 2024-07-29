@@ -4,8 +4,8 @@
 #[cfg(test)]
 mod tests {
     use binding::{
-        get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
-        GRzCore, RzCoreWrapper,
+        get_rz_test_bin_path, get_test_bin_path, init_rizin_instance, rz_core_graph_icfg,
+        wait_for_exlusive_core, GRzCore, RzCoreWrapper,
     };
     use rzil_abstr::interpreter::{AbstrVal, Const, MemOp};
 
@@ -66,6 +66,7 @@ mod tests {
         let mut state = BDAState::new(1, 2);
         assert!(icfg.get_procedures().len() == 2, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
+        icfg.dot_graph_to_stdout();
 
         assert_eq!(icfg.get_graph().edge_count(), 7, "Wrong number of edges");
         assert_eq!(icfg.get_graph().node_count(), 8, "Wrong number of nodes");
@@ -90,6 +91,7 @@ mod tests {
         assert!(procs.contains_key(&main_nid_3), "function {} not discovered.", main_nid_3);
         }
 
+        icfg.dot_graph_to_stdout();
         // Main procedures
         let p = procs.get(&main_nid_0).unwrap();
         let cts = p.read().unwrap().get_cfg().get_all_call_targets();
