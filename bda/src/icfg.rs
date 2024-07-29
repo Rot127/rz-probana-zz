@@ -12,7 +12,7 @@ use petgraph::Direction::Outgoing;
 
 use crate::{
     cfg::{InsnNodeWeightType, Procedure},
-    flow_graphs::{FlowGraph, FlowGraphOperations, NodeId, ProcedureMap},
+    flow_graphs::{EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, ProcedureMap},
     weight::{WeightID, WeightMap},
 };
 
@@ -138,7 +138,7 @@ impl ICFG {
             self.get_procedure(&from_proc_nid)
                 .write()
                 .unwrap()
-                .update_call_target(&call_addr, -1, &to_proc_nid);
+                .insert_call_target(&call_addr, -1, &to_proc_nid);
         }
         if !self.has_procedure(&to_proc_nid) {
             if to_proc_tuple.1.is_none() {
@@ -327,120 +327,7 @@ impl FlowGraphOperations for ICFG {
         &mut self.graph
     }
 
-    /// If we have cloned several CFGs, we need to update the calls in each of them.
-    /// Since a call node has the target address attached in its meta data, we might need to update
-    /// it to a cloned or not cloned procedure CFG.
     fn clean_up_acyclic(&mut self, _wmap: &RwLock<WeightMap>) {
-        // Runtime: |V_icfg| * |V_cfg| + |E_icfg|
-        let mut to_update = HashSet::<NodeId>::new();
-        // O(E_icfg)
-        for (from_id, to_id, _) in self.get_graph().all_edges() {
-            if !to_update.contains(&from_id) {
-                to_update.insert(from_id);
-            }
-            if !to_update.contains(&to_id) {
-                to_update.insert(to_id);
-            }
-        }
-
-        // O(V_icfg)
-        for cfg_id in to_update.iter() {
-            // O(V_cfg)
-            for nmeta in self
-                .get_procedure(cfg_id)
-                .write()
-                .unwrap()
-                .get_cfg_mut()
-                .nodes_meta
-                .values_mut()
-            {
-                // O(1) - instruction words have a constant length
-                for i in nmeta.insns.iter_mut() {
-                    // Either the call target is within the same CFG,
-                    // in the next CFG clone or has no edge in the iCFG.
-                    if i.itype.weight_type != InsnNodeWeightType::Call {
-                        continue;
-                    }
-                    // Update all call targets to use the same icfg clone id.
-                    // Reset it down below, if the target procedure doesn't exists.
-                    i.call_targets
-                        .update_icfg_clone_ids(cfg_id.icfg_clone_id, cfg_id.cfg_clone_id);
-                    if i.call_targets
-                        .iter()
-                        .all(|ct| self.get_graph().contains_edge(*cfg_id, *ct))
-                    {
-                        // Call target edge is within the original iCFG.
-                        continue;
-                    }
-
-                    i.call_targets.retain_mut(|ct| {
-                        if self.get_graph().contains_edge(*cfg_id, *ct) {
-                            // Call target in iCFG. NodeId needs no update.
-                            return true;
-                        }
-                        let next_ct_icfg_clone = ct.clone().get_next_icfg_clone();
-                        if self.get_graph().contains_edge(*cfg_id, next_ct_icfg_clone) {
-                            // Call target edge points to the next CFG clone in the iCFG.
-                            ct.set_next_icfg_clone_id();
-                            return true;
-                        }
-
-                        if self
-                            .get_graph()
-                            .contains_edge(*cfg_id, ct.get_orig_node_id())
-                        {
-                            // Call target edge points to the original node id. Reset the call target to this one.
-                            ct.reset_to_original();
-                            return true;
-                        }
-                        // These lines should be only reached for two special cases:
-                        // - The last clone of a node.
-                        //   Its call edge was not not duplicated in the iCFG (because it is the last clone),
-                        //   so remove the call target.
-                        //   Otherwise the weight calculation won't work since it cannot assign a value.
-                        let max_dup = self.get_node_dup_count();
-                        if ct.get_icfg_clone_id() >= max_dup as i32
-                            || ct.get_cfg_clone_id() >= max_dup as i32
-                        {
-                            return false;
-                        }
-                        // - The the instruction calls an unmmaped procedure.
-                        //   If the call target is an unmapped procedure (e.g. a dynamically linked one),
-                        //   Rizin and our iCFG don't have a CFG for it.
-                        //   For this one we keep it a Call node. It might get resolved during interpretation.
-                        debug_assert!(!self.get_graph().contains_edge(*cfg_id, *ct));
-                        debug_assert!(!self
-                            .get_graph()
-                            .contains_edge(*cfg_id, ct.get_next_icfg_clone()));
-                        debug_assert!(!self.get_graph().contains_edge(
-                            *cfg_id,
-                            ct.get_next_icfg_clone().get_next_icfg_clone()
-                        ));
-                        // If this fails, the procedure exists, but the edge was not updated.
-                        if self.has_procedure(ct) {
-                            print!(
-                                "\nInconsistency detected: The iCFG edge is missing, but the CFG and code xref exits:\n\
-                                CFG: {}",
-                                cfg_id
-                            );
-                            println!(" - call {:#x} -> {}", i.addr, ct);
-                            for e in self
-                                .get_graph()
-                                .edges_directed(*ct, petgraph::Direction::Incoming)
-                            {
-                                println!("IN:  {} -> {}", e.0, e.1);
-                            }
-                        }
-                        debug_assert!({ !self.has_procedure(ct) });
-                        return true;
-                    });
-                    if i.call_targets.is_empty() {
-                        // No all target left. Make it a normal node.
-                        i.itype.weight_type = InsnNodeWeightType::Normal;
-                    }
-                }
-            }
-        }
         // Assert that all call_target point to an existing CFG.
         debug_assert!(self.icfg_consistency_check());
     }
@@ -460,7 +347,64 @@ impl FlowGraphOperations for ICFG {
         clone
     }
 
-    fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, _wmap: &RwLock<WeightMap>) {
+    fn remove_edge(&mut self, from: &NodeId, to: &NodeId) {
+        self.get_graph_mut().remove_edge(*from, *to);
+        self.get_procedure(from)
+            .write()
+            .unwrap()
+            .for_each_cinsn(|i| {
+                i.call_targets.retain_mut(|ct| {
+                    if ct == to {
+                        return false;
+                    }
+                    return true;
+                })
+            });
+    }
+
+    fn handle_last_clone(&mut self, from: &NodeId, non_existent_node: &NodeId) {
+        if !self.has_procedure(from) {
+            // Happens sometimes, if the edge 3rd -> 4th clone is handled (going over the duplicate limit),
+            // before any edge towards the 3rd is added.
+            // Due to this the 3rd clone is not yet in the iCFG.
+            // We need to clone the procedure here in this case.
+            // Otherwise we don't get another chance to fix it's call targets.
+            let cloned_proc = self
+                .get_procedure(&from.get_orig_node_id())
+                .read()
+                .unwrap()
+                .get_clone(from.icfg_clone_id);
+            self.add_procedure(*from, cloned_proc);
+        }
+        // Remove any call to the non existing node.
+        self.get_procedure(from)
+            .write()
+            .unwrap()
+            .for_each_cinsn(|i| {
+                if i.itype.weight_type != InsnNodeWeightType::Call {
+                    return;
+                }
+                i.call_targets.retain_mut(|ct| {
+                    if ct.address == non_existent_node.address
+                        && ct.icfg_clone_id < non_existent_node.icfg_clone_id
+                    {
+                        return false;
+                    }
+                    return true;
+                });
+                if i.call_targets.is_empty() {
+                    i.itype.weight_type = InsnNodeWeightType::Normal;
+                }
+            });
+    }
+
+    fn add_cloned_edge(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        _wmap: &RwLock<WeightMap>,
+        flow: &EdgeFlow,
+    ) {
         if !self.graph.contains_edge(from, to) {
             self.graph.add_edge(from, to, 0);
         }
@@ -472,6 +416,10 @@ impl FlowGraphOperations for ICFG {
                 .get_clone(from.icfg_clone_id);
             self.add_procedure(from, cloned_proc);
         }
+        self.get_procedure(&from)
+            .write()
+            .unwrap()
+            .update_call_edge(flow, &from, &to, false);
 
         if !self.procedures.contains_key(&to) {
             let cloned_proc = self
@@ -481,6 +429,10 @@ impl FlowGraphOperations for ICFG {
                 .get_clone(to.icfg_clone_id);
             self.add_procedure(to, cloned_proc);
         }
+        self.get_procedure(&to)
+            .write()
+            .unwrap()
+            .update_call_edge(flow, &from, &to, true);
     }
 
     /// Returns the WeightID for [nid].

@@ -13,7 +13,8 @@ use petgraph::Direction::Outgoing;
 
 use crate::{
     flow_graphs::{
-        Address, FlowGraph, FlowGraphOperations, NodeId, NodeIdSet, ProcedureMap, INVALID_NODE_ID,
+        Address, EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, NodeIdSet, ProcedureMap,
+        INVALID_NODE_ID,
     },
     weight::{NodeWeightIDRefMap, WeightID, WeightMap},
 };
@@ -126,11 +127,11 @@ impl InsnNodeData {
         }
     }
 
-    pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> InsnNodeData {
+    pub fn get_clone(&self, _icfg_clone_id: i32, cfg_clone_id: i32) -> InsnNodeData {
         InsnNodeData {
             addr: self.addr,
             itype: self.itype.clone(),
-            call_targets: self.call_targets.get_clone(icfg_clone_id, cfg_clone_id),
+            call_targets: self.call_targets.get_clone(-1, cfg_clone_id),
             ct_last_state: Some(Instant::now()),
             orig_jump_target: self.orig_jump_target,
             orig_next: self.orig_next,
@@ -186,7 +187,11 @@ impl InsnNodeData {
                 let mut has_procedure = p.is_some();
                 if has_procedure {
                     // malloc, input and unmapped CFGs always have a weight of 1
-                    has_procedure &= !p.unwrap().read().unwrap().wont_execute();
+                    has_procedure &= !p
+                        .unwrap()
+                        .try_read()
+                        .expect(format!("Read Locked for {}", ct_nid).as_str())
+                        .wont_execute();
                 }
                 let cw: WeightID = if has_procedure {
                     procedure_map
@@ -194,8 +199,8 @@ impl InsnNodeData {
                         .expect(
                             "The call target must be set, even if no weight is associated with it.",
                         )
-                        .write()
-                        .unwrap()
+                        .try_write()
+                        .expect(format!("Write Locked for {}", ct_nid).as_str())
                         .get_cfg_mut()
                         .get_entry_weight_id(procedure_map, wmap)
                         .expect("Entry has a weight.")
@@ -372,12 +377,15 @@ impl CFGNodeData {
 
 pub struct CFGNodeDataMap {
     map: HashMap<NodeId, CFGNodeData>,
+    /// Tracks the NodeIds of call instructions for faster iteration.
+    call_insns_idx: HashSet<NodeId>,
 }
 
 impl CFGNodeDataMap {
     pub fn new() -> CFGNodeDataMap {
         CFGNodeDataMap {
             map: HashMap::new(),
+            call_insns_idx: HashSet::new(),
         }
     }
 
@@ -389,7 +397,64 @@ impl CFGNodeDataMap {
                 v.get_clone(icfg_clone_id, cfg_clone_id),
             );
         }
+        for k in self.call_insns_idx.iter() {
+            clone
+                .call_insns_idx
+                .insert(k.get_clone(icfg_clone_id, cfg_clone_id));
+        }
         clone
+    }
+
+    /// For each call target
+    /// O(|call instr.|)
+    fn for_each_ct<F>(&mut self, mut f: F)
+    where
+        Self: Sized,
+        F: FnMut(&mut NodeId),
+    {
+        for cid in self.call_insns_idx.iter() {
+            let call_insn_data: &mut CFGNodeData = self
+                .map
+                .get_mut(cid)
+                .expect("CFG node meta data out of sync.");
+            for insn in call_insn_data.insns.iter_mut() {
+                for ct in insn.call_targets.iter_mut() {
+                    f(ct);
+                }
+            }
+        }
+    }
+
+    /// For each instruction
+    /// O(|instr.|)
+    fn for_each_insn<F>(&mut self, mut f: F)
+    where
+        Self: Sized,
+        F: FnMut(&mut InsnNodeData),
+    {
+        for ndata in self.map.values_mut() {
+            for insn in ndata.insns.iter_mut() {
+                f(insn)
+            }
+        }
+    }
+
+    /// For each call instruction
+    /// O(|call instr.|)
+    fn for_each_cinsn<F>(&mut self, mut f: F)
+    where
+        Self: Sized,
+        F: FnMut(&mut InsnNodeData),
+    {
+        for cid in self.call_insns_idx.iter() {
+            let call_insn_data: &mut CFGNodeData = self
+                .map
+                .get_mut(cid)
+                .expect("CFG node meta data out of sync.");
+            for insn in call_insn_data.insns.iter_mut() {
+                f(insn)
+            }
+        }
     }
 
     pub fn iter(&self) -> std::collections::hash_map::Iter<'_, NodeId, CFGNodeData> {
@@ -409,6 +474,9 @@ impl CFGNodeDataMap {
     }
 
     pub fn insert(&mut self, key: NodeId, value: CFGNodeData) {
+        if value.has_type(InsnNodeWeightType::Call) {
+            self.call_insns_idx.insert(key);
+        }
         self.map.insert(key, value);
     }
 
@@ -429,10 +497,16 @@ impl CFGNodeDataMap {
     }
 
     pub fn clear(&mut self) {
+        self.call_insns_idx.clear();
         self.map.clear();
     }
 
     pub fn extend(&mut self, other: CFGNodeDataMap) {
+        for ndata in other.iter() {
+            if ndata.1.has_type(InsnNodeWeightType::Call) {
+                self.call_insns_idx.insert(ndata.0.clone());
+            }
+        }
         self.map.extend(other.map);
     }
 }
@@ -657,11 +731,11 @@ impl CFG {
         self.nodes_meta.insert(node_id, data);
     }
 
-    /// Update the call target of instruction [i] of the node [nid].
+    /// Insert a call target at instruction [i] of the node [nid].
     /// If the node is not a call instruction, it returns silently.
     /// If [i] is -1, it panics if there are more than one call instructions part of the node.
     /// Otherwise it assigns the new call target.
-    fn update_call_target(
+    fn insert_call_target(
         &mut self,
         nid: &NodeId,
         i: isize,
@@ -743,6 +817,7 @@ impl FlowGraphOperations for CFG {
         cloned_from: NodeId,
         cloned_to: NodeId,
         _wmap: &RwLock<WeightMap>,
+        _flow: &EdgeFlow,
     ) {
         log_rz!(
             LOG_DEBUG,
@@ -768,6 +843,12 @@ impl FlowGraphOperations for CFG {
             ),
         );
     }
+
+    fn remove_edge(&mut self, from: &NodeId, to: &NodeId) {
+        self.get_graph_mut().remove_edge(*from, *to);
+    }
+
+    fn handle_last_clone(&mut self, _from: &NodeId, _non_existent_node: &NodeId) {}
 
     fn mark_exit_node(&mut self, nid: &NodeId) {
         self.discovered_exits.insert(*nid);
@@ -930,6 +1011,58 @@ impl Procedure {
         }
     }
 
+    /// Updates the call target address according to the [edge_flow] and if it is the from node.
+    pub(crate) fn update_call_edge(
+        &mut self,
+        edge_flow: &EdgeFlow,
+        from_nid: &NodeId,
+        to_nid: &NodeId,
+        is_to_node: bool,
+    ) {
+        if is_to_node {
+            return;
+        }
+        println!("flow: {} ", edge_flow);
+        println!("tonid: {} \nct before", to_nid);
+        self.get_cfg_mut()
+            .nodes_meta
+            .for_each_ct(|ct| println!("\tct: {}", ct));
+        match edge_flow {
+            EdgeFlow::OutsiderFixedFrom => {
+                self.get_cfg_mut().nodes_meta.for_each_cinsn(|insn| {
+                    if insn.call_targets.contains_any_variant_of(to_nid) {
+                        insn.call_targets.insert(to_nid.clone());
+                    }
+                });
+            }
+            EdgeFlow::OutsiderFixedTo => {
+                // Is from: Don't update ct
+                return;
+            }
+            EdgeFlow::BackEdge => {
+                // is from: Update ct to icfg clone id
+                self.get_cfg_mut().nodes_meta.for_each_ct(|ct| {
+                    if ct.address == to_nid.address {
+                        ct.icfg_clone_id = to_nid.icfg_clone_id
+                    }
+                });
+            }
+            EdgeFlow::ForwardEdge => {
+                self.get_cfg_mut().nodes_meta.for_each_ct(|ct| {
+                    if ct.address == to_nid.address {
+                        ct.icfg_clone_id = from_nid.icfg_clone_id;
+                    }
+                });
+                return;
+            }
+        }
+        println!("ct after");
+        self.get_cfg_mut()
+            .nodes_meta
+            .for_each_ct(|ct| println!("\tct: {}", ct));
+        println!();
+    }
+
     /// True if this procedure is considered a memory allocating functions.
     /// False otherwise.
     pub fn is_malloc(&self) -> bool {
@@ -948,14 +1081,44 @@ impl Procedure {
         self.is_malloc || self.is_input || self.is_unmapped
     }
 
-    /// Update the call target of instruction [i] of the node [nid] in the procedures CFG.
+    /// Insert call target at instruction [i] of the node [nid] in the procedures CFG.
     /// If [i] is -1, it panics if there are more than one call instructions part of the node.
     /// Otherwise it updates the single call.
     /// It panics if no call was updated.
-    pub fn update_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
+    pub fn insert_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
         self.last_change = Instant::now();
         let lc = self.last_change.clone();
         self.get_cfg_mut()
-            .update_call_target(nid, i, call_target, lc);
+            .insert_call_target(nid, i, call_target, lc);
+    }
+
+    /// For each call target
+    /// O(|call instr.|)
+    pub fn for_each_ct<F>(&mut self, f: F)
+    where
+        Self: Sized,
+        F: FnMut(&mut NodeId),
+    {
+        self.get_cfg_mut().nodes_meta.for_each_ct(f);
+    }
+
+    /// For each instruction
+    /// O(|instr.|)
+    pub fn _for_each_insn<F>(&mut self, f: F)
+    where
+        Self: Sized,
+        F: FnMut(&mut InsnNodeData),
+    {
+        self.get_cfg_mut().nodes_meta.for_each_insn(f);
+    }
+
+    /// For each call instruction
+    /// O(|call instr.|)
+    pub fn for_each_cinsn<F>(&mut self, f: F)
+    where
+        Self: Sized,
+        F: FnMut(&mut InsnNodeData),
+    {
+        self.get_cfg_mut().nodes_meta.for_each_cinsn(f);
     }
 }

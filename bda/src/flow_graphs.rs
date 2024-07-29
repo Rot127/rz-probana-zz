@@ -275,14 +275,6 @@ impl NodeIdSet {
         self.vec.iter_mut()
     }
 
-    pub fn update_icfg_clone_ids(&mut self, icfg_clone_id: i32, cfg_clone_id: i32) {
-        for ct in self.vec.iter_mut() {
-            ct.icfg_clone_id = icfg_clone_id;
-            ct.cfg_clone_id = cfg_clone_id;
-        }
-        self.remove_duplicates();
-    }
-
     pub fn clear(&mut self) {
         self.vec.clear();
     }
@@ -299,6 +291,12 @@ impl NodeIdSet {
         self.vec
             .iter()
             .any(|ct| ct.icfg_clone_id > 0 || ct.cfg_clone_id > 0)
+    }
+
+    /// Returns true if it contains any clone or original node of
+    /// [nid].
+    pub fn contains_any_variant_of(&self, nid: &NodeId) -> bool {
+        self.vec.iter().any(|ct| ct.address == nid.address)
     }
 
     /// Deletes all cloned nodes with the given Ids
@@ -338,12 +336,6 @@ impl NodeIdSet {
         }
     }
 
-    fn remove_duplicates(&mut self) -> HashSet<NodeId> {
-        let mut seen = HashSet::new();
-        self.vec.retain(|c| seen.insert(*c));
-        seen
-    }
-
     pub fn retain_mut<F>(&mut self, f: F)
     where
         F: FnMut(&mut NodeId) -> bool,
@@ -354,14 +346,29 @@ impl NodeIdSet {
 
 /// Categories of edges for cycle removement by cloning
 /// strongly connected components.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum EdgeFlow {
-    /// Into/out of an stringly connected component.
-    Outsider,
+    /// Into a strongly connected component.
+    /// The From node is outside of the SCC and should not be cloned.
+    OutsiderFixedFrom,
+    /// Out of a strongly connected component.
+    /// The To node is outside of the SCC and should not be cloned.
+    OutsiderFixedTo,
     /// A back edge in a graph.
     BackEdge,
     /// A normal edge.
     ForwardEdge,
+}
+
+impl std::fmt::Display for EdgeFlow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EdgeFlow::OutsiderFixedFrom => write!(f, "OutsiderFixedFrom"),
+            EdgeFlow::OutsiderFixedTo => write!(f, "OutsiderFixedTo"),
+            EdgeFlow::BackEdge => write!(f, "BackEdge"),
+            EdgeFlow::ForwardEdge => write!(f, "ForwardEdge"),
+        }
+    }
 }
 
 /// Traits of the CFG and iCFG.
@@ -380,7 +387,19 @@ pub trait FlowGraphOperations {
     /// Add a cloned edge to the graph.
     /// The CFG and iCFG have to add the meta information to the cloned edge
     /// and add it afterwards to the real graph object.
-    fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, wmap: &RwLock<WeightMap>);
+    fn add_cloned_edge(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        wmap: &RwLock<WeightMap>,
+        flow: &EdgeFlow,
+    );
+
+    /// Does clean up tasks for the edge which is __not__ added
+    /// to the iCFG.
+    /// [from] is the last clone in the graph. Finishing an iteration.
+    /// The given [non_existent_node] is the node id which must not be in the graph.
+    fn handle_last_clone(&mut self, from: &NodeId, non_existent_node: &NodeId);
 
     /// Returns the next (incremented) clone of [id] by returning a copy of [id].
     fn get_next_node_id_clone(increment: i32, nid: NodeId) -> NodeId;
@@ -389,39 +408,20 @@ pub trait FlowGraphOperations {
     /// The edge [from] -> [to] is duplicated [dup_bound] times.
     /// It depends on [flow] how the edge is cloned.
     /// For edges within the SCC, [from] and [to] are duplicated and the original edge is removed.
-    /// For all others, one node ([fixed_node]) is not cloned. Instead edges between the [fixed_node]
-    /// from/to the cloned node are added.
-    ///
-    /// It returns the last clone of the edge.
     fn add_clones_to_graph(
         &mut self,
         from: &NodeId,
         to: &NodeId,
-        fix_node: &NodeId,
-        flow: EdgeFlow,
+        flow: &EdgeFlow,
         dup_bound: u32,
         wmap: &RwLock<WeightMap>,
-    ) -> (NodeId, NodeId) {
-        assert!(
-            from == fix_node
-                || to == fix_node
-                || (*fix_node == INVALID_NODE_ID && flow != EdgeFlow::Outsider)
-        );
-
-        let mut new_edge: (NodeId, NodeId) = (INVALID_NODE_ID, INVALID_NODE_ID);
+    ) {
+        let mut new_edge: (NodeId, NodeId);
         for i in 0..=dup_bound {
             let i = i as i32;
-            if flow == EdgeFlow::BackEdge && i == dup_bound as i32 {
-                break;
-            }
             new_edge = match flow {
-                EdgeFlow::Outsider => {
-                    if *from == *fix_node {
-                        (*from, Self::get_next_node_id_clone(i, *to))
-                    } else {
-                        (Self::get_next_node_id_clone(i, *from), *to)
-                    }
-                }
+                EdgeFlow::OutsiderFixedFrom => (*from, Self::get_next_node_id_clone(i, *to)),
+                EdgeFlow::OutsiderFixedTo => (Self::get_next_node_id_clone(i, *from), *to),
                 EdgeFlow::BackEdge => (
                     Self::get_next_node_id_clone(i, *from),
                     Self::get_next_node_id_clone(i + 1, *to),
@@ -431,9 +431,13 @@ pub trait FlowGraphOperations {
                     Self::get_next_node_id_clone(i, *to),
                 ),
             };
-            self.add_cloned_edge(new_edge.0, new_edge.1, wmap);
+            if flow == &EdgeFlow::BackEdge && i == dup_bound as i32 {
+                self.handle_last_clone(&new_edge.0, &new_edge.1);
+                break;
+            }
+            println!("ADD CLONES: ({}, {})", new_edge.0, new_edge.1);
+            self.add_cloned_edge(new_edge.0, new_edge.1, wmap, flow);
         }
-        new_edge
     }
 
     /// Determines if the edge (from, to) is a back edge in the graph.
@@ -446,9 +450,7 @@ pub trait FlowGraphOperations {
     }
 
     /// Remove an edge from the graph.
-    fn remove_edge(&mut self, from: &NodeId, to: &NodeId) {
-        self.get_graph_mut().remove_edge(*from, *to);
-    }
+    fn remove_edge(&mut self, from: &NodeId, to: &NodeId);
 
     /// Checks if the edge [from] -> [to] is a self-referenceing edge where [from] == [to]
     /// and no outgoing edge from [to] exists.
@@ -491,8 +493,7 @@ pub trait FlowGraphOperations {
                 self.add_clones_to_graph(
                     &from,
                     &to,
-                    &from,
-                    EdgeFlow::Outsider,
+                    &EdgeFlow::OutsiderFixedFrom,
                     self.get_node_dup_count() as u32,
                     wmap,
                 );
@@ -501,8 +502,7 @@ pub trait FlowGraphOperations {
                 self.add_clones_to_graph(
                     &from,
                     &to,
-                    &to,
-                    EdgeFlow::Outsider,
+                    &EdgeFlow::OutsiderFixedTo,
                     self.get_node_dup_count() as u32,
                     wmap,
                 );
@@ -511,8 +511,7 @@ pub trait FlowGraphOperations {
                 self.add_clones_to_graph(
                     &from,
                     &to,
-                    &INVALID_NODE_ID,
-                    EdgeFlow::BackEdge,
+                    &EdgeFlow::BackEdge,
                     self.get_node_dup_count() as u32,
                     wmap,
                 );
@@ -524,8 +523,7 @@ pub trait FlowGraphOperations {
                 self.add_clones_to_graph(
                     &from,
                     &to,
-                    &INVALID_NODE_ID,
-                    EdgeFlow::ForwardEdge,
+                    &EdgeFlow::ForwardEdge,
                     self.get_node_dup_count() as u32,
                     wmap,
                 );

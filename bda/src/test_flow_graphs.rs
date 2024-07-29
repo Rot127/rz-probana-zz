@@ -97,7 +97,7 @@ mod tests {
         icfg.add_procedure(
             NodeId::from(0x99999999999999),
             Procedure::new(Some(get_main_cfg()), false, false, false),
-        )
+        );
     }
 
     #[test]
@@ -124,11 +124,11 @@ mod tests {
         lcfg.make_acyclic(wmap, None);
         proc_map.insert(NodeId::from(SIMPLE_LOOP_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
         proc_map.get(&unset_0_entry).unwrap().write().unwrap()
-            .update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
+            .insert_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
         assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap, true), 10, wmap);
 
         proc_map.get(&unset_0_entry).unwrap().write().unwrap()
-            .update_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
+            .insert_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
         lcfg = get_cfg_linear();
         lcfg.make_acyclic(wmap, None);
         proc_map.insert(NodeId::from(LINEAR_CFG_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
@@ -165,6 +165,7 @@ mod tests {
             NodeId::new(0, 0, MAIN_ADDR),
             NodeId::new(0, 0, GEE_ADDR),
             wmap,
+            &crate::flow_graphs::EdgeFlow::BackEdge,
         );
         assert_eq!(icfg.num_procedures(), 3);
     }
