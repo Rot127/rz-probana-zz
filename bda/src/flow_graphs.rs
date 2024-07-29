@@ -227,7 +227,7 @@ impl std::cmp::PartialEq<u128> for NodeId {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NodeIdSet {
     vec: Vec<NodeId>,
 }

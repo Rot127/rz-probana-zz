@@ -65,7 +65,7 @@ impl InsnNodeType {
 
 /// An instruction node which is always part of an
 /// instruction word node.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InsnNodeData {
     /// The memory address the instruction is located.
     pub addr: Address,
@@ -209,7 +209,7 @@ impl InsnNodeData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InsnNodeDataVec {
     vec: Vec<InsnNodeData>,
 }
@@ -251,7 +251,7 @@ impl InsnNodeDataVec {
 /// For most architectures this instruction word
 /// contains one instruction.
 /// For a few (e.g. Hexagon) it can contain more.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CFGNodeData {
     pub nid: NodeId,
     weight_id: Option<WeightID>,
