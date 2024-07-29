@@ -88,6 +88,10 @@ impl ProcedureMap {
     pub fn keys(&self) -> std::collections::hash_map::Keys<'_, NodeId, RwLock<Procedure>> {
         self.map.keys()
     }
+
+    pub fn test_remove(&mut self, nid: &NodeId) {
+        self.map.remove(nid);
+    }
 }
 
 pub type Address = u64;

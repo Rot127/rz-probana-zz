@@ -5,6 +5,8 @@
 mod tests {
     use std::collections::HashMap;
 
+    use petgraph::visit::EdgeCount;
+
     use crate::{
         cfg::Procedure,
         flow_graphs::{Address, FlowGraphOperations, NodeId},
@@ -223,8 +225,9 @@ mod tests {
     #[test]
     fn test_sample_undiscovered_indirect_call() {
         let mut icfg = ICFG::new();
+        let cfg_indirect_id = NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY);
         icfg.add_procedure(
-            NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY),
+            cfg_indirect_id,
             Procedure::new(
                 Some(get_unset_indirect_call_to_0_cfg()),
                 false,
@@ -232,6 +235,13 @@ mod tests {
                 false,
             ),
         );
+        icfg.get_graph_mut().add_node(cfg_indirect_id);
+        assert_eq!(
+            icfg.get_graph().node_count(),
+            1,
+            "Node was not added to the graph."
+        );
+        assert_eq!(icfg.get_graph().edge_count(), 0, "Edge count mismatch.");
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
@@ -248,14 +258,21 @@ mod tests {
             NodeId::from(SIMPLE_LOOP_ENTRY),
             Procedure::new(Some(lcfg), false, false, false),
         );
+        icfg.get_graph_mut()
+            .add_node(NodeId::from(SIMPLE_LOOP_ENTRY));
         icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
             .write()
             .unwrap()
-            .update_call_target(
+            .insert_call_target(
                 &NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL),
                 -1,
                 &NodeId::from(SIMPLE_LOOP_ENTRY),
             );
+        icfg.get_graph_mut().add_edge(
+            NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY),
+            NodeId::from(SIMPLE_LOOP_ENTRY),
+            0,
+        );
         icfg.resolve_loops(1, &wmap);
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
         assert_eq!(path_stats.len(), 10, "Wrong path count.");
@@ -265,18 +282,12 @@ mod tests {
 
         lcfg = get_gee_cfg();
         lcfg.make_acyclic(&wmap, None);
+        icfg.procedures
+            .test_remove(&NodeId::from(SIMPLE_LOOP_ENTRY));
         icfg.add_procedure(
             NodeId::from(GEE_ADDR),
             Procedure::new(Some(lcfg), false, false, false),
         );
-        icfg.get_procedure(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_ENTRY))
-            .write()
-            .unwrap()
-            .update_call_target(
-                &NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL),
-                -1,
-                &NodeId::from(GEE_ADDR),
-            );
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
         path_stats.iter().for_each(|p| {
             println!("{}", p.0);
@@ -294,6 +305,7 @@ mod tests {
             NodeId::from(CFG_ENTRY_A),
             Procedure::new(Some(get_A()), false, false, false),
         );
+        icfg.get_graph_mut().add_node(NodeId::from(CFG_ENTRY_A));
         let wmap = WeightMap::new();
         icfg.resolve_loops(1, &wmap);
         let mut path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
@@ -307,27 +319,33 @@ mod tests {
             NodeId::from(CFG_ENTRY_B),
             Procedure::new(Some(get_B()), false, false, false),
         );
+        icfg.get_graph_mut().add_node(NodeId::from(CFG_ENTRY_B));
         icfg.get_procedure(&NodeId::from(CFG_ENTRY_A))
             .write()
             .unwrap()
-            .update_call_target(
+            .insert_call_target(
                 &NodeId::from(CFG_ENTRY_A_CALL),
                 -1,
                 &NodeId::from(CFG_ENTRY_B),
             );
+        icfg.get_graph_mut()
+            .add_edge(NodeId::from(CFG_ENTRY_A), NodeId::from(CFG_ENTRY_B), 0);
 
         icfg.add_procedure(
             NodeId::from(CFG_ENTRY_C),
             Procedure::new(Some(get_C()), false, false, false),
         );
+        icfg.get_graph_mut().add_node(NodeId::from(CFG_ENTRY_C));
         icfg.get_procedure(&NodeId::from(CFG_ENTRY_B))
             .write()
             .unwrap()
-            .update_call_target(
+            .insert_call_target(
                 &NodeId::from(CFG_ENTRY_B_CALL_1),
                 -1,
                 &NodeId::from(CFG_ENTRY_C),
             );
+        icfg.get_graph_mut()
+            .add_edge(NodeId::from(CFG_ENTRY_B), NodeId::from(CFG_ENTRY_C), 0);
         icfg.resolve_loops(1, &wmap);
         path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
         assert_eq!(path_stats.len(), 3, "Wrong path count.");
@@ -339,7 +357,7 @@ mod tests {
         icfg.get_procedure(&NodeId::from(CFG_ENTRY_B))
             .write()
             .unwrap()
-            .update_call_target(
+            .insert_call_target(
                 &NodeId::from(CFG_ENTRY_B_CALL_2),
                 -1,
                 &NodeId::from(CFG_ENTRY_C),
