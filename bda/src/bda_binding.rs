@@ -395,18 +395,14 @@ fn add_called_procedures(icfg: &mut ICFG, core: GRzCore) {
             setup_procedure_at_addr(&core.lock().unwrap(), call_target.address)
         {
             // Get the calls of the undiscovered procedure.
-            called_proc
-                .get_cfg()
-                .get_all_call_targets()
-                .iter()
-                .for_each(|cp_ct| {
-                    if !icfg.has_procedure(&cp_ct.0) {
-                        undisc_procs.push(cp_ct.0);
-                    }
-                    if !icfg.has_edge(call_target, cp_ct.0) {
-                        undisc_edges.push((call_target, cp_ct.0));
-                    }
-                });
+            called_proc.get_cfg().nodes_meta.for_each_ct(|cp_ct| {
+                if !icfg.has_procedure(cp_ct) {
+                    undisc_procs.push(*cp_ct);
+                }
+                if !icfg.has_edge(call_target, *cp_ct) {
+                    undisc_edges.push((call_target, *cp_ct));
+                }
+            });
             if icfg.add_procedure(call_target, called_proc) {
                 new_procs += 1;
             }

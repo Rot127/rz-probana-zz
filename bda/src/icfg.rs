@@ -249,22 +249,23 @@ impl ICFG {
     pub(crate) fn icfg_consistency_check(&self) -> bool {
         let mut seen_call_edges = HashSet::<(NodeId, NodeId)>::new();
         for (pid, proc) in self.get_procedures().iter() {
-            for ct in proc.read().unwrap().get_cfg().get_all_call_targets() {
-                if !self.get_graph().contains_edge(*pid, ct.0) {
+            proc.read().unwrap().get_cfg().nodes_meta.for_each_ct(|ct| {
+                if !self.get_graph().contains_edge(*pid, *ct) {
                     self.get_graph()
                         .neighbors_directed(pid.clone(), Outgoing)
                         .for_each(|n| println!("{} -> {}", *pid, n));
                 }
-                seen_call_edges.insert((*pid, ct.0));
+                seen_call_edges.insert((*pid, *ct));
                 debug_assert!(self.has_procedure(pid), "iCFG misses procedure {}", pid);
-                debug_assert!(self.has_procedure(&ct.0), "iCFG misses procedure {}", ct.0);
+                debug_assert!(self.has_procedure(&ct), "iCFG misses procedure {}", ct);
+                self.dot_graph_to_stdout();
                 debug_assert!(
-                    self.get_graph().contains_edge(*pid, ct.0),
+                    self.get_graph().contains_edge(*pid, *ct),
                     "Call target {} -> {} not in iCFG",
                     pid,
-                    ct.0
+                    ct
                 )
-            }
+            })
         }
         if self.get_graph().edge_count() != seen_call_edges.len() {
             for e in self.get_graph().all_edges() {
@@ -290,9 +291,9 @@ impl ICFG {
     pub(crate) fn make_icfg_consistent(&mut self) {
         let mut to_keep = HashSet::<(NodeId, NodeId)>::new();
         for (pid, proc) in self.get_procedures().iter() {
-            for ct in proc.read().unwrap().get_cfg().get_all_call_targets() {
-                to_keep.insert((*pid, ct.0));
-            }
+            proc.read().unwrap().get_cfg().nodes_meta.for_each_ct(|ct| {
+                to_keep.insert((*pid, *ct));
+            });
         }
         let mut to_remove = HashSet::<(NodeId, NodeId)>::new();
         for e in self.get_graph().all_edges() {
