@@ -1177,11 +1177,6 @@ impl Procedure {
         if is_to_node {
             return;
         }
-        println!("flow: {} ", edge_flow);
-        println!("tonid: {} \nct before", to_nid);
-        self.get_cfg_mut()
-            .nodes_meta
-            .for_each_ct_mut(|ct| println!("\tct: {}", ct));
         match edge_flow {
             EdgeFlow::OutsiderFixedFrom => {
                 self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|insn| {
@@ -1222,11 +1217,6 @@ impl Procedure {
                 return;
             }
         }
-        println!("ct after");
-        self.get_cfg_mut()
-            .nodes_meta
-            .for_each_ct_mut(|ct| println!("\tct: {}", ct));
-        println!();
     }
 
     /// True if this procedure is considered a memory allocating functions.

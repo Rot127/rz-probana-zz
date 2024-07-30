@@ -258,7 +258,6 @@ impl ICFG {
                 seen_call_edges.insert((*pid, *ct));
                 debug_assert!(self.has_procedure(pid), "iCFG misses procedure {}", pid);
                 debug_assert!(self.has_procedure(&ct), "iCFG misses procedure {}", ct);
-                self.dot_graph_to_stdout();
                 debug_assert!(
                     self.get_graph().contains_edge(*pid, *ct),
                     "Call target {} -> {} not in iCFG",
@@ -272,7 +271,6 @@ impl ICFG {
                 if seen_call_edges.contains(&(e.0, e.1)) {
                     continue;
                 }
-                println!("no call {} -> {}", e.0, e.1);
             }
         }
 
