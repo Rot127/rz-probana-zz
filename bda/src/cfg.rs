@@ -1196,10 +1196,21 @@ impl Procedure {
             }
             EdgeFlow::BackEdge => {
                 // is from: Update ct to icfg clone id
-                self.get_cfg_mut().nodes_meta.for_each_ct_mut(|ct| {
-                    if ct.address == to_nid.address {
-                        ct.icfg_clone_id = to_nid.icfg_clone_id
-                    }
+                self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|ci| {
+                    // Prevent duplication of call targets.
+                    let mut seen = HashSet::<NodeId>::new();
+                    ci.call_targets.retain_mut(|ct| {
+                        if ct.address == to_nid.address {
+                            ct.icfg_clone_id = to_nid.icfg_clone_id;
+                            if seen.contains(ct) {
+                                return false;
+                            }
+                            seen.insert(*ct);
+                            return true;
+                        }
+                        seen.insert(*ct);
+                        return true;
+                    });
                 });
             }
             EdgeFlow::ForwardEdge => {
