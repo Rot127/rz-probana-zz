@@ -121,11 +121,11 @@ impl InsnNodeData {
         }
     }
 
-    pub fn get_clone(&self, _icfg_clone_id: i32, cfg_clone_id: i32) -> InsnNodeData {
+    pub fn get_clone(&self, _icfg_clone_id: i32, _cfg_clone_id: i32) -> InsnNodeData {
         InsnNodeData {
             addr: self.addr,
             itype: self.itype.clone(),
-            call_targets: self.call_targets.get_clone(-1, cfg_clone_id),
+            call_targets: self.call_targets.get_clone(-1, 0),
             orig_jump_target: self.orig_jump_target,
             orig_next: self.orig_next,
             is_indirect_call: self.is_indirect_call,
