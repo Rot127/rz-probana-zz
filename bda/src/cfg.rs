@@ -3,7 +3,7 @@
 
 use core::panic;
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{hash_map, hash_set, HashMap, HashSet, VecDeque},
     sync::RwLock,
     time::Instant,
 };
@@ -13,8 +13,8 @@ use petgraph::Direction::Outgoing;
 
 use crate::{
     flow_graphs::{
-        Address, EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, NodeIdSet, ProcedureMap,
-        INVALID_NODE_ID,
+        Address, CallTarget, EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, NodeIdSet,
+        ProcedureMap, INVALID_NODE_ID,
     },
     weight::{NodeWeightIDRefMap, WeightID, WeightMap},
 };
@@ -236,6 +236,10 @@ impl InsnNodeDataVec {
         self.vec.iter()
     }
 
+    pub fn get(&self, i: usize) -> Option<&InsnNodeData> {
+        self.vec.get(i)
+    }
+
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, InsnNodeData> {
         self.vec.iter_mut()
     }
@@ -381,11 +385,169 @@ pub struct CFGNodeDataMap {
     call_insns_idx: HashSet<NodeId>,
 }
 
+pub struct InsnNodeDataIterator<'a> {
+    node_data_iter: hash_map::Iter<'a, NodeId, CFGNodeData>,
+    cur_node_data: Option<(&'a NodeId, &'a CFGNodeData)>,
+    insn_index: usize,
+}
+
+impl<'a> Iterator for InsnNodeDataIterator<'a> {
+    type Item = &'a InsnNodeData;
+    fn next(&mut self) -> Option<&'a InsnNodeData> {
+        if self.cur_node_data.is_none() {
+            self.cur_node_data = self.node_data_iter.next();
+            if self.cur_node_data.is_none() {
+                // End of iteration. Last node data handled
+                return None;
+            }
+            // First iteration
+        }
+        let nd = self.cur_node_data.expect("Check before failed.");
+        if self.insn_index < nd.1.insns.len() {
+            // Return next instruction
+            let insn = nd.1.insns.get(self.insn_index);
+            self.insn_index += 1;
+            return insn;
+        }
+        self.insn_index = 0;
+        self.cur_node_data = self.node_data_iter.next();
+        if self.cur_node_data.is_none() {
+            // End reached
+            return None;
+        }
+        let insn = self.cur_node_data.unwrap().1.insns.get(self.insn_index);
+        assert!(
+            insn.is_some(),
+            "CFGNodeData without any instructions should not exist."
+        );
+        self.insn_index += 1;
+
+        return insn;
+    }
+}
+
+pub struct CallInsnIterator<'a> {
+    map: &'a HashMap<NodeId, CFGNodeData>,
+    call_insns_idx: hash_set::Iter<'a, NodeId>,
+    cur_node_data: Option<&'a CFGNodeData>,
+    insn_index: usize,
+}
+
+impl<'a> Iterator for CallInsnIterator<'a> {
+    type Item = &'a InsnNodeData;
+
+    fn next(&mut self) -> Option<&'a InsnNodeData> {
+        if self.cur_node_data.is_none() {
+            let next_ci = self.call_insns_idx.next();
+            if next_ci.is_none() {
+                // No call instruction in map or end
+                return None;
+            }
+            self.cur_node_data = self.map.get(next_ci.unwrap());
+            // First iteration
+        }
+        let nd = self.cur_node_data.expect("Check before failed.");
+        if self.insn_index < nd.insns.len() {
+            // Return next instruction
+            let insn = nd.insns.get(self.insn_index);
+            self.insn_index += 1;
+            return insn;
+        }
+        self.insn_index = 0;
+        let next_ci = self.call_insns_idx.next();
+        if next_ci.is_none() {
+            // No call instrution left
+            return None;
+        }
+        self.cur_node_data = self.map.get(next_ci.unwrap());
+        let insn = self
+            .cur_node_data
+            .expect("Check before failed.")
+            .insns
+            .get(self.insn_index);
+        assert!(
+            insn.is_some(),
+            "CFGNodeData without any instructions should not exist."
+        );
+        self.insn_index += 1;
+        return insn;
+    }
+}
+
+pub struct CallTargetIterator<'a> {
+    call_insn_iter: CallInsnIterator<'a>,
+    cur_cts: Option<&'a NodeIdSet>,
+    call_index: usize,
+}
+
+impl<'a> Iterator for CallTargetIterator<'a> {
+    type Item = &'a NodeId;
+
+    fn next(&mut self) -> Option<&'a NodeId> {
+        if self.cur_cts.is_none() {
+            let next_ci = self.call_insn_iter.next();
+            if next_ci.is_none() {
+                // No call instruction in map or end
+                return None;
+            }
+            self.cur_cts = Some(&next_ci.unwrap().call_targets);
+            // First iteration
+        }
+
+        loop {
+            let cts = self.cur_cts.unwrap();
+            if self.call_index < cts.len() {
+                // Return next instruction
+                let ct = cts.get(self.call_index);
+                self.call_index += 1;
+                return ct;
+            }
+            self.call_index = 0;
+            let next_ci = self.call_insn_iter.next();
+            if next_ci.is_none() {
+                // No call instruction left
+                return None;
+            }
+            self.cur_cts = Some(&next_ci.unwrap().call_targets);
+            let insn = self.cur_cts.unwrap().get(self.call_index);
+            self.call_index += 1;
+            if insn.is_some() {
+                return insn;
+            }
+        }
+    }
+}
+
 impl CFGNodeDataMap {
     pub fn new() -> CFGNodeDataMap {
         CFGNodeDataMap {
             map: HashMap::new(),
             call_insns_idx: HashSet::new(),
+        }
+    }
+
+    pub fn insn_iter(&self) -> InsnNodeDataIterator {
+        InsnNodeDataIterator {
+            node_data_iter: self.map.iter(),
+            cur_node_data: None,
+            insn_index: 0,
+        }
+    }
+
+    pub fn cinsn_iter(&self) -> CallInsnIterator {
+        CallInsnIterator {
+            map: &self.map,
+            call_insns_idx: self.call_insns_idx.iter(),
+            cur_node_data: None,
+            insn_index: 0,
+        }
+    }
+
+    pub fn ct_iter(&self) -> CallTargetIterator {
+        CallTargetIterator {
+            call_insn_iter: self.cinsn_iter(),
+            cur_cts: None,
+            call_index: 0,
         }
     }
 

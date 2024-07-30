@@ -1021,3 +1021,39 @@ pub fn get_scc_refs_scc() -> (ICFG, RwLock<WeightMap>) {
     }
     (icfg, wmapo)
 }
+
+pub fn get_node_data_iter_test() -> (CFG, CFG, CFG) {
+    let mut cfg_call_mix = CFG::new();
+    let mut cfg_no_call = CFG::new();
+    let mut cfg_only_indirect = CFG::new();
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    let cfg_cm_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_cm_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
+    let cfg_cm_n2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single_call(0xa2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xa3)));
+    let cfg_cm_n3 = (NodeId::new(0, 0, 0xa3), CFGNodeData::new_test_single_call(0xa3, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xa4)));
+    let cfg_cm_n4 = (NodeId::new(0, 0, 0xa4), CFGNodeData::new_test_single(0xa4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+
+    cfg_call_mix.add_edge(cfg_cm_n0, cfg_cm_n1.clone());
+    cfg_call_mix.add_edge(cfg_cm_n1, cfg_cm_n2.clone());
+    cfg_call_mix.add_edge(cfg_cm_n2, cfg_cm_n3.clone());
+    cfg_call_mix.add_edge(cfg_cm_n3, cfg_cm_n4);
+
+    let cfg_nc_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_nc_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single(0xa1, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    cfg_no_call.add_edge(cfg_nc_n0, cfg_nc_n1);
+
+    let cfg_oi_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_oi_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xa2)));
+    let cfg_oi_n2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa3), INVALID_NODE_ID));
+    let cfg_oi_n3 = (NodeId::new(0, 0, 0xa3), CFGNodeData::new_test_single_call(0xa3, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xa4)));
+    let cfg_oi_n4 = (NodeId::new(0, 0, 0xa4), CFGNodeData::new_test_single(0xa4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+
+    cfg_only_indirect.add_edge(cfg_oi_n0, cfg_oi_n1.clone());
+    cfg_only_indirect.add_edge(cfg_oi_n1, cfg_oi_n2.clone());
+    cfg_only_indirect.add_edge(cfg_oi_n2, cfg_oi_n3.clone());
+    cfg_only_indirect.add_edge(cfg_oi_n3, cfg_oi_n4);
+    }
+    (cfg_call_mix, cfg_no_call, cfg_only_indirect)
+}

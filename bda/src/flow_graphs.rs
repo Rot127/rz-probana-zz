@@ -353,6 +353,14 @@ impl NodeIdSet {
     {
         self.vec.retain_mut(f)
     }
+
+    pub(crate) fn len(&self) -> usize {
+        self.vec.len()
+    }
+
+    pub(crate) fn get(&self, call_index: usize) -> Option<&NodeId> {
+        self.vec.get(call_index)
+    }
 }
 
 /// Categories of edges for cycle removement by cloning
