@@ -370,20 +370,15 @@ fn add_called_procedures(icfg: &mut ICFG, core: GRzCore) {
     let mut undisc_procs = Vec::<NodeId>::new();
     let mut undisc_edges = Vec::<(NodeId, NodeId)>::new();
     for (pid, p) in icfg.get_procedures().iter() {
-        p.read()
-            .unwrap()
-            .get_cfg()
-            .get_all_call_targets()
-            .iter()
-            .for_each(|ct| {
-                let pair = (pid.clone(), ct.0);
-                if !icfg.has_procedure(&ct.0) {
-                    undisc_procs.push(ct.0);
-                }
-                if !icfg.has_edge(pair.0, pair.1) {
-                    undisc_edges.push(pair);
-                }
-            });
+        p.read().unwrap().get_cfg().nodes_meta.for_each_ct(|ct| {
+            let pair = (pid.clone(), *ct);
+            if !icfg.has_procedure(&ct) {
+                undisc_procs.push(*ct);
+            }
+            if !icfg.has_edge(pair.0, pair.1) {
+                undisc_edges.push(pair);
+            }
+        });
     }
     let mut status = Spinner::new("Follow call refernces:\t".to_owned());
     let mut new_procs = 0;

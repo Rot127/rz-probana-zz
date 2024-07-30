@@ -407,7 +407,7 @@ impl CFGNodeDataMap {
 
     /// For each call target
     /// O(|call instr.|)
-    fn for_each_ct<F>(&mut self, mut f: F)
+    pub fn for_each_ct_mut<F>(&mut self, mut f: F)
     where
         Self: Sized,
         F: FnMut(&mut NodeId),
@@ -425,9 +425,25 @@ impl CFGNodeDataMap {
         }
     }
 
+    pub fn for_each_ct<F>(&self, mut f: F)
+    where
+        Self: Sized,
+        F: FnMut(&NodeId),
+    {
+        for cid in self.call_insns_idx.iter() {
+            let call_insn_data: &CFGNodeData =
+                self.map.get(cid).expect("CFG node meta data out of sync.");
+            for insn in call_insn_data.insns.iter() {
+                for ct in insn.call_targets.iter() {
+                    f(ct);
+                }
+            }
+        }
+    }
+
     /// For each instruction
     /// O(|instr.|)
-    fn for_each_insn<F>(&mut self, mut f: F)
+    pub fn for_each_insn_mut<F>(&mut self, mut f: F)
     where
         Self: Sized,
         F: FnMut(&mut InsnNodeData),
@@ -439,9 +455,21 @@ impl CFGNodeDataMap {
         }
     }
 
+    pub fn for_each_insn<F>(&self, mut f: F)
+    where
+        Self: Sized,
+        F: FnMut(&InsnNodeData),
+    {
+        for ndata in self.map.values() {
+            for insn in ndata.insns.iter() {
+                f(insn)
+            }
+        }
+    }
+
     /// For each call instruction
     /// O(|call instr.|)
-    fn for_each_cinsn<F>(&mut self, mut f: F)
+    pub fn for_each_cinsn_mut<F>(&mut self, mut f: F)
     where
         Self: Sized,
         F: FnMut(&mut InsnNodeData),
@@ -452,6 +480,20 @@ impl CFGNodeDataMap {
                 .get_mut(cid)
                 .expect("CFG node meta data out of sync.");
             for insn in call_insn_data.insns.iter_mut() {
+                f(insn)
+            }
+        }
+    }
+
+    pub fn for_each_cinsn<F>(&self, mut f: F)
+    where
+        Self: Sized,
+        F: FnMut(&InsnNodeData),
+    {
+        for cid in self.call_insns_idx.iter() {
+            let call_insn_data: &CFGNodeData =
+                self.map.get(cid).expect("CFG node meta data out of sync.");
+            for insn in call_insn_data.insns.iter() {
                 f(insn)
             }
         }
@@ -1026,10 +1068,10 @@ impl Procedure {
         println!("tonid: {} \nct before", to_nid);
         self.get_cfg_mut()
             .nodes_meta
-            .for_each_ct(|ct| println!("\tct: {}", ct));
+            .for_each_ct_mut(|ct| println!("\tct: {}", ct));
         match edge_flow {
             EdgeFlow::OutsiderFixedFrom => {
-                self.get_cfg_mut().nodes_meta.for_each_cinsn(|insn| {
+                self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|insn| {
                     if insn.call_targets.contains_any_variant_of(to_nid) {
                         insn.call_targets.insert(to_nid.clone());
                     }
@@ -1041,14 +1083,14 @@ impl Procedure {
             }
             EdgeFlow::BackEdge => {
                 // is from: Update ct to icfg clone id
-                self.get_cfg_mut().nodes_meta.for_each_ct(|ct| {
+                self.get_cfg_mut().nodes_meta.for_each_ct_mut(|ct| {
                     if ct.address == to_nid.address {
                         ct.icfg_clone_id = to_nid.icfg_clone_id
                     }
                 });
             }
             EdgeFlow::ForwardEdge => {
-                self.get_cfg_mut().nodes_meta.for_each_ct(|ct| {
+                self.get_cfg_mut().nodes_meta.for_each_ct_mut(|ct| {
                     if ct.address == to_nid.address {
                         ct.icfg_clone_id = from_nid.icfg_clone_id;
                     }
@@ -1059,7 +1101,7 @@ impl Procedure {
         println!("ct after");
         self.get_cfg_mut()
             .nodes_meta
-            .for_each_ct(|ct| println!("\tct: {}", ct));
+            .for_each_ct_mut(|ct| println!("\tct: {}", ct));
         println!();
     }
 
@@ -1099,7 +1141,7 @@ impl Procedure {
         Self: Sized,
         F: FnMut(&mut NodeId),
     {
-        self.get_cfg_mut().nodes_meta.for_each_ct(f);
+        self.get_cfg_mut().nodes_meta.for_each_ct_mut(f);
     }
 
     /// For each instruction
@@ -1109,7 +1151,7 @@ impl Procedure {
         Self: Sized,
         F: FnMut(&mut InsnNodeData),
     {
-        self.get_cfg_mut().nodes_meta.for_each_insn(f);
+        self.get_cfg_mut().nodes_meta.for_each_insn_mut(f);
     }
 
     /// For each call instruction
@@ -1119,6 +1161,6 @@ impl Procedure {
         Self: Sized,
         F: FnMut(&mut InsnNodeData),
     {
-        self.get_cfg_mut().nodes_meta.for_each_cinsn(f);
+        self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(f);
     }
 }
