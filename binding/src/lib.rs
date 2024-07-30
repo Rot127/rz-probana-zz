@@ -522,8 +522,8 @@ pub fn init_rizin_instance(binary: &str) -> *mut RzCore {
         )
         .expect("CString failure");
         rz_lib_open((*core).lib, lib_path.as_ptr());
-        println!("Run aaa");
-        rz_core_perform_auto_analysis(core, RzCoreAnalysisType_RZ_CORE_ANALYSIS_DEEP);
+        println!("Run aa");
+        rz_core_perform_auto_analysis(core, RzCoreAnalysisType_RZ_CORE_ANALYSIS_SIMPLE);
     };
     core
 }
