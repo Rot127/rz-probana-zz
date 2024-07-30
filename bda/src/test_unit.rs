@@ -317,7 +317,7 @@ mod tests {
 
         let (core, mut icfg) = get_x86_icall_malloc();
         let mut state = BDAState::new(1, 3);
-        assert_eq!(icfg.get_procedures().len(), 4, "Incomplete iCFG");
+        assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
         let mos = &state.mos;
@@ -361,7 +361,7 @@ mod tests {
 
         let (core, mut icfg) = get_hexagon_icall_malloc();
         let mut state = BDAState::new(1, 3);
-        assert_eq!(icfg.get_procedures().len(), 4, "Incomplete iCFG");
+        assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
         let mos = &state.mos;
