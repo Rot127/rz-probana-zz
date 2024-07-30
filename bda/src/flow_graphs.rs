@@ -10,7 +10,9 @@ use rand::{thread_rng, Rng};
 
 use core::panic;
 use std::collections::{HashMap, HashSet};
+use std::iter::zip;
 use std::sync::RwLock;
+use std::time::Instant;
 
 use crate::cfg::Procedure;
 use crate::weight::{WeightID, WeightMap};
@@ -244,7 +246,10 @@ impl std::cmp::PartialEq<u128> for NodeId {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeIdSet {
+    /// The nodes
     vec: Vec<NodeId>,
+    /// The timestamps the nodes last .
+    last_state: Vec<Option<Instant>>,
 }
 
 impl NodeIdSet {
@@ -253,12 +258,16 @@ impl NodeIdSet {
         for n in self.vec.iter() {
             clone.vec.push(n.get_clone(icfg_clone_id, cfg_clone_id));
         }
+        clone.last_state = self.last_state.clone();
         clone
     }
 
     pub fn from_nid(nid: NodeId) -> NodeIdSet {
-        let mut nid_vec = NodeIdSet { vec: Vec::new() };
-        nid_vec.insert(nid);
+        let mut nid_vec = NodeIdSet {
+            vec: Vec::new(),
+            last_state: Vec::new(),
+        };
+        nid_vec.insert(nid, None);
         nid_vec
     }
 
@@ -268,9 +277,10 @@ impl NodeIdSet {
 
     /// Adds a node to the set.
     /// But only nodes with a valid id, address and if the node is not already added.
-    pub fn insert(&mut self, nid: NodeId) {
+    pub fn insert(&mut self, nid: NodeId, timestamp: Option<Instant>) {
         if nid != INVALID_NODE_ID && nid.address != MAX_ADDRESS && !self.vec.contains(&nid) {
             self.vec.push(nid);
+            self.last_state.push(timestamp);
         }
     }
 
@@ -282,12 +292,20 @@ impl NodeIdSet {
         self.vec.iter()
     }
 
+    /// Zipped Iters over the NodeIds and their timestamps
+    pub fn iter_pair(
+        &self,
+    ) -> std::iter::Zip<std::slice::Iter<'_, NodeId>, std::slice::Iter<'_, Option<Instant>>> {
+        zip(self.vec.iter(), self.last_state.iter())
+    }
+
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, NodeId> {
         self.vec.iter_mut()
     }
 
     pub fn clear(&mut self) {
         self.vec.clear();
+        self.last_state.clear();
     }
 
     pub fn set_next_icfg_clone_id(&mut self) {
@@ -310,19 +328,6 @@ impl NodeIdSet {
         self.vec.iter().any(|ct| ct.address == nid.address)
     }
 
-    /// Deletes all cloned nodes with the given Ids
-    /// It returns true if the vector is empty afterwards.
-    /// It returns false if it was empty before or still contains
-    /// call targets.
-    pub fn delete_cloned_nodes(&mut self) -> bool {
-        if self.vec.is_empty() {
-            return false;
-        }
-        self.vec
-            .retain(|ct| ct.icfg_clone_id == 0 && ct.cfg_clone_id == 0);
-        self.vec.is_empty()
-    }
-
     /// Samples a NodeId uniformily at random from the vector
     /// If the list is empty, it returns an INVALID_NODE_ID
     pub fn sample(&self) -> NodeId {
@@ -338,20 +343,33 @@ impl NodeIdSet {
     }
 
     pub fn new() -> NodeIdSet {
-        NodeIdSet { vec: Vec::new() }
+        NodeIdSet {
+            vec: Vec::new(),
+            last_state: Vec::new(),
+        }
     }
 
     pub fn clone(&self) -> NodeIdSet {
         NodeIdSet {
             vec: self.vec.clone(),
+            last_state: self.last_state.clone(),
         }
     }
 
-    pub fn retain_mut<F>(&mut self, f: F)
+    /// The runtime is bad if it is used on non constant set lengths.
+    pub fn retain_mut<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut NodeId) -> bool,
     {
-        self.vec.retain_mut(f)
+        let mut i = 0;
+        while i < self.vec.len() {
+            if f(self.vec.get_mut(i).unwrap()) {
+                i += 1;
+                continue;
+            }
+            self.vec.remove(i);
+            self.last_state.remove(i);
+        }
     }
 
     pub(crate) fn len(&self) -> usize {

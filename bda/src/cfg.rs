@@ -13,8 +13,8 @@ use petgraph::Direction::Outgoing;
 
 use crate::{
     flow_graphs::{
-        Address, CallTarget, EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, NodeIdSet,
-        ProcedureMap, INVALID_NODE_ID,
+        Address, EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, NodeIdSet, ProcedureMap,
+        INVALID_NODE_ID,
     },
     weight::{NodeWeightIDRefMap, WeightID, WeightMap},
 };
@@ -75,10 +75,6 @@ pub struct InsnNodeData {
     /// Node this instruction calls. The NodeIds point to other CFGs.
     /// Multiple call targets are possible, if a call target is dynamically calculated.
     pub call_targets: NodeIdSet,
-    /// The timestamp of the call target last used.
-    /// If this timestamp is earlier then the procedures timestamp
-    /// the procedure was edited and the weight of this node should be recaclulated.
-    ct_last_state: Option<Instant>,
     /// Node this instruction jumps to.
     /// It always points to the original NodeId. It is not updated if a cloned edge is added.
     pub orig_jump_target: NodeId,
@@ -101,7 +97,6 @@ impl InsnNodeData {
             addr,
             itype: InsnNodeType::new(InsnNodeWeightType::Call, false),
             call_targets,
-            ct_last_state: None,
             orig_jump_target: jump_target,
             orig_next: next,
             is_indirect_call,
@@ -120,7 +115,6 @@ impl InsnNodeData {
             addr,
             itype,
             call_targets: NodeIdSet::from_nid(call_target),
-            ct_last_state: None,
             orig_jump_target,
             orig_next,
             is_indirect_call,
@@ -132,7 +126,6 @@ impl InsnNodeData {
             addr: self.addr,
             itype: self.itype.clone(),
             call_targets: self.call_targets.get_clone(-1, cfg_clone_id),
-            ct_last_state: Some(Instant::now()),
             orig_jump_target: self.orig_jump_target,
             orig_next: self.orig_next,
             is_indirect_call: self.is_indirect_call,
@@ -298,7 +291,6 @@ impl CFGNodeData {
             addr,
             itype: ntype,
             call_targets: NodeIdSet::new(),
-            ct_last_state: None,
             orig_jump_target: jump_target,
             orig_next: next,
             is_indirect_call: false,
@@ -587,17 +579,17 @@ impl CFGNodeDataMap {
         }
     }
 
-    pub fn for_each_ct<F>(&self, mut f: F)
+    pub fn for_each_ct_ts<F>(&self, mut f: F)
     where
         Self: Sized,
-        F: FnMut(&NodeId),
+        F: FnMut(&NodeId, &Option<Instant>),
     {
         for cid in self.call_insns_idx.iter() {
             let call_insn_data: &CFGNodeData =
                 self.map.get(cid).expect("CFG node meta data out of sync.");
             for insn in call_insn_data.insns.iter() {
-                for ct in insn.call_targets.iter() {
-                    f(ct);
+                for (ct, ts) in insn.call_targets.iter_pair() {
+                    f(ct, ts);
                 }
             }
         }
@@ -617,18 +609,6 @@ impl CFGNodeDataMap {
         }
     }
 
-    pub fn for_each_insn<F>(&self, mut f: F)
-    where
-        Self: Sized,
-        F: FnMut(&InsnNodeData),
-    {
-        for ndata in self.map.values() {
-            for insn in ndata.insns.iter() {
-                f(insn)
-            }
-        }
-    }
-
     /// For each call instruction
     /// O(|call instr.|)
     pub fn for_each_cinsn_mut<F>(&mut self, mut f: F)
@@ -642,20 +622,6 @@ impl CFGNodeDataMap {
                 .get_mut(cid)
                 .expect("CFG node meta data out of sync.");
             for insn in call_insn_data.insns.iter_mut() {
-                f(insn)
-            }
-        }
-    }
-
-    pub fn for_each_cinsn<F>(&self, mut f: F)
-    where
-        Self: Sized,
-        F: FnMut(&InsnNodeData),
-    {
-        for cid in self.call_insns_idx.iter() {
-            let call_insn_data: &CFGNodeData =
-                self.map.get(cid).expect("CFG node meta data out of sync.");
-            for insn in call_insn_data.insns.iter() {
                 f(insn)
             }
         }
@@ -841,40 +807,25 @@ impl CFG {
     /// and hence, if this one needs a recalculation of its weight.
     pub fn needs_recalc(&self, proc_map: &ProcedureMap) -> bool {
         let mut needs_recalc = false;
-        for ct in self.get_all_call_targets().iter() {
-            if !proc_map.contains_key(&ct.0) || ct.1.is_none() {
-                continue;
+        self.nodes_meta.for_each_ct_ts(|ct, timestamp| {
+            if !proc_map.contains_key(&ct) {
+                return;
             }
-            if proc_map.get(&ct.0).unwrap().read().unwrap().last_change > ct.1.unwrap() {
-                return true;
+            if timestamp.is_none()
+                || proc_map.get(&ct).unwrap().read().unwrap().last_change > timestamp.unwrap()
+            {
+                needs_recalc = true;
+                return;
             }
             needs_recalc |= proc_map
-                .get(&ct.0)
+                .get(&ct)
                 .unwrap()
                 .read()
                 .unwrap()
                 .get_cfg()
                 .needs_recalc(proc_map);
-        }
+        });
         needs_recalc
-    }
-
-    /// Returns the call targets and their last known state as timestamp as a vector.
-    pub fn get_all_call_targets(&self) -> Vec<(NodeId, Option<Instant>)> {
-        let mut targets: Vec<(NodeId, Option<Instant>)> = Vec::new();
-        for ninfo in self.nodes_meta.values() {
-            if !ninfo.has_type(InsnNodeWeightType::Call) {
-                continue;
-            }
-            ninfo.insns.iter().for_each(|i| {
-                if i.itype.weight_type == InsnNodeWeightType::Call {
-                    i.call_targets
-                        .iter()
-                        .for_each(|ct| targets.push((*ct, i.ct_last_state)));
-                }
-            });
-        }
-        targets
     }
 
     /// Get the total weight of the CFG.
@@ -959,8 +910,8 @@ impl CFG {
                 if call_set {
                     panic!("Two calls exist, but it wasn't specifies which one to update.");
                 }
-                insn.call_targets.insert(*call_target);
-                insn.ct_last_state = Some(procedure_timestamp);
+                insn.call_targets
+                    .insert(*call_target, Some(procedure_timestamp));
                 call_set = true;
             }
         }
@@ -1055,7 +1006,7 @@ impl FlowGraphOperations for CFG {
     fn handle_last_clone(&mut self, _from: &NodeId, _non_existent_node: &NodeId) {}
 
     fn mark_exit_node(&mut self, nid: &NodeId) {
-        self.discovered_exits.insert(*nid);
+        self.discovered_exits.insert(*nid, Some(Instant::now()));
     }
 
     /// Calculates the weight of the node with [nid].
@@ -1235,7 +1186,7 @@ impl Procedure {
             EdgeFlow::OutsiderFixedFrom => {
                 self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|insn| {
                     if insn.call_targets.contains_any_variant_of(to_nid) {
-                        insn.call_targets.insert(to_nid.clone());
+                        insn.call_targets.insert(to_nid.clone(), None);
                     }
                 });
             }

@@ -5,8 +5,6 @@
 mod tests {
     use std::collections::HashMap;
 
-    use petgraph::visit::EdgeCount;
-
     use crate::{
         cfg::Procedure,
         flow_graphs::{Address, FlowGraphOperations, NodeId},

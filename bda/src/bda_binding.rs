@@ -370,7 +370,7 @@ fn add_called_procedures(icfg: &mut ICFG, core: GRzCore) {
     let mut undisc_procs = Vec::<NodeId>::new();
     let mut undisc_edges = Vec::<(NodeId, NodeId)>::new();
     for (pid, p) in icfg.get_procedures().iter() {
-        p.read().unwrap().get_cfg().nodes_meta.for_each_ct(|ct| {
+        for ct in p.read().unwrap().get_cfg().nodes_meta.ct_iter() {
             let pair = (pid.clone(), *ct);
             if !icfg.has_procedure(&ct) {
                 undisc_procs.push(*ct);
@@ -378,7 +378,7 @@ fn add_called_procedures(icfg: &mut ICFG, core: GRzCore) {
             if !icfg.has_edge(pair.0, pair.1) {
                 undisc_edges.push(pair);
             }
-        });
+        }
     }
     let mut status = Spinner::new("Follow call refernces:\t".to_owned());
     let mut new_procs = 0;
@@ -395,14 +395,14 @@ fn add_called_procedures(icfg: &mut ICFG, core: GRzCore) {
             setup_procedure_at_addr(&core.lock().unwrap(), call_target.address)
         {
             // Get the calls of the undiscovered procedure.
-            called_proc.get_cfg().nodes_meta.for_each_ct(|cp_ct| {
+            for cp_ct in called_proc.get_cfg().nodes_meta.ct_iter() {
                 if !icfg.has_procedure(cp_ct) {
                     undisc_procs.push(*cp_ct);
                 }
                 if !icfg.has_edge(call_target, *cp_ct) {
                     undisc_edges.push((call_target, *cp_ct));
                 }
-            });
+            }
             if icfg.add_procedure(call_target, called_proc) {
                 new_procs += 1;
             }

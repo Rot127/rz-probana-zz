@@ -249,7 +249,7 @@ impl ICFG {
     pub(crate) fn icfg_consistency_check(&self) -> bool {
         let mut seen_call_edges = HashSet::<(NodeId, NodeId)>::new();
         for (pid, proc) in self.get_procedures().iter() {
-            proc.read().unwrap().get_cfg().nodes_meta.for_each_ct(|ct| {
+            for ct in proc.read().unwrap().get_cfg().nodes_meta.ct_iter() {
                 if !self.get_graph().contains_edge(*pid, *ct) {
                     self.get_graph()
                         .neighbors_directed(pid.clone(), Outgoing)
@@ -265,7 +265,7 @@ impl ICFG {
                     pid,
                     ct
                 )
-            })
+            }
         }
         if self.get_graph().edge_count() != seen_call_edges.len() {
             for e in self.get_graph().all_edges() {
@@ -291,9 +291,9 @@ impl ICFG {
     pub(crate) fn make_icfg_consistent(&mut self) {
         let mut to_keep = HashSet::<(NodeId, NodeId)>::new();
         for (pid, proc) in self.get_procedures().iter() {
-            proc.read().unwrap().get_cfg().nodes_meta.for_each_ct(|ct| {
+            for ct in proc.read().unwrap().get_cfg().nodes_meta.ct_iter() {
                 to_keep.insert((*pid, *ct));
-            });
+            }
         }
         let mut to_remove = HashSet::<(NodeId, NodeId)>::new();
         for e in self.get_graph().all_edges() {
