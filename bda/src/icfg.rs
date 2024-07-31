@@ -186,7 +186,7 @@ impl ICFG {
     }
 
     /// Resolve all loops in the iCFG and all its CFGs.
-    pub fn resolve_loops(&mut self, num_threads: usize, wmap: &RwLock<WeightMap>) {
+    pub fn resolve_loops(&mut self, num_threads: usize) {
         let mut progress = ProgressBar::new("Resolving loops".to_owned(), self.num_procedures());
         let mut resolved: usize = 0;
         let mut todo: Vec<NodeId> = self.procedures.keys().cloned().collect();
@@ -228,7 +228,7 @@ impl ICFG {
                                     panic!("Got poisoned write lock for procedure {}.", next)
                                 }
                             };
-                            writeable_proc.get_cfg_mut().make_acyclic(wmap, None);
+                            writeable_proc.get_cfg_mut().make_acyclic(None);
                         }),
                     );
                 }
@@ -241,7 +241,7 @@ impl ICFG {
                 }
             }
         });
-        self.make_acyclic(wmap, Some("Make iCFG acyclic".to_owned()));
+        self.make_acyclic(Some("Make iCFG acyclic".to_owned()));
     }
 
     /// Check if the call targets are alligned to the actual iCFG.
@@ -326,7 +326,7 @@ impl FlowGraphOperations for ICFG {
         &mut self.graph
     }
 
-    fn clean_up_acyclic(&mut self, _wmap: &RwLock<WeightMap>) {
+    fn clean_up_acyclic(&mut self) {
         // Assert that all call_target point to an existing CFG.
         debug_assert!(self.icfg_consistency_check());
     }
@@ -397,13 +397,7 @@ impl FlowGraphOperations for ICFG {
             });
     }
 
-    fn add_cloned_edge(
-        &mut self,
-        from: NodeId,
-        to: NodeId,
-        _wmap: &RwLock<WeightMap>,
-        flow: &EdgeFlow,
-    ) {
+    fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, flow: &EdgeFlow) {
         if !self.graph.contains_edge(from, to) {
             self.graph.add_edge(from, to, 0);
         }

@@ -89,7 +89,7 @@ mod tests {
             Procedure::new(Some(get_cfg_linear()), false, false, false),
         );
         let wmap = WeightMap::new();
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
 
         let mut path_stats = HashMap::<Path, usize>::new();
         // Over TEST_SAMPLE_SIZE iterations we should get the same path with a probability of 1.
@@ -116,7 +116,7 @@ mod tests {
             Procedure::new(Some(get_gee_cfg()), false, false, false),
         );
         let wmap = WeightMap::new();
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
 
         let path_stats = sample(&icfg, GEE_ADDR, &wmap);
         assert_eq!(path_stats.len(), 2, "Wrong path count.");
@@ -142,7 +142,7 @@ mod tests {
             Procedure::new(Some(get_C()), false, false, false),
         );
         let wmap = WeightMap::new();
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
 
         let path_stats = sample(&icfg, CFG_ENTRY_C, &wmap);
         assert_eq!(path_stats.len(), 2, "Wrong path count.");
@@ -168,7 +168,7 @@ mod tests {
             Procedure::new(Some(get_cfg_simple_loop()), false, false, false),
         );
         let wmap = WeightMap::new();
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
         let path_stats = sample(&icfg, SIMPLE_LOOP_ENTRY, &wmap);
 
         let n00 = (0, 0, 0);
@@ -241,7 +241,7 @@ mod tests {
         );
         assert_eq!(icfg.get_graph().edge_count(), 0, "Edge count mismatch.");
         let wmap = WeightMap::new();
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
         assert_eq!(path_stats.len(), 1, "Wrong path count.");
         for (_, c) in path_stats.iter() {
@@ -271,7 +271,7 @@ mod tests {
             NodeId::from(SIMPLE_LOOP_ENTRY),
             0,
         );
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
         assert_eq!(path_stats.len(), 10, "Wrong path count.");
         for (_, c) in path_stats.iter() {
@@ -279,7 +279,7 @@ mod tests {
         }
 
         lcfg = get_gee_cfg();
-        lcfg.make_acyclic(&wmap, None);
+        lcfg.make_acyclic(None);
         icfg.procedures
             .test_remove(&NodeId::from(SIMPLE_LOOP_ENTRY));
         icfg.add_procedure(
@@ -305,7 +305,7 @@ mod tests {
         );
         icfg.get_graph_mut().add_node(NodeId::from(CFG_ENTRY_A));
         let wmap = WeightMap::new();
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
         let mut path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
         assert_eq!(path_stats.len(), 1, "Wrong path count.");
         for (_, c) in path_stats.iter() {
@@ -344,7 +344,7 @@ mod tests {
             );
         icfg.get_graph_mut()
             .add_edge(NodeId::from(CFG_ENTRY_B), NodeId::from(CFG_ENTRY_C), 0);
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
         path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
         assert_eq!(path_stats.len(), 3, "Wrong path count.");
         for (_, c) in path_stats.iter() {
@@ -360,7 +360,7 @@ mod tests {
                 -1,
                 &NodeId::from(CFG_ENTRY_C),
             );
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
         path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
         println!("{:?}", path_stats);
         assert_eq!(path_stats.len(), 4, "Wrong path count.");

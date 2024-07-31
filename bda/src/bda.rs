@@ -146,7 +146,7 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
         }
     });
     if call_added {
-        icfg.resolve_loops(1, state.get_weight_map());
+        icfg.resolve_loops(1);
     }
 }
 
@@ -187,7 +187,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         }
     }
 
-    icfg.resolve_loops(state.num_threads, state.get_weight_map());
+    icfg.resolve_loops(state.num_threads);
 
     let mut nothing_happened = 0;
     let mut handled_thread = 0;

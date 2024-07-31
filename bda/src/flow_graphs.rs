@@ -398,13 +398,7 @@ pub trait FlowGraphOperations {
     /// Add a cloned edge to the graph.
     /// The CFG and iCFG have to add the meta information to the cloned edge
     /// and add it afterwards to the real graph object.
-    fn add_cloned_edge(
-        &mut self,
-        from: NodeId,
-        to: NodeId,
-        wmap: &RwLock<WeightMap>,
-        flow: &EdgeFlow,
-    );
+    fn add_cloned_edge(&mut self, from: NodeId, to: NodeId, flow: &EdgeFlow);
 
     /// Does clean up tasks for the edge which is __not__ added
     /// to the iCFG.
@@ -419,14 +413,7 @@ pub trait FlowGraphOperations {
     /// The edge [from] -> [to] is duplicated [dup_bound] times.
     /// It depends on [flow] how the edge is cloned.
     /// For edges within the SCC, [from] and [to] are duplicated and the original edge is removed.
-    fn add_clones_to_graph(
-        &mut self,
-        from: &NodeId,
-        to: &NodeId,
-        flow: &EdgeFlow,
-        dup_bound: u32,
-        wmap: &RwLock<WeightMap>,
-    ) {
+    fn add_clones_to_graph(&mut self, from: &NodeId, to: &NodeId, flow: &EdgeFlow, dup_bound: u32) {
         let mut new_edge: (NodeId, NodeId);
         for i in 0..=dup_bound {
             let i = i as i32;
@@ -446,7 +433,7 @@ pub trait FlowGraphOperations {
                 self.handle_last_clone(&new_edge.0, &new_edge.1);
                 break;
             }
-            self.add_cloned_edge(new_edge.0, new_edge.1, wmap, flow);
+            self.add_cloned_edge(new_edge.0, new_edge.1, flow);
         }
     }
 
@@ -491,12 +478,7 @@ pub trait FlowGraphOperations {
     ///
     /// [scc_edges] must contain all edges into, out of and within the SCC.
     /// [scc] must contain all nodes within the SCC.
-    fn clone_nodes(
-        &mut self,
-        scc: &Vec<NodeId>,
-        scc_edges: &HashSet<(NodeId, NodeId)>,
-        wmap: &RwLock<WeightMap>,
-    ) {
+    fn clone_nodes(&mut self, scc: &Vec<NodeId>, scc_edges: &HashSet<(NodeId, NodeId)>) {
         for (from, to) in scc_edges {
             if !scc.contains(&from) {
                 // Edge into the SCC
@@ -505,7 +487,6 @@ pub trait FlowGraphOperations {
                     &to,
                     &EdgeFlow::OutsiderFixedFrom,
                     self.get_node_dup_count() as u32,
-                    wmap,
                 );
             } else if !scc.contains(&to) {
                 // Edge out of the SCC
@@ -514,7 +495,6 @@ pub trait FlowGraphOperations {
                     &to,
                     &EdgeFlow::OutsiderFixedTo,
                     self.get_node_dup_count() as u32,
-                    wmap,
                 );
             } else if self.is_back_edge(&from, &to) {
                 // Back edge. remove the original and connect it to the clone
@@ -523,7 +503,6 @@ pub trait FlowGraphOperations {
                     &to,
                     &EdgeFlow::BackEdge,
                     self.get_node_dup_count() as u32,
-                    wmap,
                 );
                 self.remove_edge(from, to);
                 if Self::check_self_ref_hold(scc_edges, from, to) {
@@ -535,7 +514,6 @@ pub trait FlowGraphOperations {
                     &to,
                     &EdgeFlow::ForwardEdge,
                     self.get_node_dup_count() as u32,
-                    wmap,
                 );
             }
         }
@@ -549,7 +527,7 @@ pub trait FlowGraphOperations {
     /// 3.    Get edges within, from, to SCC
     /// 4. foreach (scc, scc_edges):
     /// 5.    Clone SCC and its edges
-    fn make_acyclic(&mut self, wmap: &RwLock<WeightMap>, spinner_text: Option<String>) {
+    fn make_acyclic(&mut self, spinner_text: Option<String>) {
         // Strongly connected components
         let sccs = kosaraju_scc(self.get_graph());
         // The SCC and Edges from, to and within the SCC
@@ -608,9 +586,9 @@ pub trait FlowGraphOperations {
             if scc_edges.is_empty() {
                 continue;
             }
-            self.clone_nodes(&scc, &scc_edges, wmap);
+            self.clone_nodes(&scc, &scc_edges);
         }
-        self.clean_up_acyclic(wmap);
+        self.clean_up_acyclic();
         self.sort();
         if spinner_text.is_some() {
             spinner.done(spinner_text.clone().unwrap());
@@ -618,7 +596,7 @@ pub trait FlowGraphOperations {
     }
 
     /// Specific clean up tasks after making the graph acyclic.
-    fn clean_up_acyclic(&mut self, wmap: &RwLock<WeightMap>);
+    fn clean_up_acyclic(&mut self);
 
     /// Calculates and returns the weight of the node. And if it wasn't determined yet, it calculates it.
     fn calc_node_weight(

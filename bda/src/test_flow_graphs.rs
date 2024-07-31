@@ -78,7 +78,7 @@ mod tests {
     fn test_cfg_weight_calc_no_call() {
         let wmap = &WeightMap::new();
         let mut gee_cfg = get_gee_cfg();
-        gee_cfg.make_acyclic(wmap, None);
+        gee_cfg.make_acyclic(None);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap), 2, wmap);
@@ -114,14 +114,14 @@ mod tests {
                 false,
             )),
         );
-        proc_map_get_cfg_mut!(proc_map, &unset_0_entry).make_acyclic(wmap, None);
+        proc_map_get_cfg_mut!(proc_map, &unset_0_entry).make_acyclic(None);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, empty_proc_map!(), wmap), 1, wmap);
 
         let mut lcfg = get_cfg_simple_loop();
-        lcfg.make_acyclic(wmap, None);
+        lcfg.make_acyclic(None);
         proc_map.insert(NodeId::from(SIMPLE_LOOP_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
         proc_map.get(&unset_0_entry).unwrap().write().unwrap()
             .insert_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
@@ -130,7 +130,7 @@ mod tests {
         proc_map.get(&unset_0_entry).unwrap().write().unwrap()
             .insert_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
         lcfg = get_cfg_linear();
-        lcfg.make_acyclic(wmap, None);
+        lcfg.make_acyclic(None);
         proc_map.insert(NodeId::from(LINEAR_CFG_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
         assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap), 1, wmap);
         }
@@ -140,7 +140,7 @@ mod tests {
     fn test_icfg_weight_calc() {
         let (mut icfg, wmap) = get_paper_example_icfg();
         let wmap = &wmap;
-        icfg.resolve_loops(1, wmap);
+        icfg.resolve_loops(1);
         assert_p_weight(&icfg, &NodeId::new(0, 0, MAIN_ADDR), 6, wmap);
         assert_p_weight(&icfg, &NodeId::new(0, 0, FOO_ADDR), 4, wmap);
         assert_p_weight(&icfg, &NodeId::new(0, 0, MAIN_ADDR), 6, wmap);
@@ -150,8 +150,7 @@ mod tests {
 
     #[test]
     fn test_icfg_no_procedure_duplicates() {
-        let (mut icfg, wmap) = get_paper_example_icfg();
-        let wmap = &wmap;
+        let (mut icfg, _wmap) = get_paper_example_icfg();
         // Add a cloned edge from main -> foo'()
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
@@ -164,7 +163,6 @@ mod tests {
         icfg.add_cloned_edge(
             NodeId::new(0, 0, MAIN_ADDR),
             NodeId::new(0, 0, GEE_ADDR),
-            wmap,
             &crate::flow_graphs::EdgeFlow::BackEdge,
         );
         assert_eq!(icfg.num_procedures(), 3);
@@ -172,13 +170,12 @@ mod tests {
 
     #[test]
     fn test_cfg_untangle() {
-        let wmap = &WeightMap::new();
         let mut cfg = get_paper_example_cfg_loop();
         // println!(
         //     "{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 14);
         assert_eq!(cfg.graph.edge_count(), 22);
@@ -225,13 +222,12 @@ mod tests {
     #[test]
     /// Test if the back-edge logic with jumps to lower addresses works.
     fn test_cfg_no_loop_backedge() {
-        let wmap = &WeightMap::new();
         let mut cfg = get_cfg_no_loop_sub_routine();
         // println!(
         //     "{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         // println!("{:?}", Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel]));
         assert_eq!(cfg.graph.node_count(), 7);
         assert_eq!(cfg.graph.edge_count(), 6);
@@ -249,13 +245,12 @@ mod tests {
     #[test]
     /// Test if the back-edge logic with jumps to lower addresses works.
     fn test_cfg_loop_subroutine_ret() {
-        let wmap = &WeightMap::new();
         let mut cfg = get_cfg_no_loop_sub_routine_loop_ret();
         // println!(
         //     "Graph:\n{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         // println!(
         //     "Acyclic:\n{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel])
@@ -314,7 +309,7 @@ mod tests {
     fn test_cfg_single_node() {
         let wmap = &WeightMap::new();
         let mut cfg: CFG = get_cfg_single_node();
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         assert_eq!(cfg.graph.edge_count(), 0);
         assert_eq!(cfg.graph.node_count(), 1);
         assert_eq!(cfg.nodes_meta.len(), 1);
@@ -338,7 +333,7 @@ mod tests {
             ),
         );
         }
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 1, wmap);
     }
 
@@ -359,7 +354,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 1);
         assert_eq!(cfg.graph.node_count(), 1);
         assert_eq!(cfg.nodes_meta.len(), 1);
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
@@ -373,7 +368,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
@@ -394,7 +389,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 6);
         assert_eq!(cfg.graph.node_count(), 6);
         assert_eq!(cfg.nodes_meta.len(), 6);
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         assert_eq!(cfg.graph.edge_count(), 17);
         assert_eq!(cfg.graph.node_count(), 12);
         assert_eq!(cfg.nodes_meta.len(), 12);
@@ -427,7 +422,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 4);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         assert_eq!(cfg.graph.edge_count(), 15);
         assert_eq!(cfg.graph.node_count(), 10);
         assert_eq!(cfg.nodes_meta.len(), 10);
@@ -458,7 +453,7 @@ mod tests {
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 3);
         assert_eq!(cfg.nodes_meta.len(), 3);
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         assert_eq!(cfg.graph.edge_count(), 11);
         assert_eq!(cfg.graph.node_count(), 6);
         assert_eq!(cfg.nodes_meta.len(), 6);
@@ -489,7 +484,7 @@ mod tests {
         //     "{:?}",
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         // println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_eq!(cfg.graph.edge_count(), 22);
         assert_eq!(cfg.graph.node_count(), 14);
@@ -525,7 +520,7 @@ mod tests {
     fn test_icfg_endless_acyclic() {
         let (mut icfg, wmap) = get_endless_loop_icfg();
         let wmap = &wmap;
-        icfg.resolve_loops(1, wmap);
+        icfg.resolve_loops(1);
         // In this edge case, we can resolve a loop, but each path has the weight of 1.
         // Sincen no CFG has a branch.
         assert_p_weight(&icfg, &NodeId::new(0, 0, 0xa0), 1, wmap);
@@ -549,7 +544,7 @@ mod tests {
     fn test_icfg_endless_recurse_acyclic() {
         let (mut icfg, wmap) = get_endless_recurse_icfg();
         let wmap = &wmap;
-        icfg.resolve_loops(1, wmap);
+        icfg.resolve_loops(1);
         assert_eq!(icfg.get_procedures().len(), 12, "Mismatch procedures");
         assert_eq!(icfg.get_graph().edge_count(), 11, "Mismatch edges");
         assert_eq!(icfg.get_graph().node_count(), 12, "Mismatch nodes");
@@ -561,7 +556,7 @@ mod tests {
             (NodeId::new(0, 0, A_ADDR), None),
             Some(NodeId::new_original(0xc1)),
         );
-        icfg.resolve_loops(1, wmap);
+        icfg.resolve_loops(1);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         assert_eq!(icfg.get_procedures().len(), 12, "Re-resolve loops mismatch procedures");
@@ -589,9 +584,8 @@ mod tests {
 
     #[test]
     fn test_icfg_endless_recurse_acyclic_nonlinear_address() {
-        let (mut icfg, wmap) = get_endless_recurse_icfg_nonlinear_address();
-        let wmap = &wmap;
-        icfg.resolve_loops(1, wmap);
+        let (mut icfg, _) = get_endless_recurse_icfg_nonlinear_address();
+        icfg.resolve_loops(1);
         icfg.dot_graph_to_stdout();
         assert_eq!(icfg.get_procedures().len(), 11, "Mismatch procedures");
         assert_eq!(icfg.get_graph().edge_count(), 19, "Mismatch edges");
@@ -646,7 +640,7 @@ mod tests {
             (NodeId::new(0, 0, C_ADDR), None),
             Some(NodeId::new_original(0xa1)),
         );
-        icfg.resolve_loops(1, wmap);
+        icfg.resolve_loops(1);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Outgoing).count(), 0);
@@ -695,7 +689,7 @@ mod tests {
             (NodeId::new(1, 0, C_ADDR), None),
             Some(NodeId::new(1, 0, 0xa1)),
         );
-        icfg.resolve_loops(1, wmap);
+        icfg.resolve_loops(1);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         assert_eq!(icfg.get_graph().edges_directed(NodeId::from(D_ADDR), petgraph::Direction::Outgoing).count(), 0);
@@ -742,7 +736,7 @@ mod tests {
     #[test]
     fn test_icfg_endless_with_branch_acyclic() {
         let (mut icfg, wmap) = get_endless_loop_icfg_branch();
-        icfg.resolve_loops(1, &wmap);
+        icfg.resolve_loops(1);
         println!("{:?}", Dot::with_config(&icfg.get_graph(), &[]));
 
         assert_p_weight(&icfg, &NodeId::new(3, 0, 0xa0), 2, &wmap);
@@ -765,8 +759,7 @@ mod tests {
     #[test]
     fn test_icfg_resolve_cycles() {
         let mut icfg = get_icfg_with_selfref_and_recurse_cfg();
-        let wmap = &WeightMap::new();
-        icfg.resolve_loops(4, wmap);
+        icfg.resolve_loops(4);
         assert_eq!(icfg.num_procedures(), 4);
         assert_eq!(icfg.get_graph().edge_count(), 3);
     }
@@ -797,7 +790,7 @@ mod tests {
         // the entry is still the same.
         let wmap = &WeightMap::new();
         let mut cfg = get_entry_loop_cfg();
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 4, wmap);
         assert_eq!(cfg.get_entry(), NodeId::new(0, 0, 0));
@@ -810,7 +803,7 @@ mod tests {
     fn test_endless_loop() {
         let wmap = &WeightMap::new();
         let mut cfg = get_endless_loop_cfg();
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 4, wmap);
     }
@@ -819,16 +812,15 @@ mod tests {
     fn test_entry_0_graph() {
         let wmap = &WeightMap::new();
         let mut cfg = get_cfg_linear_call();
-        cfg.make_acyclic(wmap, None);
+        cfg.make_acyclic(None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 1, wmap);
     }
 
     #[test]
     fn test_interconnected_sccs() {
-        let (mut icfg, wmap) = get_scc_refs_scc();
-        let wmap = &wmap;
-        icfg.resolve_loops(1, wmap);
+        let (mut icfg, _wmap) = get_scc_refs_scc();
+        icfg.resolve_loops(1);
         icfg.dot_graph_to_stdout();
     }
 }

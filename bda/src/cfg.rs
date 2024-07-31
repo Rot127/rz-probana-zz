@@ -897,7 +897,7 @@ impl FlowGraphOperations for CFG {
         &mut self.graph
     }
 
-    fn clean_up_acyclic(&mut self, _wmap: &RwLock<WeightMap>) {
+    fn clean_up_acyclic(&mut self) {
         // Update the node types for Exit nodes.
         for n in self.discovered_exits.iter() {
             let exit: &mut InsnNodeData = self
@@ -926,13 +926,7 @@ impl FlowGraphOperations for CFG {
         clone
     }
 
-    fn add_cloned_edge(
-        &mut self,
-        cloned_from: NodeId,
-        cloned_to: NodeId,
-        _wmap: &RwLock<WeightMap>,
-        _flow: &EdgeFlow,
-    ) {
+    fn add_cloned_edge(&mut self, cloned_from: NodeId, cloned_to: NodeId, _flow: &EdgeFlow) {
         log_rz!(
             LOG_DEBUG,
             None,
@@ -1015,11 +1009,9 @@ impl FlowGraphOperations for CFG {
             // Get the weight ids of the successors, if any.
             let mut succ_weights: NodeWeightIDRefMap = HashMap::new();
             for neigh in graph.neighbors_directed(curr_nid, Outgoing) {
-                let nwid = nodes_data.get(&neigh).unwrap().weight_id;
-                assert!(
-                    nwid.is_some(),
-                    "The weight should be calculated at this point."
-                );
+                if nodes_data.get(&neigh).is_none() {
+                    panic!("The weight should be calculated at this point.");
+                }
                 succ_weights.insert(neigh, &nodes_data.get(&neigh).unwrap().weight_id);
             }
 
