@@ -272,6 +272,9 @@ mod tests {
             0,
         );
         icfg.resolve_loops(1);
+        wmap.write()
+            .unwrap()
+            .propagate_cfg_edits(&icfg, vec![NodeId::from(SIMPLE_LOOP_ENTRY)]);
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
         assert_eq!(path_stats.len(), 10, "Wrong path count.");
         for (_, c) in path_stats.iter() {
@@ -286,6 +289,9 @@ mod tests {
             NodeId::from(GEE_ADDR),
             Procedure::new(Some(lcfg), false, false, false),
         );
+        wmap.write()
+            .unwrap()
+            .propagate_cfg_edits(&icfg, vec![NodeId::from(GEE_ADDR)]);
         let path_stats = sample(&icfg, UNSET_INDIRECT_CALL_TO_0_ENTRY, &wmap);
         path_stats.iter().for_each(|p| {
             println!("{}", p.0);

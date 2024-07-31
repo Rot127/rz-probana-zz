@@ -155,7 +155,8 @@ impl WeightMap {
     }
 
     pub fn needs_recalc(&self, cfg_id: &NodeId) -> bool {
-        self.cfg_last_calc.get(cfg_id).is_none()
+        let timestamp = self.cfg_last_calc.get(cfg_id);
+        return timestamp.is_none() || timestamp.unwrap().is_none();
     }
 
     /// Set the "needs recalculation" property for all CFGs dependend on [edited_cfg].
