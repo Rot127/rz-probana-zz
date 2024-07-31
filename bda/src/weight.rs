@@ -165,8 +165,20 @@ impl WeightMap {
         // We need to track the seen nodes, because at this stage the graph is not acyclic.
         let mut seen: HashSet<NodeId> = HashSet::new();
         let mut todo = Vec::<NodeId>::new();
-        todo.extend(edited_cfgs.clone());
-        seen.extend(edited_cfgs); // Debug code
+        for ecfg in edited_cfgs {
+            // For now:
+            // If this cfg was part of a recursive loop, we automatically assume the last clone was edited
+            // (and update all the dependent, which includes the original).
+            // In the future we can check which edge was actual affected and maybe don't update everything.
+            let last_clone = ecfg.get_clone(icfg.get_node_dup_count() as i32, 0);
+            if icfg.has_procedure(&last_clone) {
+                todo.push(last_clone.clone());
+                seen.insert(last_clone);
+            } else {
+                todo.push(ecfg.clone());
+                seen.insert(ecfg.clone());
+            }
+        }
         while todo.len() > 0 {
             let n = todo.pop().unwrap();
             self.cfg_last_calc.insert(n, None);
@@ -181,6 +193,23 @@ impl WeightMap {
                 todo.push(incoming);
             }
         }
+    }
+
+    pub fn print(&self) {
+        println!("| Weight map:");
+        println!("| Constants");
+        for w in self.cmap.values() {
+            println!("| {}", w);
+        }
+        println!("| \n| Expressions");
+        for w in self.wmap.values() {
+            println!("| {:?}", w.expr);
+        }
+        println!("| \n| update map");
+        for (id, lc) in self.cfg_last_calc.iter() {
+            println!("| {}: {:?}", id, lc);
+        }
+        println!();
     }
 
     pub fn set_calc_timestamp(&mut self, cfg_id: &NodeId) {

@@ -141,8 +141,8 @@ impl InsnNodeData {
         let mut sum_succ_weights: WeightID = wmap.read().unwrap().get_zero();
         for (target_id, target_weight) in iword_succ_weights.iter() {
             if self.call_targets.contains(target_id)
-                || self.orig_jump_target.get_orig_node_id() == target_id.get_orig_node_id()
-                || self.orig_next.get_orig_node_id() == target_id.get_orig_node_id()
+                || self.orig_jump_target.address == target_id.address
+                || self.orig_next.address == target_id.address
             {
                 if target_weight.is_none() {
                     continue;
@@ -152,7 +152,7 @@ impl InsnNodeData {
             }
         }
         let const_one = &wmap.read().unwrap().get_one();
-        if sum_succ_weights.eq_usize(0, wmap)
+        if sum_succ_weights == wmap.read().unwrap().get_zero()
             && self.itype.weight_type == InsnNodeWeightType::Normal
         {
             // This indicates the CFG has an endless loop of normal instructions

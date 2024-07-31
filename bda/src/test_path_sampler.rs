@@ -11,10 +11,11 @@ mod tests {
         icfg::ICFG,
         path_sampler::{sample_path, Path},
         test_graphs::{
-            get_A, get_B, get_C, get_cfg_linear, get_cfg_simple_loop, get_gee_cfg,
+            get_A, get_B, get_C, get_D, get_cfg_linear, get_cfg_simple_loop, get_gee_cfg,
             get_unset_indirect_call_to_0_cfg, CFG_ENTRY_A, CFG_ENTRY_A_CALL, CFG_ENTRY_B,
-            CFG_ENTRY_B_CALL_1, CFG_ENTRY_B_CALL_2, CFG_ENTRY_C, GEE_ADDR, LINEAR_CFG_ENTRY,
-            SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
+            CFG_ENTRY_B_CALL_1, CFG_ENTRY_B_CALL_2, CFG_ENTRY_C, CFG_ENTRY_D, GEE_ADDR,
+            LINEAR_CFG_ENTRY, SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL,
+            UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::WeightMap,
     };
@@ -27,7 +28,7 @@ mod tests {
         let meassured_p = sample_cnt as f32 / TEST_SAMPLE_SIZE as f32;
         assert!(
             lower_bound <= meassured_p && meassured_p <= upper_bound,
-            "meassured p = {} is not in range {}±{}",
+            "meassured p = {} is not in range {} ±  {}",
             meassured_p,
             p,
             err
@@ -389,5 +390,96 @@ mod tests {
         for (_, c) in path_stats.iter() {
             check_p_path(*c, 0.25, 0.01);
         }
+    }
+
+    #[test]
+    // 1.
+    //   A
+    //
+    // 2.
+    //           ----> ?
+    //   A --> B ----> D
+    //    <------------+
+    fn test_second_level_cfg_update_recurse() {
+        let mut icfg = ICFG::new();
+        icfg.add_procedure(
+            NodeId::from(CFG_ENTRY_A),
+            Procedure::new(Some(get_A()), false, false, false),
+        );
+        icfg.get_graph_mut().add_node(NodeId::from(CFG_ENTRY_A));
+        let wmap = WeightMap::new();
+        icfg.resolve_loops(1);
+        let mut path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
+        assert_eq!(path_stats.len(), 1, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 1.0, 0.0);
+        }
+
+        let from_cfg_addr = CFG_ENTRY_A;
+        let from_call_addr = CFG_ENTRY_A_CALL;
+        let to_cfg_addr = CFG_ENTRY_B;
+        let to_graph = get_B();
+        // Add two levels of calls and check weights again.
+        add_proc_to_test_icfg(
+            &mut icfg,
+            to_cfg_addr,
+            to_graph,
+            from_cfg_addr,
+            from_call_addr,
+        );
+
+        let from_cfg_addr = CFG_ENTRY_B;
+        let from_call_addr = CFG_ENTRY_B_CALL_1;
+        let to_cfg_addr = CFG_ENTRY_D;
+        let to_graph = get_D();
+        // Add two levels of calls and check weights again.
+        add_proc_to_test_icfg(
+            &mut icfg,
+            to_cfg_addr,
+            to_graph,
+            from_cfg_addr,
+            from_call_addr,
+        );
+        icfg.get_graph_mut()
+            .add_edge(NodeId::from(CFG_ENTRY_D), NodeId::from(CFG_ENTRY_A), 0);
+        wmap.read().unwrap().print();
+        icfg.resolve_loops(1);
+        icfg.dot_graph_to_stdout();
+        wmap.read().unwrap().print();
+        wmap.write()
+            .unwrap()
+            .propagate_cfg_edits(&icfg, vec![NodeId::from(CFG_ENTRY_B)]);
+        wmap.read().unwrap().print();
+        path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
+        wmap.read().unwrap().print();
+        // println!("{:?}", path_stats);
+        assert_eq!(path_stats.len(), 9, "Wrong path count.");
+        for (_, c) in path_stats.iter() {
+            check_p_path(*c, 1.0 / 9.0, 0.01);
+        }
+    }
+
+    fn add_proc_to_test_icfg(
+        icfg: &mut ICFG,
+        to_cfg_addr: u64,
+        to_graph: crate::cfg::CFG,
+        from_cfg_addr: u64,
+        from_call_addr: u64,
+    ) {
+        icfg.add_procedure(
+            NodeId::from(to_cfg_addr),
+            Procedure::new(Some(to_graph), false, false, false),
+        );
+        icfg.get_graph_mut().add_node(NodeId::from(to_cfg_addr));
+        icfg.get_procedure(&NodeId::from(from_cfg_addr))
+            .write()
+            .unwrap()
+            .insert_call_target(
+                &NodeId::from(from_call_addr),
+                -1,
+                &NodeId::from(to_cfg_addr),
+            );
+        icfg.get_graph_mut()
+            .add_edge(NodeId::from(from_cfg_addr), NodeId::from(to_cfg_addr), 0);
     }
 }
