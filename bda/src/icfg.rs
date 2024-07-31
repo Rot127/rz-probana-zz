@@ -186,6 +186,7 @@ impl ICFG {
     }
 
     /// Resolve all loops in the iCFG and all its CFGs.
+    /// Ensure to run WeightMap.proagate_cfg_edits() after this one!
     pub fn resolve_loops(&mut self, num_threads: usize) {
         let mut progress = ProgressBar::new("Resolving loops".to_owned(), self.num_procedures());
         let mut resolved: usize = 0;

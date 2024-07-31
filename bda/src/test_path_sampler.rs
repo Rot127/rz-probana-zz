@@ -303,6 +303,16 @@ mod tests {
     }
 
     #[test]
+    // 1.
+    //   A
+    //
+    // 2.
+    //           ----> ?
+    //   A --> B ----> C
+    //
+    // 3.
+    //             ----> C
+    //   A -> B --+----> C
     fn test_second_level_cfg_update() {
         let mut icfg = ICFG::new();
         icfg.add_procedure(
@@ -351,6 +361,9 @@ mod tests {
         icfg.get_graph_mut()
             .add_edge(NodeId::from(CFG_ENTRY_B), NodeId::from(CFG_ENTRY_C), 0);
         icfg.resolve_loops(1);
+        wmap.write()
+            .unwrap()
+            .propagate_cfg_edits(&icfg, vec![NodeId::from(CFG_ENTRY_B)]);
         path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
         assert_eq!(path_stats.len(), 3, "Wrong path count.");
         for (_, c) in path_stats.iter() {
@@ -367,6 +380,9 @@ mod tests {
                 &NodeId::from(CFG_ENTRY_C),
             );
         icfg.resolve_loops(1);
+        wmap.write()
+            .unwrap()
+            .propagate_cfg_edits(&icfg, vec![NodeId::from(CFG_ENTRY_B)]);
         path_stats = sample(&icfg, CFG_ENTRY_A, &wmap);
         println!("{:?}", path_stats);
         assert_eq!(path_stats.len(), 4, "Wrong path count.");

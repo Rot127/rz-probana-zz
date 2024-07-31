@@ -160,6 +160,7 @@ impl WeightMap {
     }
 
     /// Set the "needs recalculation" property for all CFGs dependend on [edited_cfg].
+    /// This should be done after every loop removal of the CFG!
     pub fn propagate_cfg_edits(&mut self, icfg: &ICFG, edited_cfgs: Vec<NodeId>) {
         // We need to track the seen nodes, because at this stage the graph is not acyclic.
         let mut seen: HashSet<NodeId> = HashSet::new();
