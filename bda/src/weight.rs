@@ -160,12 +160,12 @@ impl WeightMap {
     }
 
     /// Set the "needs recalculation" property for all CFGs dependend on [edited_cfg].
-    pub fn propagate_cfg_edits(&mut self, icfg: &ICFG, edited_cfg: &NodeId) {
+    pub fn propagate_cfg_edits(&mut self, icfg: &ICFG, edited_cfgs: Vec<NodeId>) {
         // We need to track the seen nodes, because at this stage the graph is not acyclic.
         let mut seen: HashSet<NodeId> = HashSet::new();
         let mut todo = Vec::<NodeId>::new();
-        todo.push(*edited_cfg);
-        seen.insert(*edited_cfg);
+        todo.extend(edited_cfgs.clone());
+        seen.extend(edited_cfgs); // Debug code
         while todo.len() > 0 {
             let n = todo.pop().unwrap();
             self.cfg_last_calc.insert(n, None);
@@ -174,7 +174,7 @@ impl WeightMap {
                 .neighbors_directed(n, petgraph::Direction::Incoming)
             {
                 if !icfg.has_procedure(&incoming) || seen.contains(&incoming) {
-                    continue;
+                    panic!("There should be no loops in the iCFG.");
                 }
                 seen.insert(incoming);
                 todo.push(incoming);

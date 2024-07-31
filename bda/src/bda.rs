@@ -107,6 +107,7 @@ fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts
 /// Updates the iCFG with newly discovered calls.
 fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &[IntrpProducts]) {
     let mut call_added = false;
+    let mut edited_procs = Vec::<NodeId>::new();
     products.iter().for_each(|prod| {
         for code_xref in prod.concrete_calls.iter() {
             if state.calls.contains(code_xref) {
@@ -136,17 +137,18 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
                 (to_proc_addr, procedure_to),
                 Some(call_insn_addr),
             ) {
-                state
-                    .get_weight_map()
-                    .write()
-                    .unwrap()
-                    .propagate_cfg_edits(icfg, &from_proc_addr);
+                edited_procs.push(from_proc_addr);
                 call_added = true;
             }
         }
     });
     if call_added {
-        icfg.resolve_loops(1);
+        icfg.resolve_loops(4);
+        state
+            .get_weight_map()
+            .write()
+            .unwrap()
+            .propagate_cfg_edits(icfg, edited_procs);
     }
 }
 
