@@ -5,10 +5,11 @@ use helper::expression::{Expr, Operation};
 use rug::integer::MiniInteger;
 use rug::{Complete, Integer};
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::RwLock;
+use std::time::Instant;
 
 /// An weight expression which can be evaluated to a constant value.
 type WeightExpr = Expr<WeightID>;
@@ -126,7 +127,7 @@ impl WeightID {
 
 /// Map to save all weights of nodes in the graphs.
 pub struct WeightMap {
-    /// The map to match weight identifiers to their actual weights.
+    /// The map to match weight identifiers to their abstract (possibly not evaluated) weights.
     wmap: HashMap<WeightID, Weight>,
     /// Constant values map. Buffers the constant values of weights.
     cmap: HashMap<WeightID, Integer>,
@@ -134,6 +135,9 @@ pub struct WeightMap {
     const_one_id: WeightID,
     /// The weight identifier for a weight of 0
     const_zero_id: WeightID,
+    /// CFG last calculated timestamps
+    /// If the value is None, it must be recalculated.
+    cfg_last_calc: HashMap<NodeId, Option<Instant>>,
 }
 
 impl WeightMap {
@@ -143,10 +147,42 @@ impl WeightMap {
             cmap: HashMap::new(),
             const_one_id: WeightID { id: 0 },
             const_zero_id: WeightID { id: 0 },
+            cfg_last_calc: HashMap::new(),
         };
         wm.const_zero_id = wm.add_const_usize(0);
         wm.const_one_id = wm.add_const_usize(1);
         RwLock::new(wm)
+    }
+
+    pub fn needs_recalc(&self, cfg_id: &NodeId) -> bool {
+        self.cfg_last_calc.get(cfg_id).is_none()
+    }
+
+    /// Set the "needs recalculation" property for all CFGs dependend on [edited_cfg].
+    pub fn propagate_cfg_edits(&mut self, icfg: &ICFG, edited_cfg: &NodeId) {
+        // We need to track the seen nodes, because at this stage the graph is not acyclic.
+        let mut seen: HashSet<NodeId> = HashSet::new();
+        let mut todo = Vec::<NodeId>::new();
+        todo.push(*edited_cfg);
+        seen.insert(*edited_cfg);
+        while todo.len() > 0 {
+            let n = todo.pop().unwrap();
+            self.cfg_last_calc.insert(n, None);
+            for incoming in icfg
+                .get_graph()
+                .neighbors_directed(n, petgraph::Direction::Incoming)
+            {
+                if !icfg.has_procedure(&incoming) || seen.contains(&incoming) {
+                    continue;
+                }
+                seen.insert(incoming);
+                todo.push(incoming);
+            }
+        }
+    }
+
+    pub fn set_calc_timestamp(&mut self, cfg_id: &NodeId) {
+        self.cfg_last_calc.insert(*cfg_id, Some(Instant::now()));
     }
 
     pub fn add_const_usize(&mut self, v: usize) -> WeightID {
@@ -342,7 +378,8 @@ struct Weight {
     expr: WeightExpr,
 }
 
-use crate::flow_graphs::NodeId;
+use crate::flow_graphs::{FlowGraphOperations, NodeId};
+use crate::icfg::ICFG;
 
 impl Weight {
     fn new_const(id: WeightID) -> Weight {

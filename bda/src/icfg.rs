@@ -441,7 +441,6 @@ impl FlowGraphOperations for ICFG {
         nid: &NodeId,
         proc_map: &ProcedureMap,
         wmap: &RwLock<WeightMap>,
-        recalc: bool,
     ) -> WeightID {
         assert!(
             self.procedures.contains_key(nid),
@@ -452,6 +451,7 @@ impl FlowGraphOperations for ICFG {
         proc.write()
             .unwrap()
             .get_cfg_mut()
-            .calc_node_weight(nid, proc_map, wmap, recalc)
+            .get_entry_weight_id(proc_map, wmap)
+            .unwrap()
     }
 }

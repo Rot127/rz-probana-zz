@@ -5,7 +5,6 @@ use core::panic;
 use std::{
     collections::{hash_map, hash_set, HashMap, HashSet, VecDeque},
     sync::RwLock,
-    time::Instant,
 };
 
 use binding::{log_rizin, log_rz, LOG_DEBUG};
@@ -171,10 +170,11 @@ impl InsnNodeData {
             InsnNodeWeightType::Call => {
                 // This sampling step breaks the promise of path insensitivity of the algorithm.
                 // But due to the design decission, to seperate path sampling from
-                // abstract interpretation, I can't come up with a better method then this.
+                // abstract interpretation, I can't come up with a better method then this for now.
                 // Because, if a single call instruction computes its targets
                 // dynamically, we do not know at this sampling stage, where it will
                 // jump to.
+                // The interpreter would know, but the sample does not.
                 let ct_nid = &self.call_targets.sample();
                 let p: Option<&RwLock<Procedure>> = procedure_map.get(ct_nid);
                 let mut has_procedure = p.is_some();
@@ -579,22 +579,6 @@ impl CFGNodeDataMap {
         }
     }
 
-    pub fn for_each_ct_ts<F>(&self, mut f: F)
-    where
-        Self: Sized,
-        F: FnMut(&NodeId, &Option<Instant>),
-    {
-        for cid in self.call_insns_idx.iter() {
-            let call_insn_data: &CFGNodeData =
-                self.map.get(cid).expect("CFG node meta data out of sync.");
-            for insn in call_insn_data.insns.iter() {
-                for (ct, ts) in insn.call_targets.iter_pair() {
-                    f(ct, ts);
-                }
-            }
-        }
-    }
-
     /// For each instruction
     /// O(|instr.|)
     pub fn for_each_insn_mut<F>(&mut self, mut f: F)
@@ -799,33 +783,15 @@ impl CFG {
                 panic!("If get_weight_id() is called on a CFG, the graph has to be made acyclic before.")
             }
         };
-        let recalc = self.needs_recalc(procedures);
-        Some(self.calc_node_weight(&entry_nid, procedures, wmap, recalc))
-    }
-
-    /// Recursively checks if any reachable procedure was updated
-    /// and hence, if this one needs a recalculation of its weight.
-    pub fn needs_recalc(&self, proc_map: &ProcedureMap) -> bool {
-        let mut needs_recalc = false;
-        self.nodes_meta.for_each_ct_ts(|ct, timestamp| {
-            if !proc_map.contains_key(&ct) {
-                return;
-            }
-            if timestamp.is_none()
-                || proc_map.get(&ct).unwrap().read().unwrap().last_change > timestamp.unwrap()
-            {
-                needs_recalc = true;
-                return;
-            }
-            needs_recalc |= proc_map
-                .get(&ct)
-                .unwrap()
-                .read()
-                .unwrap()
-                .get_cfg()
-                .needs_recalc(proc_map);
-        });
-        needs_recalc
+        let cfg_wid: Option<WeightID>;
+        let recalc = wmap.read().unwrap().needs_recalc(&entry_nid);
+        if !recalc && self.get_node_weight_id(&entry_nid).is_some() {
+            cfg_wid = self.get_node_weight_id(&entry_nid);
+        } else {
+            cfg_wid = Some(self.calc_node_weight(&entry_nid, procedures, wmap));
+            wmap.write().unwrap().set_calc_timestamp(&entry_nid);
+        }
+        cfg_wid
     }
 
     /// Get the total weight of the CFG.
@@ -890,13 +856,7 @@ impl CFG {
     /// If the node is not a call instruction, it returns silently.
     /// If [i] is -1, it panics if there are more than one call instructions part of the node.
     /// Otherwise it assigns the new call target.
-    fn insert_call_target(
-        &mut self,
-        nid: &NodeId,
-        i: isize,
-        call_target: &NodeId,
-        procedure_timestamp: Instant,
-    ) {
+    fn insert_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
         let ninfo = self
             .nodes_meta
             .get_mut(nid)
@@ -910,8 +870,7 @@ impl CFG {
                 if call_set {
                     panic!("Two calls exist, but it wasn't specifies which one to update.");
                 }
-                insn.call_targets
-                    .insert(*call_target, Some(procedure_timestamp));
+                insn.call_targets.insert(*call_target);
                 call_set = true;
             }
         }
@@ -1006,7 +965,7 @@ impl FlowGraphOperations for CFG {
     fn handle_last_clone(&mut self, _from: &NodeId, _non_existent_node: &NodeId) {}
 
     fn mark_exit_node(&mut self, nid: &NodeId) {
-        self.discovered_exits.insert(*nid, Some(Instant::now()));
+        self.discovered_exits.insert(*nid);
     }
 
     /// Calculates the weight of the node with [nid].
@@ -1021,17 +980,12 @@ impl FlowGraphOperations for CFG {
         nid: &NodeId,
         proc_map: &ProcedureMap,
         wmap: &RwLock<WeightMap>,
-        recalc: bool,
     ) -> WeightID {
-        if !recalc && self.get_node_weight_id(nid).is_some() {
-            // Check if there was a weight already calculated.
-            return self.get_node_weight_id(nid).unwrap();
-        }
         if self.rev_topograph.is_empty() {
             panic!("The CFG must be made acyclic before querying for node weights.")
         }
         let graph = &mut self.graph;
-        let meta = &mut self.nodes_meta;
+        let nodes_data = &mut self.nodes_meta;
         let mut done = HashSet::<NodeId>::new();
         let mut prev_nids = VecDeque::<NodeId>::new();
         let mut curr_nid = *nid;
@@ -1061,17 +1015,17 @@ impl FlowGraphOperations for CFG {
             // Get the weight ids of the successors, if any.
             let mut succ_weights: NodeWeightIDRefMap = HashMap::new();
             for neigh in graph.neighbors_directed(curr_nid, Outgoing) {
-                let nwid = meta.get(&neigh).unwrap().weight_id;
+                let nwid = nodes_data.get(&neigh).unwrap().weight_id;
                 assert!(
                     nwid.is_some(),
                     "The weight should be calculated at this point."
                 );
-                succ_weights.insert(neigh, &meta.get(&neigh).unwrap().weight_id);
+                succ_weights.insert(neigh, &nodes_data.get(&neigh).unwrap().weight_id);
             }
 
             // Sum up the weights of the successor weights and assign them to the current node.
             let mut total_weight: WeightID = wmap.read().unwrap().get_zero();
-            match meta.get(&curr_nid) {
+            match nodes_data.get(&curr_nid) {
                 Some(n) => n
                     .iword_calc_weight(&succ_weights, proc_map, wmap)
                     .into_iter()
@@ -1082,7 +1036,8 @@ impl FlowGraphOperations for CFG {
                     panic!("The CFG has no meta info for node {}.", curr_nid)
                 }
             };
-            meta.get_mut(&curr_nid)
+            nodes_data
+                .get_mut(&curr_nid)
                 .expect("Node id not in meta.")
                 .weight_id = Some(total_weight);
 
@@ -1117,8 +1072,6 @@ pub struct Procedure {
     is_input: bool,
     /// Procedure is not mapped, likely because it is dynamically linked.
     is_unmapped: bool,
-    /// Timestamp of the last change performed.
-    last_change: Instant,
 }
 
 impl Procedure {
@@ -1128,7 +1081,6 @@ impl Procedure {
             is_malloc,
             is_input,
             is_unmapped,
-            last_change: Instant::now(),
         }
     }
 
@@ -1146,10 +1098,8 @@ impl Procedure {
         }
     }
 
-    /// Reutrns the mutable CFG. This updates the last_changed timestamp
-    /// because it is assumed that the CFG is edited.
+    /// Reutrns the mutable CFG.
     pub fn get_cfg_mut(&mut self) -> &mut CFG {
-        self.last_change = Instant::now();
         match &mut self.cfg {
             Some(ref mut cfg) => cfg,
             None => panic!("Procedure has no CFG defined."),
@@ -1162,7 +1112,6 @@ impl Procedure {
             is_malloc: self.is_malloc,
             is_input: self.is_input,
             is_unmapped: self.is_unmapped,
-            last_change: Instant::now(),
         }
     }
 
@@ -1181,7 +1130,7 @@ impl Procedure {
             EdgeFlow::OutsiderFixedFrom => {
                 self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|insn| {
                     if insn.call_targets.contains_any_variant_of(to_nid) {
-                        insn.call_targets.insert(to_nid.clone(), None);
+                        insn.call_targets.insert(to_nid.clone());
                     }
                 });
             }
@@ -1242,10 +1191,7 @@ impl Procedure {
     /// Otherwise it updates the single call.
     /// It panics if no call was updated.
     pub fn insert_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
-        self.last_change = Instant::now();
-        let lc = self.last_change.clone();
-        self.get_cfg_mut()
-            .insert_call_target(nid, i, call_target, lc);
+        self.get_cfg_mut().insert_call_target(nid, i, call_target);
     }
 
     /// For each call target

@@ -10,9 +10,7 @@ use rand::{thread_rng, Rng};
 
 use core::panic;
 use std::collections::{HashMap, HashSet};
-use std::iter::zip;
 use std::sync::RwLock;
-use std::time::Instant;
 
 use crate::cfg::Procedure;
 use crate::weight::{WeightID, WeightMap};
@@ -248,8 +246,6 @@ impl std::cmp::PartialEq<u128> for NodeId {
 pub struct NodeIdSet {
     /// The nodes
     vec: Vec<NodeId>,
-    /// The timestamps the nodes last .
-    last_state: Vec<Option<Instant>>,
 }
 
 impl NodeIdSet {
@@ -258,16 +254,12 @@ impl NodeIdSet {
         for n in self.vec.iter() {
             clone.vec.push(n.get_clone(icfg_clone_id, cfg_clone_id));
         }
-        clone.last_state = self.last_state.clone();
         clone
     }
 
     pub fn from_nid(nid: NodeId) -> NodeIdSet {
-        let mut nid_vec = NodeIdSet {
-            vec: Vec::new(),
-            last_state: Vec::new(),
-        };
-        nid_vec.insert(nid, None);
+        let mut nid_vec = NodeIdSet { vec: Vec::new() };
+        nid_vec.insert(nid);
         nid_vec
     }
 
@@ -277,10 +269,12 @@ impl NodeIdSet {
 
     /// Adds a node to the set.
     /// But only nodes with a valid id, address and if the node is not already added.
-    pub fn insert(&mut self, nid: NodeId, timestamp: Option<Instant>) {
+    pub fn insert(&mut self, nid: NodeId) {
         if nid != INVALID_NODE_ID && nid.address != MAX_ADDRESS && !self.vec.contains(&nid) {
+            if nid.cfg_clone_id > 0 {
+                print!("ASD");
+            }
             self.vec.push(nid);
-            self.last_state.push(timestamp);
         }
     }
 
@@ -292,20 +286,12 @@ impl NodeIdSet {
         self.vec.iter()
     }
 
-    /// Zipped Iters over the NodeIds and their timestamps
-    pub fn iter_pair(
-        &self,
-    ) -> std::iter::Zip<std::slice::Iter<'_, NodeId>, std::slice::Iter<'_, Option<Instant>>> {
-        zip(self.vec.iter(), self.last_state.iter())
-    }
-
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, NodeId> {
         self.vec.iter_mut()
     }
 
     pub fn clear(&mut self) {
         self.vec.clear();
-        self.last_state.clear();
     }
 
     pub fn set_next_icfg_clone_id(&mut self) {
@@ -343,33 +329,21 @@ impl NodeIdSet {
     }
 
     pub fn new() -> NodeIdSet {
-        NodeIdSet {
-            vec: Vec::new(),
-            last_state: Vec::new(),
-        }
+        NodeIdSet { vec: Vec::new() }
     }
 
     pub fn clone(&self) -> NodeIdSet {
         NodeIdSet {
             vec: self.vec.clone(),
-            last_state: self.last_state.clone(),
         }
     }
 
     /// The runtime is bad if it is used on non constant set lengths.
-    pub fn retain_mut<F>(&mut self, mut f: F)
+    pub fn retain_mut<F>(&mut self, f: F)
     where
         F: FnMut(&mut NodeId) -> bool,
     {
-        let mut i = 0;
-        while i < self.vec.len() {
-            if f(self.vec.get_mut(i).unwrap()) {
-                i += 1;
-                continue;
-            }
-            self.vec.remove(i);
-            self.last_state.remove(i);
-        }
+        self.vec.retain_mut(f);
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -652,7 +626,6 @@ pub trait FlowGraphOperations {
         nid: &NodeId,
         proc_map: &ProcedureMap,
         wmap: &RwLock<WeightMap>,
-        recalc: bool,
     ) -> WeightID;
 
     fn set_rev_topograph_mut(&mut self, rev_topograph: Vec<NodeId>);

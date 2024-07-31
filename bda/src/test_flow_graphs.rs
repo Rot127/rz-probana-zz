@@ -81,11 +81,11 @@ mod tests {
         gee_cfg.make_acyclic(wmap, None);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false), 2, wmap);
-        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap, false), 2, wmap);
-        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap, false), 1, wmap);
-        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap, false), 1, wmap);
-        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 4), empty_proc_map!(), wmap, false), 1, wmap);
+        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap), 2, wmap);
+        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap), 2, wmap);
+        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap), 1, wmap);
+        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap), 1, wmap);
+        assert_node_weight(gee_cfg.calc_node_weight(&NodeId::new(0, 0, 4), empty_proc_map!(), wmap), 1, wmap);
         assert_weight(gee_cfg.get_entry_weight_id(empty_proc_map!(), wmap), 2, wmap);
         }
     }
@@ -118,21 +118,21 @@ mod tests {
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, empty_proc_map!(), wmap, false), 1, wmap);
+        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, empty_proc_map!(), wmap), 1, wmap);
 
         let mut lcfg = get_cfg_simple_loop();
         lcfg.make_acyclic(wmap, None);
         proc_map.insert(NodeId::from(SIMPLE_LOOP_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
         proc_map.get(&unset_0_entry).unwrap().write().unwrap()
             .insert_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(SIMPLE_LOOP_ENTRY));
-        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap, true), 10, wmap);
+        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap), 10, wmap);
 
         proc_map.get(&unset_0_entry).unwrap().write().unwrap()
             .insert_call_target(&NodeId::from(UNSET_INDIRECT_CALL_TO_0_CALL), -1, &NodeId::from(LINEAR_CFG_ENTRY));
         lcfg = get_cfg_linear();
         lcfg.make_acyclic(wmap, None);
         proc_map.insert(NodeId::from(LINEAR_CFG_ENTRY), RwLock::new(Procedure::new(Some(lcfg), false, false, false)));
-        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap, true), 1, wmap);
+        assert_node_weight(proc_map_get_cfg_mut!(proc_map, &unset_0_entry).calc_node_weight(&unset_0_entry, &proc_map, wmap), 1, wmap);
         }
     }
 
@@ -380,10 +380,10 @@ mod tests {
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 1, wmap);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false)), 1, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap, false)), 1, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap, false)), 1, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap)), 1, wmap);
         }
     }
 
@@ -404,19 +404,19 @@ mod tests {
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 10, wmap);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 10), empty_proc_map!(), wmap, false)), 10, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false)), 10, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap, false)), 4, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap, false)), 4, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap, false)), 1, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 13), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 10), empty_proc_map!(), wmap)), 10, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap)), 10, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap)), 4, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap)), 4, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 13), empty_proc_map!(), wmap)), 1, wmap);
 
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap, false)), 3, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 2), empty_proc_map!(), wmap, false)), 3, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap, false)), 2, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 2), empty_proc_map!(), wmap, false)), 2, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap, false)), 1, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 2), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap)), 3, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 2), empty_proc_map!(), wmap)), 3, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap)), 2, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 2), empty_proc_map!(), wmap)), 2, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 2), empty_proc_map!(), wmap)), 1, wmap);
         }
     }
 
@@ -437,17 +437,17 @@ mod tests {
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 10, wmap);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false)), 10, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap, false)), 4, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap, false)), 4, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap)), 10, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap)), 4, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap)), 4, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap)), 1, wmap);
 
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap, false)), 3, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 2), empty_proc_map!(), wmap, false)), 3, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap, false)), 2, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 2), empty_proc_map!(), wmap, false)), 2, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap, false)), 1, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 2), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap)), 3, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 2), empty_proc_map!(), wmap)), 3, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap)), 2, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 2), empty_proc_map!(), wmap)), 2, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 2), empty_proc_map!(), wmap)), 1, wmap);
         }
     }
 
@@ -468,13 +468,13 @@ mod tests {
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 10, wmap);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false)), 10, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap, false)), 4, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap)), 10, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap)), 4, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap)), 1, wmap);
 
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap, false)), 3, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap, false)), 2, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap)), 3, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap)), 2, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap)), 1, wmap);
         }
     }
 
@@ -500,24 +500,24 @@ mod tests {
         assert_weight(cfg.get_entry_weight_id(empty_proc_map!(), wmap), 30, wmap);
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap, false)), 30, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 0), empty_proc_map!(), wmap)), 30, wmap);
 
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap, false)), 16, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap, false)), 8, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap, false)), 4, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap, false)), 2, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 1), empty_proc_map!(), wmap)), 16, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 1), empty_proc_map!(), wmap)), 8, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 1), empty_proc_map!(), wmap)), 4, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 1), empty_proc_map!(), wmap)), 2, wmap);
 
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap, false)), 16, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 2), empty_proc_map!(), wmap, false)), 8, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 2), empty_proc_map!(), wmap, false)), 4, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 2), empty_proc_map!(), wmap, false)), 2, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 2), empty_proc_map!(), wmap)), 16, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 2), empty_proc_map!(), wmap)), 8, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 2), empty_proc_map!(), wmap)), 4, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 2), empty_proc_map!(), wmap)), 2, wmap);
 
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 4), empty_proc_map!(), wmap, false)), 15, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 4), empty_proc_map!(), wmap, false)), 7, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 4), empty_proc_map!(), wmap, false)), 3, wmap);
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 4), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 4), empty_proc_map!(), wmap)), 15, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 1, 4), empty_proc_map!(), wmap)), 7, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 2, 4), empty_proc_map!(), wmap)), 3, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 3, 4), empty_proc_map!(), wmap)), 1, wmap);
 
-        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap, false)), 1, wmap);
+        assert_weight(Some(cfg.calc_node_weight(&NodeId::new(0, 0, 3), empty_proc_map!(), wmap)), 1, wmap);
         }
     }
 

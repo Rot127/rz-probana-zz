@@ -9,7 +9,7 @@ use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
 
 use crate::{
     cfg::{InsnNodeWeightType, CFG},
-    flow_graphs::{Address, FlowGraphOperations, NodeId},
+    flow_graphs::{Address, NodeId},
     icfg::ICFG,
     weight::{WeightID, WeightMap},
 };
@@ -213,6 +213,13 @@ fn sample_cfg_path(
     wmap: &RwLock<WeightMap>,
     addr_ranges: &Vec<(Address, Address)>,
 ) {
+    let entry = &cfg.get_entry();
+    let cfg_needs_recalc = wmap.read().unwrap().needs_recalc(entry);
+    if cfg_needs_recalc {
+        // Getting the entry point requires to calculate the whole CFG.
+        cfg.get_entry_weight_id(&icfg.procedures, wmap)
+            .expect("Invalid CFG");
+    }
     // Flag if the instruction at the previous neighbor address was a call.
     let mut node_follows_call = false;
     let mut cur = start;
@@ -304,8 +311,10 @@ fn sample_cfg_path(
             neigh_ids.push(n);
         }
         for n in neigh_ids.iter() {
-            let recalc = cfg.needs_recalc(icfg.get_procedures());
-            neigh_weights.push_back(cfg.calc_node_weight(&n, icfg.get_procedures(), wmap, recalc));
+            neigh_weights.push_back(
+                cfg.get_node_weight_id(&n)
+                    .expect("CFG should have been calculated before."),
+            );
         }
         if neigh_ids.is_empty() {
             // Leaf node. We are done

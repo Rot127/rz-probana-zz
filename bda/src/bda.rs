@@ -136,6 +136,11 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
                 (to_proc_addr, procedure_to),
                 Some(call_insn_addr),
             ) {
+                state
+                    .get_weight_map()
+                    .write()
+                    .unwrap()
+                    .propagate_cfg_edits(icfg, &from_proc_addr);
                 call_added = true;
             }
         }
