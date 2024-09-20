@@ -829,7 +829,7 @@ impl CFG {
             assert_eq!(from.1, to.1);
         }
         if from.1.has_entry() {
-            self.entry = from.0;
+            self.set_entry(from.0);
             // The entry of a CFG is always the original CFG node.
             // Never a clone.
             self.entry.cfg_clone_id = 0;
