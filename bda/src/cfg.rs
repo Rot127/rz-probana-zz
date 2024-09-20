@@ -851,6 +851,9 @@ impl CFG {
         if self.nodes_meta.contains_key(&node.0) && self.graph.contains_node(node.0) {
             return;
         }
+        if node.1.has_entry() {
+            self.set_entry(node.0);
+        }
         self.nodes_meta.insert(node.0, node.1);
         self.graph.add_node(node.0);
     }
