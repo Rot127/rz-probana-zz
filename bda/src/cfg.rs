@@ -1009,9 +1009,10 @@ impl FlowGraphOperations for CFG {
             // Get the weight ids of the successors, if any.
             let mut succ_weights: NodeWeightIDRefMap = HashMap::new();
             for neigh in graph.neighbors_directed(curr_nid, Outgoing) {
-                if nodes_data.get(&neigh).is_none() {
-                    panic!("The weight should be calculated at this point.");
-                }
+                assert!(
+                    nodes_data.get(&neigh).is_some(),
+                    "The weight should be calculated at this point."
+                );
                 succ_weights.insert(neigh, &nodes_data.get(&neigh).unwrap().weight_id);
             }
 

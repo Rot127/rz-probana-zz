@@ -243,11 +243,7 @@ fn sample_cfg_path(
         }
 
         // println!("{}", format!("{}-> {}", " ".repeat(i), cur));
-        if cfg.nodes_meta.get(&cur).is_some_and(|meta| {
-            meta.insns
-                .iter()
-                .any(|i| i.itype.weight_type == InsnNodeWeightType::Call)
-        }) {
+        if is_call(cfg, cur) {
             // For indirect calls without an set address we do not recuse into it to sample a path.
             // Put we set the meta information for the path node (marking it as call).
             ninfo.is_call = true;
@@ -313,7 +309,7 @@ fn sample_cfg_path(
         for n in neigh_ids.iter() {
             neigh_weights.push_back(
                 cfg.get_node_weight_id(&n)
-                    .expect("CFG should have been calculated before."),
+                    .expect(format!("CFG {} should have been calculated before.", n).as_str()),
             );
         }
         if neigh_ids.is_empty() {
@@ -326,6 +322,14 @@ fn sample_cfg_path(
         }
         cur = picked_neighbor;
     }
+}
+
+fn is_call(cfg: &mut CFG, cur: NodeId) -> bool {
+    cfg.nodes_meta.get(&cur).is_some_and(|meta| {
+        meta.insns
+            .iter()
+            .any(|i| i.itype.weight_type == InsnNodeWeightType::Call)
+    })
 }
 
 /// Sample a path from the given [icfg] and return it as vector.
