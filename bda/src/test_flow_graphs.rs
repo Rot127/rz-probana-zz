@@ -325,7 +325,7 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID),
+                CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID),
             ),
             (
                 NodeId::new(0, 0, 1),

@@ -733,6 +733,14 @@ impl CFG {
         self.entry
     }
 
+    pub fn set_entry(&mut self, entry: NodeId) {
+        assert!(
+            entry != INVALID_NODE_ID,
+            "The CFG entry node id should not be invalid."
+        );
+        self.entry = entry;
+    }
+
     /// Clones itself and updates the node IDs with the given iCFG clone id
     pub fn get_clone(&self, icfg_clone_id: i32) -> CFG {
         let mut cloned_cfg: CFG = CFG {
@@ -777,12 +785,12 @@ impl CFG {
         if self.graph.node_count() == 0 {
             return None;
         }
-        let entry_nid = match self.rev_topograph.last() {
-            Some(first) => first.to_owned(),
-            None => {
-                panic!("If get_weight_id() is called on a CFG, the graph has to be made acyclic before.")
-            }
-        };
+        let entry_nid = self.get_entry();
+        assert!(
+            entry_nid != INVALID_NODE_ID,
+            "Invalid entry point defined for {}",
+            self
+        );
         let cfg_wid: Option<WeightID>;
         let recalc = wmap.read().unwrap().needs_recalc(&entry_nid);
         if !recalc && self.get_node_weight_id(&entry_nid).is_some() {
@@ -813,6 +821,7 @@ impl CFG {
 
     /// Adds an edge to the graph.
     /// The edge is only added once.
+    /// If the [from] node has the is_entry flag set, the CFG entry is updated.
     pub fn add_edge(&mut self, from: (NodeId, CFGNodeData), to: (NodeId, CFGNodeData)) {
         if from.0 == to.0 {
             assert_eq!(from.1, to.1);
@@ -847,7 +856,7 @@ impl CFG {
     pub fn add_node_data(&mut self, node_id: NodeId, data: CFGNodeData) {
         assert!(self.graph.contains_node(node_id));
         if data.insns.iter().any(|i| i.itype.is_entry) {
-            self.entry = node_id;
+            self.set_entry(node_id);
         }
         self.nodes_meta.insert(node_id, data);
     }
