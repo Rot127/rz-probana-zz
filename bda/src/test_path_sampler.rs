@@ -36,7 +36,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "meassured p = 1 is not in range 0.1±0.1"]
+    #[should_panic = "meassured p = 1 is not in range 0.1 ±  0.1"]
     fn test_check_p_path_fail() {
         check_p_path(TEST_SAMPLE_SIZE, 0.1, 0.1);
     }
@@ -52,7 +52,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "meassured p = 0.505 is not in range 0.5±0"]
+    #[should_panic = "meassured p = 0.505 is not in range 0.5 ±  0"]
     fn test_check_p_path_err_bound() {
         check_p_path(TEST_SAMPLE_SIZE / 2 + 100, 0.5, 0.0);
     }
