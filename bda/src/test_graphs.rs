@@ -546,10 +546,8 @@ pub fn get_cfg_single_self_ref() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Return, true), INVALID_NODE_ID, NodeId::new(0, 0, 0))),
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, NodeId::new(0, 0, 0))),
-    );
+    let n_0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Return, true), INVALID_NODE_ID, NodeId::new(0, 0, 0)));
+    cfg.add_edge(n_0.clone(), n_0);
     }
     cfg
 }

@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "If get_weight_id() is called on a CFG, the graph has to be made acyclic before"
+        expected = "Graph was not sorted in topological order. This indicates it was not made acyclic before. An acyclic graph is required for weight calculation."
     )]
     fn test_cfg_no_weight_before_acyclic() {
         let wmap = &WeightMap::new();

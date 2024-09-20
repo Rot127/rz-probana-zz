@@ -22,8 +22,8 @@ pub struct ICFG {
     graph: FlowGraph,
     /// Map of procedures in the CFG. Indexed by entry point node id.
     pub procedures: ProcedureMap,
-    /// Reverse topoloical sorted graph
-    rev_topograph: Vec<NodeId>,
+    /// Topoloical sorted graph
+    topograph: Vec<NodeId>,
     /// Number of node duplications for loop resolvement
     dup_cnt: usize,
 }
@@ -33,7 +33,7 @@ impl ICFG {
         ICFG {
             graph: FlowGraph::new(),
             procedures: ProcedureMap::new(),
-            rev_topograph: Vec::new(),
+            topograph: Vec::new(),
             dup_cnt: 3,
         }
     }
@@ -42,7 +42,7 @@ impl ICFG {
         ICFG {
             graph,
             procedures: ProcedureMap::new(),
-            rev_topograph: Vec::new(),
+            topograph: Vec::new(),
             dup_cnt: 3,
         }
     }
@@ -336,8 +336,8 @@ impl FlowGraphOperations for ICFG {
         &self.graph
     }
 
-    fn set_rev_topograph_mut(&mut self, rev_topograph: Vec<NodeId>) {
-        self.rev_topograph = rev_topograph;
+    fn set_topograph_mut(&mut self, topograph: Vec<NodeId>) {
+        self.topograph = topograph;
     }
 
     /// Increments [nid.icfg_clone_count] by [increment].

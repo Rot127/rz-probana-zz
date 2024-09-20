@@ -674,7 +674,7 @@ pub struct CFG {
     /// Set of exit nodes, discovered while building the CFG.
     discovered_exits: NodeIdSet,
     /// Reverse topoloical sorted graph
-    rev_topograph: Vec<NodeId>,
+    topograph: Vec<NodeId>,
     /// The node id of the entry node
     entry: NodeId,
     /// Number of node duplications for loop resolvement
@@ -697,7 +697,7 @@ impl CFG {
         CFG {
             graph: FlowGraph::new(),
             nodes_meta: CFGNodeDataMap::new(),
-            rev_topograph: Vec::new(),
+            topograph: Vec::new(),
             discovered_exits: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
@@ -708,7 +708,7 @@ impl CFG {
         CFG {
             graph,
             nodes_meta: CFGNodeDataMap::new(),
-            rev_topograph: Vec::new(),
+            topograph: Vec::new(),
             discovered_exits: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
@@ -747,7 +747,7 @@ impl CFG {
             graph: FlowGraph::new(),
             nodes_meta: self.nodes_meta.get_clone(icfg_clone_id, -1),
             discovered_exits: self.discovered_exits.get_clone(icfg_clone_id, -1),
-            rev_topograph: self.rev_topograph.clone(),
+            topograph: self.topograph.clone(),
             entry: self.entry.get_clone(icfg_clone_id, -1),
             dup_cnt: self.dup_cnt.clone(),
         };
@@ -761,7 +761,7 @@ impl CFG {
             cloned_cfg.graph.add_edge(from_new, to_new, *bias);
         }
         cloned_cfg
-            .rev_topograph
+            .topograph
             .iter_mut()
             .for_each(|n| n.icfg_clone_id = icfg_clone_id);
 
@@ -785,6 +785,8 @@ impl CFG {
         if self.graph.node_count() == 0 {
             return None;
         }
+        assert!(!self.topograph.is_empty(), "Graph was not sorted in topological order. \
+            This indicates it was not made acyclic before. An acyclic graph is required for weight calculation.");
         let entry_nid = self.get_entry();
         assert!(
             entry_nid != INVALID_NODE_ID,
@@ -924,8 +926,8 @@ impl FlowGraphOperations for CFG {
         &self.graph
     }
 
-    fn set_rev_topograph_mut(&mut self, rev_topograph: Vec<NodeId>) {
-        self.rev_topograph = rev_topograph;
+    fn set_topograph_mut(&mut self, topograph: Vec<NodeId>) {
+        self.topograph = topograph;
     }
 
     /// Increments [nid.cfg_clone_count] by [increment].
@@ -984,7 +986,7 @@ impl FlowGraphOperations for CFG {
         proc_map: &ProcedureMap,
         wmap: &RwLock<WeightMap>,
     ) -> WeightID {
-        if self.rev_topograph.is_empty() {
+        if self.topograph.is_empty() {
             panic!("The CFG must be made acyclic before querying for node weights.")
         }
         let graph = &mut self.graph;

@@ -606,17 +606,16 @@ pub trait FlowGraphOperations {
         wmap: &RwLock<WeightMap>,
     ) -> WeightID;
 
-    fn set_rev_topograph_mut(&mut self, rev_topograph: Vec<NodeId>);
+    fn set_topograph_mut(&mut self, topograph: Vec<NodeId>);
 
     /// Sort the graph in reverse topological order.
     fn sort(&mut self) {
-        // Remove cycles
-        let mut rev_topograph = match toposort(&self.get_graph(), None) {
+        // Check if all cycles are gone
+        let topograph = match toposort(&self.get_graph(), None) {
             Ok(graph) => graph,
             Err(_) => panic!("Graph contains cycles. Cannot sort it to topological order."),
         };
-        rev_topograph.reverse();
-        self.set_rev_topograph_mut(rev_topograph);
+        self.set_topograph_mut(topograph);
     }
 
     fn get_graph_mut(&mut self) -> &mut FlowGraph;
