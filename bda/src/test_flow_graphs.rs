@@ -20,10 +20,11 @@ mod tests {
             get_cfg_single_node, get_cfg_single_self_ref, get_endless_loop_cfg,
             get_endless_loop_icfg, get_endless_loop_icfg_branch, get_endless_recurse_icfg,
             get_endless_recurse_icfg_nonlinear_address, get_entry_loop_cfg, get_gee_cfg,
-            get_icfg_with_selfref_and_recurse_cfg, get_main_cfg, get_paper_example_cfg_loop,
-            get_paper_example_icfg, get_scc_refs_scc, get_unset_indirect_call_to_0_cfg, A_ADDR,
-            C_ADDR, D_ADDR, FOO_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, NULL_ADDR,
-            SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
+            get_icfg_with_selfref_and_recurse_cfg, get_loop_to_loop_cfg, get_loop_to_loop_icfg,
+            get_main_cfg, get_paper_example_cfg_loop, get_paper_example_icfg, get_scc_refs_scc,
+            get_unset_indirect_call_to_0_cfg, A_ADDR, B_ADDR, C_ADDR, D_ADDR, E_ADDR, FOO_ADDR,
+            F_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, NULL_ADDR, SIMPLE_LOOP_ENTRY,
+            UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::{WeightID, WeightMap},
     };
@@ -762,6 +763,107 @@ mod tests {
         icfg.resolve_loops(4);
         assert_eq!(icfg.num_procedures(), 4);
         assert_eq!(icfg.get_graph().edge_count(), 3);
+    }
+
+    #[test]
+    fn test_loop_to_loop_cfg() {
+        let mut cfg = get_loop_to_loop_cfg();
+        cfg.make_acyclic(None);
+        println!("{:?}", Dot::with_config(&cfg.graph, &[]));
+        let all_edges = Vec::from_iter(cfg.get_graph().all_edges().map(|e| (e.0, e.1)));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0x0), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0x1), NodeId::new(0, 0, 0x2))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0x2), NodeId::new(0, 1, 0x0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0x0), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0x1), NodeId::new(0, 1, 0x2))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0x2), NodeId::new(0, 2, 0x0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0x0), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0x1), NodeId::new(0, 2, 0x2))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0x2), NodeId::new(0, 3, 0x0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0x0), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0x1), NodeId::new(0, 3, 0x2))));
+
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xa0), NodeId::new(0, 0, 0xb0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 0, 0xc0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xc0), NodeId::new(0, 1, 0xa0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xa0), NodeId::new(0, 1, 0xb0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 1, 0xc0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xc0), NodeId::new(0, 2, 0xa0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xa0), NodeId::new(0, 2, 0xb0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 2, 0xc0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xc0), NodeId::new(0, 3, 0xa0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xa0), NodeId::new(0, 3, 0xb0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 3, 0xc0))));
+
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 3, 0x1))));
+    }
+
+    #[test]
+    fn test_icfg_call_targets_loop_to_loop() {
+        let (mut icfg, _) = get_loop_to_loop_icfg();
+        icfg.resolve_loops(4);
+        assert_eq!(icfg.num_procedures(), 24);
+        assert_eq!(icfg.get_graph().edge_count(), 38);
+        let mut all_call_targets = Vec::<NodeId>::new();
+        icfg.get_procedures().iter().for_each(|p| {
+            p.1.write()
+                .unwrap()
+                .get_cfg_mut()
+                .nodes_meta
+                .for_each_ct_mut(|ct| all_call_targets.push(ct.clone()))
+        });
+        assert_eq!(all_call_targets.len(), 38);
+
+        let ct_hashset = HashSet::<NodeId>::from_iter(all_call_targets);
+        let ct_expected = HashSet::from_iter(
+            [
+                NodeId::new(1, 0, A_ADDR),
+                NodeId::new(2, 0, A_ADDR),
+                NodeId::new(3, 0, A_ADDR),
+                NodeId::new(0, 0, B_ADDR), // Also called by all E clones.
+                NodeId::new(1, 0, B_ADDR), // Also called by all E clones.
+                NodeId::new(2, 0, B_ADDR), // Also called by all E clones.
+                NodeId::new(3, 0, B_ADDR), // Also called by all E clones.
+                NodeId::new(0, 0, C_ADDR),
+                NodeId::new(1, 0, C_ADDR),
+                NodeId::new(2, 0, C_ADDR),
+                NodeId::new(3, 0, C_ADDR),
+                NodeId::new(1, 0, D_ADDR),
+                NodeId::new(2, 0, D_ADDR),
+                NodeId::new(3, 0, D_ADDR),
+                NodeId::new(0, 0, E_ADDR),
+                NodeId::new(1, 0, E_ADDR),
+                NodeId::new(2, 0, E_ADDR),
+                NodeId::new(3, 0, E_ADDR),
+                NodeId::new(0, 0, F_ADDR),
+                NodeId::new(1, 0, F_ADDR),
+                NodeId::new(2, 0, F_ADDR),
+                NodeId::new(3, 0, F_ADDR),
+            ]
+            .to_vec()
+            .into_iter(),
+        );
+        assert!(
+            ct_hashset.intersection(&ct_expected).count() == ct_expected.len(),
+            "Mistmatch in calltargets. {:?} != {:?}",
+            ct_hashset,
+            ct_expected
+        );
     }
 
     #[test]
