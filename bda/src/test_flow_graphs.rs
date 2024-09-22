@@ -771,6 +771,7 @@ mod tests {
         cfg.make_acyclic(None);
         println!("{:?}", Dot::with_config(&cfg.graph, &[]));
         let all_edges = Vec::from_iter(cfg.get_graph().all_edges().map(|e| (e.0, e.1)));
+        println!("{:?}", all_edges);
         assert!(all_edges.contains(&(NodeId::new(0, 0, 0x0), NodeId::new(0, 0, 0x1))));
         assert!(all_edges.contains(&(NodeId::new(0, 0, 0x1), NodeId::new(0, 0, 0x2))));
         assert!(all_edges.contains(&(NodeId::new(0, 0, 0x2), NodeId::new(0, 1, 0x0))));
@@ -783,34 +784,35 @@ mod tests {
         assert!(all_edges.contains(&(NodeId::new(0, 3, 0x0), NodeId::new(0, 3, 0x1))));
         assert!(all_edges.contains(&(NodeId::new(0, 3, 0x1), NodeId::new(0, 3, 0x2))));
 
-        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xa0), NodeId::new(0, 0, 0xb0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 0, 0xc0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xc0), NodeId::new(0, 1, 0xa0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xa0), NodeId::new(0, 1, 0xb0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 1, 0xc0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xc0), NodeId::new(0, 2, 0xa0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xa0), NodeId::new(0, 2, 0xb0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 2, 0xc0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xc0), NodeId::new(0, 3, 0xa0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xa0), NodeId::new(0, 3, 0xb0))));
-        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 3, 0xc0))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xa), NodeId::new(0, 0, 0xb))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb), NodeId::new(0, 0, 0xc))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xc), NodeId::new(0, 1, 0xa))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xa), NodeId::new(0, 1, 0xb))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb), NodeId::new(0, 1, 0xc))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xc), NodeId::new(0, 2, 0xa))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xa), NodeId::new(0, 2, 0xb))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb), NodeId::new(0, 2, 0xc))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xc), NodeId::new(0, 3, 0xa))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xa), NodeId::new(0, 3, 0xb))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb), NodeId::new(0, 3, 0xc))));
 
-        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 0, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 1, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 2, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb0), NodeId::new(0, 3, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 0, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 1, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 2, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb0), NodeId::new(0, 3, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 0, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 1, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 2, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb0), NodeId::new(0, 3, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 0, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 1, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 2, 0x1))));
-        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb0), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 0, 0xb), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 1, 0xb), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 2, 0xb), NodeId::new(0, 3, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb), NodeId::new(0, 0, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb), NodeId::new(0, 1, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb), NodeId::new(0, 2, 0x1))));
+        assert!(all_edges.contains(&(NodeId::new(0, 3, 0xb), NodeId::new(0, 3, 0x1))));
+        assert_eq!(all_edges.len(), 38);
     }
 
     #[test]
