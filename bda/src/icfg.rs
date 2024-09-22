@@ -267,13 +267,6 @@ impl ICFG {
                 )
             }
         }
-        if self.get_graph().edge_count() != seen_call_edges.len() {
-            for e in self.get_graph().all_edges() {
-                if seen_call_edges.contains(&(e.0, e.1)) {
-                    continue;
-                }
-            }
-        }
 
         assert_eq!(
             self.get_graph().edge_count(),
