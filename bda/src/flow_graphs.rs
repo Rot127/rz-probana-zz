@@ -571,8 +571,9 @@ pub trait FlowGraphOperations {
             }
             scc_groups.push((scc, edges));
         }
+        // WITHIN a SCC:
         // Remove any edge which points to the previous clone (smaller clone id).
-        // These are back-edges, which has been already resolved, and should not be added again.
+        // These are back-edges, which have been already resolved, and should not be added again.
         // They are not detected as back-edges in `clone_nodes`, but as Outsider edges
         // (due to the different clone id). Due to this, they remain in the graph
         // and produce a loop.
