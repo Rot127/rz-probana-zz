@@ -929,7 +929,7 @@ impl FlowGraphOperations for CFG {
 
     fn clean_up_acyclic(&mut self) {
         // Update the node types for Exit nodes.
-        for n in self.discovered_exits.iter() {
+        for n in self.discovered_exits.iter_mut() {
             let exit: &mut InsnNodeData = self
                 .nodes_meta
                 .get_mut(&n)
