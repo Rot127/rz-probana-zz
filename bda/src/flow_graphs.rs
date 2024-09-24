@@ -449,7 +449,6 @@ pub trait FlowGraphOperations {
                 // Done for them.
                 break;
             }
-            println!("{} -> ({}, {})", flow, i, j);
             new_edge = match flow {
                 EdgeFlow::OutsiderFixedFrom => (*from, Self::get_next_node_id_clone(i, *to)),
                 EdgeFlow::OutsiderFixedTo => (Self::get_next_node_id_clone(i, *from), *to),

@@ -131,6 +131,12 @@ impl ICFG {
         to_proc_tuple: (NodeId, Option<Procedure>),
         call_insn_addr: Option<NodeId>,
     ) -> bool {
+        if self
+            .get_graph()
+            .contains_edge(from_proc_tuple.0, to_proc_tuple.0)
+        {
+            return true;
+        }
         let from_proc_nid = from_proc_tuple.0;
         let to_proc_nid = to_proc_tuple.0;
         if !self.has_procedure(&from_proc_nid) {
@@ -275,8 +281,7 @@ impl ICFG {
                 )
             }
         }
-
-        assert_eq!(
+        debug_assert_eq!(
             self.get_graph().edge_count(),
             seen_call_edges.len(),
             "iCFG edge count is off: iCFG edges: {} expected edge count: {}",
@@ -454,6 +459,7 @@ impl FlowGraphOperations for ICFG {
 
     fn clear_scc_member_map(&mut self) {
         self.scc_members.clear();
+        self.sccs.clear();
     }
 
     fn set_scc_membership(&mut self, nid: &NodeId, scc_idx: usize) {
