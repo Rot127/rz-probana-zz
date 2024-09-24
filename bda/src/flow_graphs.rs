@@ -213,6 +213,11 @@ impl NodeId {
         self.icfg_clone_id
     }
 
+    /// Returns true if either clone id is greate than [limit].
+    pub fn is_clone_over_limit(&self, limit: i32) -> bool {
+        self.icfg_clone_id > limit || self.cfg_clone_id > limit
+    }
+
     pub fn get_dot_style(&self) -> String {
         match self.icfg_clone_id {
             0 => "style=filled fillcolor=\"blue\"".to_string(),
@@ -469,6 +474,13 @@ pub trait FlowGraphOperations {
                 self.handle_last_clone(&new_edge.0, &new_edge.1);
                 break;
             }
+            if new_edge.0.is_clone_over_limit(dup_bound)
+                || new_edge.1.is_clone_over_limit(dup_bound)
+            {
+                // We don't handle any edge pointint outside of the limit. Can happen if
+                // resolve loop is called multiple times.
+                break;
+            }
             self.add_cloned_edge(new_edge.0, new_edge.1, flow);
         }
     }
@@ -634,7 +646,6 @@ pub trait FlowGraphOperations {
             }
             sccs_edge_flows.push(edge_flows);
         }
-        println!("{:?}", sccs_edge_flows);
         // WITHIN a SCC:
         // Remove any edge which points to the previous clone (smaller clone id).
         // These are back-edges, which have been already resolved, and should not be added again.

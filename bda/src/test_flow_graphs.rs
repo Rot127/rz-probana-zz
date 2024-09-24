@@ -644,9 +644,9 @@ mod tests {
         // Add the removed back edge again and do the resolve loop again.
         // It should prduce the same graph
         icfg.add_edge(
-            (NodeId::new(0, 0, A_ADDR), None),
             (NodeId::new(0, 0, C_ADDR), None),
-            Some(NodeId::new_original(0xa1)),
+            (NodeId::new(0, 0, A_ADDR), None),
+            Some(NodeId::new_original(0xc1)),
         );
         icfg.resolve_loops(1);
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -693,9 +693,9 @@ mod tests {
 
         // Add one between clones and check everything again.
         icfg.add_edge(
-            (NodeId::new(1, 0, A_ADDR), None),
             (NodeId::new(1, 0, C_ADDR), None),
-            Some(NodeId::new(1, 0, 0xa1)),
+            (NodeId::new(1, 0, A_ADDR), None),
+            Some(NodeId::new(1, 0, 0xc1)),
         );
         icfg.resolve_loops(1);
         #[cfg_attr(rustfmt, rustfmt_skip)]
