@@ -17,4 +17,5 @@ mod test_flow_graphs;
 pub mod test_graphs;
 mod test_path_sampler;
 mod test_unit;
+mod test_weight;
 pub mod weight;

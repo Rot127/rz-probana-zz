@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use helper::expression::{Expr, Operation};
-use rug::integer::MiniInteger;
+use rug::integer::{MiniInteger, Order, UnsignedPrimitive};
 use rug::{Complete, Integer};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
@@ -72,7 +72,7 @@ impl WeightID {
             .expect("This operation should always produce a 64bit value.")
     }
 
-    pub fn add(&mut self, rhs: &WeightID, wmap: &RwLock<WeightMap>) -> WeightID {
+    pub fn add(&self, rhs: &WeightID, wmap: &RwLock<WeightMap>) -> WeightID {
         let expr = WeightExpr {
             operation: Operation::ADD,
             lhs: Some(self.clone()),
@@ -83,11 +83,11 @@ impl WeightID {
         let res = (wmap.try_read().unwrap().get_const(self)
             + wmap.try_read().unwrap().get_const(rhs))
         .complete();
-        let wid = wmap.try_write().unwrap().add_expr(res, expr);
+        let wid = wmap.try_write().unwrap().add_expr(res.clone(), expr);
         wid
     }
 
-    pub fn mul(&mut self, rhs: &WeightID, wmap: &RwLock<WeightMap>) -> WeightID {
+    pub fn mul(&self, rhs: &WeightID, wmap: &RwLock<WeightMap>) -> WeightID {
         let expr = WeightExpr {
             operation: Operation::MUL,
             lhs: Some(self.clone()),
@@ -106,8 +106,11 @@ impl WeightID {
         WeightID { id }
     }
 
+    /// Compares the constant values of the given WeightIDs.
+    /// This performs a clone on the first left hand side constant.
     pub fn eq_w(&self, other: &WeightID, wmap: &RwLock<WeightMap>) -> bool {
-        return get_const!(wmap, self) == get_const!(wmap, other);
+        let c0 = get_const!(wmap, self).clone();
+        return &c0 == get_const!(wmap, other);
     }
 
     pub fn eq_usize(&self, other: usize, wmap: &RwLock<WeightMap>) -> bool {
@@ -119,7 +122,7 @@ impl WeightID {
     }
 
     /// Returns the constant of the weight identified by this WeightID.
-    /// Careful, this performes a clone().
+    /// It will evaluate the weight and clone it. So it might be expensive.
     pub fn get_weight_const(&self, wmap: &RwLock<WeightMap>) -> Integer {
         wmap.write().unwrap().get_weight_const(self)
     }
@@ -135,6 +138,10 @@ pub struct WeightMap {
     const_one_id: WeightID,
     /// The weight identifier for a weight of 0
     const_zero_id: WeightID,
+    /// Root constant ids. All expressions in [wmap] can be calculated by these
+    /// constants. The root constants are never cleaned from the
+    /// [cmap].
+    root_constants: HashSet<WeightID>,
     /// CFG last calculated timestamps
     /// If the value is None, it must be recalculated.
     cfg_last_calc: HashMap<NodeId, Option<Instant>>,
@@ -147,10 +154,11 @@ impl WeightMap {
             cmap: HashMap::new(),
             const_one_id: WeightID { id: 0 },
             const_zero_id: WeightID { id: 0 },
+            root_constants: HashSet::new(),
             cfg_last_calc: HashMap::new(),
         };
-        wm.const_zero_id = wm.add_const_usize(0);
-        wm.const_one_id = wm.add_const_usize(1);
+        wm.const_zero_id = wm.add_root_const_usize(0);
+        wm.const_one_id = wm.add_root_const_usize(1);
         RwLock::new(wm)
     }
 
@@ -216,11 +224,30 @@ impl WeightMap {
         self.cfg_last_calc.insert(*cfg_id, Some(Instant::now()));
     }
 
-    pub fn add_const_usize(&mut self, v: usize) -> WeightID {
-        let const_val = Integer::from(v);
-        let mut hasher = DefaultHasher::new();
-        const_val.hash(&mut hasher);
-        let wid = WeightID::new(hasher.finish());
+    pub fn add_root_const_digits<T: UnsignedPrimitive>(
+        &mut self,
+        v: &[T],
+        order: Order,
+    ) -> WeightID {
+        let (const_val, wid) = digits_to_integer_wid(v, order);
+        self.root_constants.insert(wid);
+        if !self.wmap.contains_key(&wid) {
+            let weight = Weight::new_const(wid);
+            self.wmap.insert(wid, weight);
+        }
+        if !self.cmap.contains_key(&wid) {
+            self.cmap.insert(wid, const_val.to_owned());
+        }
+        wid
+    }
+
+    /// Adds the constant value [v] to the weight map.
+    /// Note: The value added here will NOT be deleted when the
+    /// constant map is cleared. It is considered a root value from which all
+    /// expressions can be calculated.
+    pub fn add_root_const_usize(&mut self, v: usize) -> WeightID {
+        let (const_val, wid) = u128_to_integer_wid(v as u128);
+        self.root_constants.insert(wid);
         if !self.wmap.contains_key(&wid) {
             let weight = Weight::new_const(wid);
             self.wmap.insert(wid, weight);
@@ -245,6 +272,7 @@ impl WeightMap {
         wid
     }
 
+    /// Evaluate the weight if it is not in the constant map.
     fn touch_const(&mut self, wid: &WeightID) {
         if self.cmap.contains_key(wid) {
             return;
@@ -305,6 +333,20 @@ impl WeightMap {
         self.wmap.len()
     }
 
+    pub fn num_constants(&self) -> usize {
+        self.cmap.len()
+    }
+
+    /// Deletes all constant values from the map, except root constants.
+    pub fn clear_derived_constants(&mut self) {
+        self.cmap.retain(|wid, _| {
+            if self.root_constants.contains(wid) {
+                return true;
+            }
+            return false;
+        })
+    }
+
     /// Evaluates a weight recursively and returns it's constant value.
     fn eval_w(&mut self, weight: &Weight) -> &Integer {
         if weight.expr.operation == Operation::CONST {
@@ -352,6 +394,46 @@ impl WeightMap {
     pub fn contains_const(&self, wid: &WeightID) -> bool {
         self.wmap.contains_key(wid)
     }
+
+    /// Returns the weight id of the given number if it is in the map.
+    pub fn get_wid_of_u128(&self, n: u128) -> Option<WeightID> {
+        let (_, wid) = u128_to_integer_wid(n);
+        if self.wmap.get(&wid).is_some() {
+            return Some(wid);
+        }
+        return None;
+    }
+
+    /// Returns the weight id of the given digits if it is in the map.
+    pub fn get_wid_of_digits<T: UnsignedPrimitive>(
+        &self,
+        v: &[T],
+        order: Order,
+    ) -> Option<WeightID> {
+        let (_, wid) = digits_to_integer_wid(v, order);
+        if self.wmap.get(&wid).is_some() {
+            return Some(wid);
+        }
+        return None;
+    }
+}
+
+/// PUBLICLY USABLE BY TESTING MODULE ONLY.
+pub fn digits_to_integer_wid<T: UnsignedPrimitive>(v: &[T], order: Order) -> (Integer, WeightID) {
+    let const_val = Integer::from_digits(v, order);
+    let mut hasher = DefaultHasher::new();
+    const_val.hash(&mut hasher);
+    let wid = WeightID::new(hasher.finish());
+    (const_val, wid)
+}
+
+/// PUBLICLY USABLE BY TESTING MODULE ONLY.
+pub fn u128_to_integer_wid(v: u128) -> (Integer, WeightID) {
+    let const_val = Integer::from(v);
+    let mut hasher = DefaultHasher::new();
+    const_val.hash(&mut hasher);
+    let wid = WeightID::new(hasher.finish());
+    (const_val, wid)
 }
 
 // /// Evaluates a weight recursively and returns it's constant value.
