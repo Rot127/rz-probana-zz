@@ -138,20 +138,25 @@ impl InsnNodeData {
         procedure_map: &ProcedureMap,
         wmap: &RwLock<WeightMap>,
     ) -> WeightID {
+        let const_one = &wmap.read().unwrap().get_one();
+        if self.itype.weight_type == InsnNodeWeightType::Return
+            || self.itype.weight_type == InsnNodeWeightType::Exit
+        {
+            return const_one.clone();
+        }
         let mut sum_succ_weights: WeightID = wmap.read().unwrap().get_zero();
-        for (target_id, target_weight) in iword_succ_weights.iter() {
-            if self.call_targets.contains(target_id)
-                || self.orig_jump_target.address == target_id.address
-                || self.orig_next.address == target_id.address
+        for (successor_nid, succ_weight) in iword_succ_weights.iter() {
+            if self.call_targets.contains(successor_nid)
+                || self.orig_jump_target.address == successor_nid.address
+                || self.orig_next.address == successor_nid.address
             {
-                if target_weight.is_none() {
+                if succ_weight.is_none() {
                     continue;
                 }
-                let tw = target_weight.unwrap();
-                sum_succ_weights = sum_succ_weights.add(&tw, wmap);
+                let sw = succ_weight.unwrap();
+                sum_succ_weights = sum_succ_weights.add(&sw, wmap);
             }
         }
-        let const_one = &wmap.read().unwrap().get_one();
         if sum_succ_weights == wmap.read().unwrap().get_zero()
             && self.itype.weight_type == InsnNodeWeightType::Normal
         {
@@ -164,8 +169,9 @@ impl InsnNodeData {
             return const_one.clone();
         }
         let weight = match self.itype.weight_type {
-            InsnNodeWeightType::Return => const_one.clone(),
-            InsnNodeWeightType::Exit => const_one.clone(),
+            InsnNodeWeightType::Return | InsnNodeWeightType::Exit => {
+                panic!("Should have been handled before.")
+            }
             InsnNodeWeightType::Normal => sum_succ_weights,
             InsnNodeWeightType::Call => {
                 // This sampling step breaks the promise of path insensitivity of the algorithm.
