@@ -252,12 +252,9 @@ mod tests {
         //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel, Config::NodeIndexLabel])
         // );
         cfg.make_acyclic(None);
-        // println!(
-        //     "Acyclic:\n{:?}",
-        //     Dot::with_config(&cfg.graph, &[Config::EdgeNoLabel])
-        // );
+        println!("Acyclic:\n{:?}", Dot::with_config(&cfg.graph, &[]));
         assert_eq!(cfg.graph.node_count(), 23);
-        assert_eq!(cfg.graph.edge_count(), 37);
+        assert_eq!(cfg.graph.edge_count(), 46);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
@@ -273,8 +270,17 @@ mod tests {
         assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 2, 1)));
         assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 11), NodeId::new(0, 3, 1)));
         assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 11), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 11), NodeId::new(0, 1, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 11), NodeId::new(0, 2, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 1, 11), NodeId::new(0, 3, 1)));
         assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 11), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 11), NodeId::new(0, 1, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 11), NodeId::new(0, 2, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 2, 11), NodeId::new(0, 3, 1)));
         assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 11), NodeId::new(0, 0, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 11), NodeId::new(0, 1, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 11), NodeId::new(0, 2, 1)));
+        assert!(cfg.graph.contains_edge(NodeId::new(0, 3, 11), NodeId::new(0, 3, 1)));
 
         assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 10), NodeId::new(0, 1, 11)));
         assert!(cfg.graph.contains_edge(NodeId::new(0, 0, 10), NodeId::new(0, 2, 11)));
@@ -370,6 +376,8 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
         cfg.make_acyclic(None);
+        println!("{:?}", cfg.get_sccs());
+        println!("{:?}", Dot::with_config(&cfg.get_graph(), &[]));
         assert_eq!(cfg.graph.edge_count(), 3);
         assert_eq!(cfg.graph.node_count(), 4);
         assert_eq!(cfg.nodes_meta.len(), 4);
@@ -455,9 +463,8 @@ mod tests {
         assert_eq!(cfg.graph.node_count(), 3);
         assert_eq!(cfg.nodes_meta.len(), 3);
         cfg.make_acyclic(None);
-        assert_eq!(cfg.graph.edge_count(), 11);
-        assert_eq!(cfg.graph.node_count(), 6);
-        assert_eq!(cfg.nodes_meta.len(), 6);
+        println!("{:?}", cfg.get_sccs());
+        println!("{:?}", Dot::with_config(&cfg.get_graph(), &[]));
         assert_eq!(cfg.graph.edge_count(), 11);
         assert_eq!(cfg.graph.node_count(), 6);
         assert_eq!(cfg.nodes_meta.len(), 6);

@@ -26,6 +26,10 @@ pub struct ICFG {
     topograph: Vec<NodeId>,
     /// Number of node duplications for loop resolvement
     dup_cnt: usize,
+    /// SCC map. Mapping NodeId to it's SCC member.
+    scc_members: HashMap<NodeId, usize>,
+    /// The strongly connected compononets of the cyclical graph
+    sccs: Vec<Vec<NodeId>>,
 }
 
 impl ICFG {
@@ -35,6 +39,8 @@ impl ICFG {
             procedures: ProcedureMap::new(),
             topograph: Vec::new(),
             dup_cnt: 3,
+            scc_members: HashMap::new(),
+            sccs: Vec::new(),
         }
     }
 
@@ -44,6 +50,8 @@ impl ICFG {
             procedures: ProcedureMap::new(),
             topograph: Vec::new(),
             dup_cnt: 3,
+            scc_members: HashMap::new(),
+            sccs: Vec::new(),
         }
     }
 
@@ -342,6 +350,7 @@ impl FlowGraphOperations for ICFG {
 
     fn remove_edge(&mut self, from: &NodeId, to: &NodeId) {
         self.get_graph_mut().remove_edge(*from, *to);
+        // Delete call targets
         self.get_procedure(from)
             .write()
             .unwrap()
@@ -441,5 +450,44 @@ impl FlowGraphOperations for ICFG {
             .get_cfg_mut()
             .get_entry_weight_id(proc_map, wmap)
             .unwrap()
+    }
+
+    fn clear_scc_member_map(&mut self) {
+        self.scc_members.clear();
+    }
+
+    fn set_scc_membership(&mut self, nid: &NodeId, scc_idx: usize) {
+        self.scc_members.insert(*nid, scc_idx);
+    }
+
+    fn share_scc_membership(&self, nid_a: &NodeId, nid_b: &NodeId) -> bool {
+        self.scc_members
+            .get(nid_a)
+            .expect("nid_a should be in member list")
+            == self
+                .scc_members
+                .get(nid_b)
+                .expect("nid_b should be in member list")
+    }
+
+    fn get_scc_idx(&self, nid: &NodeId) -> &usize {
+        self.scc_members
+            .get(nid)
+            .expect("nid should be in member list.")
+    }
+
+    fn push_scc(&mut self, scc: Vec<NodeId>) {
+        self.sccs.push(scc);
+    }
+
+    fn scc_size_of(&self, nid: &NodeId) -> usize {
+        self.sccs
+            .get(*self.get_scc_idx(nid))
+            .expect("Should be in boundary")
+            .len()
+    }
+
+    fn get_sccs(&self) -> &Vec<Vec<NodeId>> {
+        &self.sccs
     }
 }

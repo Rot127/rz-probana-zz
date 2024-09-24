@@ -685,6 +685,10 @@ pub struct CFG {
     entry: NodeId,
     /// Number of node duplications for loop resolvement
     dup_cnt: usize,
+    /// SCC map. Mapping NodeId to it's SCC member.
+    scc_members: HashMap<NodeId, usize>,
+    /// The strongly connected compononets of the cyclical graph
+    sccs: Vec<Vec<NodeId>>,
 }
 
 impl std::fmt::Display for CFG {
@@ -707,6 +711,8 @@ impl CFG {
             discovered_exits: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
+            scc_members: HashMap::new(),
+            sccs: Vec::new(),
         }
     }
 
@@ -718,6 +724,8 @@ impl CFG {
             discovered_exits: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
+            scc_members: HashMap::new(),
+            sccs: Vec::new(),
         }
     }
 
@@ -756,6 +764,8 @@ impl CFG {
             topograph: self.topograph.clone(),
             entry: self.entry.get_clone(icfg_clone_id, -1),
             dup_cnt: self.dup_cnt.clone(),
+            scc_members: self.scc_members.clone(),
+            sccs: self.sccs.clone(),
         };
 
         // Lastly update the graph nodes.
@@ -1030,7 +1040,8 @@ impl FlowGraphOperations for CFG {
             let mut succ_weights: NodeWeightIDRefMap = HashMap::new();
             for neigh in graph.neighbors_directed(curr_nid, Outgoing) {
                 assert!(
-                    nodes_data.get(&neigh).is_some(),
+                    nodes_data.get(&neigh).is_some()
+                        && nodes_data.get(&neigh).unwrap().weight_id.is_some(),
                     "The weight should be calculated at this point."
                 );
                 succ_weights.insert(neigh, &nodes_data.get(&neigh).unwrap().weight_id);
@@ -1061,10 +1072,7 @@ impl FlowGraphOperations for CFG {
                     "The node {} as an invalid weight, although we just calculated it.",
                     nid
                 );
-                return self
-                    .get_node_weight_id(nid)
-                    .expect("Logic error: Weight was just calculated")
-                    .clone();
+                return self.get_node_weight_id(nid).unwrap().clone();
             }
             // If not, go a level higher in the tree
             done.insert(curr_nid);
@@ -1072,6 +1080,46 @@ impl FlowGraphOperations for CFG {
                 .pop_back()
                 .expect("Logic error: There is no parent, but there should be");
         }
+    }
+
+    fn clear_scc_member_map(&mut self) {
+        self.scc_members.clear();
+        self.sccs.clear();
+    }
+
+    fn set_scc_membership(&mut self, nid: &NodeId, scc_idx: usize) {
+        self.scc_members.insert(*nid, scc_idx);
+    }
+
+    fn share_scc_membership(&self, nid_a: &NodeId, nid_b: &NodeId) -> bool {
+        self.scc_members
+            .get(nid_a)
+            .expect("nid_a should be in member list")
+            == self
+                .scc_members
+                .get(nid_b)
+                .expect("nid_b should be in member list")
+    }
+
+    fn get_scc_idx(&self, nid: &NodeId) -> &usize {
+        self.scc_members
+            .get(nid)
+            .expect("nid should be in member list.")
+    }
+
+    fn push_scc(&mut self, scc: Vec<NodeId>) {
+        self.sccs.push(scc);
+    }
+
+    fn scc_size_of(&self, nid: &NodeId) -> usize {
+        self.sccs
+            .get(*self.get_scc_idx(nid))
+            .expect("Should be in boundary")
+            .len()
+    }
+
+    fn get_sccs(&self) -> &Vec<Vec<NodeId>> {
+        &self.sccs
     }
 }
 
@@ -1140,7 +1188,9 @@ impl Procedure {
             return;
         }
         match edge_flow {
-            EdgeFlow::OutsiderFixedFrom => {
+            EdgeFlow::OutsiderLooseFrom
+            | EdgeFlow::OutsiderLooseTo
+            | EdgeFlow::OutsiderFixedFrom => {
                 self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|insn| {
                     if insn.call_targets.contains_any_variant_of(to_nid) {
                         insn.call_targets.insert(to_nid.clone());

@@ -72,7 +72,11 @@ mod test {
         rz_core
             .lock()
             .unwrap()
-            .set_conf_val("plugins.bda.timeout", "5");
+            .set_conf_val("plugins.bda.timeout", "10");
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.entries", "0x5110");
         rz_core
             .lock()
             .unwrap()

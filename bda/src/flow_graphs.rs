@@ -357,17 +357,29 @@ impl NodeIdSet {
 
 /// Categories of edges for cycle removement by cloning
 /// strongly connected components.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum EdgeFlow {
-    /// Into a strongly connected component.
+    /// Edge into a strongly connected component.
     /// The From node is outside of the SCC and should not be cloned.
+    /// The outsider node is also a SCC of size one.
     OutsiderFixedFrom,
-    /// Out of a strongly connected component.
+    /// Edge out of a strongly connected component.
     /// The To node is outside of the SCC and should not be cloned.
+    /// The outsider node is also a SCC of size one.
     OutsiderFixedTo,
-    /// A back edge in a graph.
+    /// Edge into a strongly connected component.
+    /// The From node is outside of the SCC.
+    /// The outsider node is also part of another SCC of size > 1.
+    /// The From node will be cloned.
+    OutsiderLooseFrom,
+    /// Edge out of a strongly connected component.
+    /// The To node is outside of the SCC.
+    /// The outsider node is also part of another SCC of size > 1.
+    /// The To node will be cloned.
+    OutsiderLooseTo,
+    /// A back edge within the SCC (from.address >= to.address).
     BackEdge,
-    /// A normal edge.
+    /// A forward edge within the SCC (from.address < to.address).
     ForwardEdge,
 }
 
@@ -376,6 +388,8 @@ impl std::fmt::Display for EdgeFlow {
         match self {
             EdgeFlow::OutsiderFixedFrom => write!(f, "OutsiderFixedFrom"),
             EdgeFlow::OutsiderFixedTo => write!(f, "OutsiderFixedTo"),
+            EdgeFlow::OutsiderLooseFrom => write!(f, "OutsiderLooseFrom"),
+            EdgeFlow::OutsiderLooseTo => write!(f, "OutsiderLooseTo"),
             EdgeFlow::BackEdge => write!(f, "BackEdge"),
             EdgeFlow::ForwardEdge => write!(f, "ForwardEdge"),
         }
@@ -409,14 +423,33 @@ pub trait FlowGraphOperations {
     /// Returns the next (incremented) clone of [id] by returning a copy of [id].
     fn get_next_node_id_clone(increment: i32, nid: NodeId) -> NodeId;
 
+    fn product_dup_bound(dup_bound: i32) -> Vec<(i32, i32)> {
+        let mut prod = Vec::<(i32, i32)>::new();
+        for j in 0..=dup_bound {
+            for i in 0..=dup_bound {
+                prod.push((i, j));
+            }
+        }
+        prod
+    }
+
     /// Adds clones of an edge to the graph of [self].
     /// The edge [from] -> [to] is duplicated [dup_bound] times.
     /// It depends on [flow] how the edge is cloned.
-    /// For edges within the SCC, [from] and [to] are duplicated and the original edge is removed.
-    fn add_clones_to_graph(&mut self, from: &NodeId, to: &NodeId, flow: &EdgeFlow, dup_bound: u32) {
+    ///
+    /// - Edges within the SCC: are cloned [dup_bound] times.
+    /// - Edges reaching outside to/from a fixed node: are cloned [dup_bound] times.
+    /// - Edges reaching outside to/from a loose node: are cloned [dup_bound] x [dup_bound] times.
+    ///   Each of clone (0..=dup_bound) to the targeted (0..=dup_bound) clones.
+    fn add_clones_to_graph(&mut self, from: &NodeId, to: &NodeId, flow: &EdgeFlow, dup_bound: i32) {
         let mut new_edge: (NodeId, NodeId);
-        for i in 0..=dup_bound {
-            let i = i as i32;
+        for (i, j) in Self::product_dup_bound(dup_bound) {
+            if j > 0 && (*flow != EdgeFlow::OutsiderLooseFrom && *flow != EdgeFlow::OutsiderLooseTo)
+            {
+                // Done for them.
+                break;
+            }
+            println!("{} -> ({}, {})", flow, i, j);
             new_edge = match flow {
                 EdgeFlow::OutsiderFixedFrom => (*from, Self::get_next_node_id_clone(i, *to)),
                 EdgeFlow::OutsiderFixedTo => (Self::get_next_node_id_clone(i, *from), *to),
@@ -428,8 +461,12 @@ pub trait FlowGraphOperations {
                     Self::get_next_node_id_clone(i, *from),
                     Self::get_next_node_id_clone(i, *to),
                 ),
+                EdgeFlow::OutsiderLooseFrom | EdgeFlow::OutsiderLooseTo => (
+                    Self::get_next_node_id_clone(i, *from),
+                    Self::get_next_node_id_clone(j, *to),
+                ),
             };
-            if flow == &EdgeFlow::BackEdge && i == dup_bound as i32 {
+            if *flow == EdgeFlow::BackEdge && i == dup_bound {
                 self.handle_last_clone(&new_edge.0, &new_edge.1);
                 break;
             }
@@ -478,44 +515,70 @@ pub trait FlowGraphOperations {
     ///
     /// [scc_edges] must contain all edges into, out of and within the SCC.
     /// [scc] must contain all nodes within the SCC.
-    fn clone_nodes(&mut self, scc: &Vec<NodeId>, scc_edges: &HashSet<(NodeId, NodeId)>) {
-        for (from, to) in scc_edges {
-            if !scc.contains(&from) {
-                // Edge into the SCC
-                self.add_clones_to_graph(
-                    &from,
-                    &to,
-                    &EdgeFlow::OutsiderFixedFrom,
-                    self.get_node_dup_count() as u32,
-                );
-            } else if !scc.contains(&to) {
-                // Edge out of the SCC
-                self.add_clones_to_graph(
-                    &from,
-                    &to,
-                    &EdgeFlow::OutsiderFixedTo,
-                    self.get_node_dup_count() as u32,
-                );
-            } else if self.is_back_edge(&from, &to) {
-                // Back edge. remove the original and connect it to the clone
-                self.add_clones_to_graph(
-                    &from,
-                    &to,
-                    &EdgeFlow::BackEdge,
-                    self.get_node_dup_count() as u32,
-                );
-                self.remove_edge(from, to);
-                if Self::check_self_ref_hold(scc_edges, from, to) {
-                    self.mark_exit_node(to);
+    fn clone_nodes(&mut self, sccs_edge_flows: Vec<HashSet<((NodeId, NodeId), EdgeFlow)>>) {
+        let dup_bound = self.get_node_dup_count() as i32;
+        for scc_flows in sccs_edge_flows {
+            for ((from, to), flow) in scc_flows {
+                self.add_clones_to_graph(&from, &to, &flow, dup_bound);
+                if flow != EdgeFlow::BackEdge {
+                    continue;
                 }
-            } else {
-                self.add_clones_to_graph(
-                    &from,
-                    &to,
-                    &EdgeFlow::ForwardEdge,
-                    self.get_node_dup_count() as u32,
-                );
+                // Back edge: remove the original. Check if last node
+                self.remove_edge(&from, &to);
             }
+        }
+    }
+
+    fn clear_scc_member_map(&mut self);
+
+    fn set_scc_membership(&mut self, nid: &NodeId, scc_idx: usize);
+
+    fn share_scc_membership(&self, nid_a: &NodeId, nid_b: &NodeId) -> bool;
+
+    fn get_scc_idx(&self, nid: &NodeId) -> &usize;
+
+    fn push_scc(&mut self, scc: Vec<NodeId>);
+
+    fn scc_size_of(&self, nid: &NodeId) -> usize;
+
+    fn get_sccs(&self) -> &Vec<Vec<NodeId>>;
+
+    fn get_scc_edge_flow(&self, from: &NodeId, to: &NodeId, center: &NodeId) -> EdgeFlow {
+        assert!(from == center || to == center);
+        if self.share_scc_membership(from, to) {
+            return if from.address < to.address {
+                EdgeFlow::ForwardEdge
+            } else {
+                EdgeFlow::BackEdge
+            };
+        }
+        let from_scc_size = self.scc_size_of(from);
+        let to_scc_size = self.scc_size_of(to);
+        if center == from {
+            // Outgoing edge.
+            return if to_scc_size > 1 {
+                EdgeFlow::OutsiderLooseTo
+            } else {
+                EdgeFlow::OutsiderFixedTo
+            };
+        }
+        // Incoming edge
+        return if from_scc_size > 1 {
+            EdgeFlow::OutsiderLooseFrom
+        } else {
+            EdgeFlow::OutsiderFixedFrom
+        };
+    }
+
+    /// Moves the SCCs into a hashmap which maps NodeId -> SCC index.
+    /// The SCC member map is cleaned before.
+    fn fill_scc_map(&mut self, sccs: Vec<Vec<NodeId>>) {
+        self.clear_scc_member_map();
+        for (scc_idx, scc) in sccs.into_iter().enumerate() {
+            for nid in scc.iter() {
+                self.set_scc_membership(&nid, scc_idx);
+            }
+            self.push_scc(scc);
         }
     }
 
@@ -530,70 +593,64 @@ pub trait FlowGraphOperations {
     fn make_acyclic(&mut self, spinner_text: Option<String>) {
         // Strongly connected components
         let sccs = kosaraju_scc(self.get_graph());
-        // The SCC and Edges from, to and within the SCC
-        let mut scc_groups: Vec<(Vec<NodeId>, HashSet<(NodeId, NodeId)>)> = Vec::new();
-        let mut spinner = Spinner::new(if spinner_text.is_some() {
-            spinner_text.clone().unwrap()
-        } else {
-            "".to_owned()
-        });
+        self.fill_scc_map(sccs);
+        // The SCC edges, each vector element contains the edges from a single SCC: from, to and within it.
+        let mut sccs_edge_flows: Vec<HashSet<((NodeId, NodeId), EdgeFlow)>> = Vec::new();
 
         // SCCs are in reverse topological order. The nodes in each SCC are arbitrary
-        for scc in sccs {
-            if spinner_text.is_some() {
-                spinner.update(None);
-            }
-            let mut edges: HashSet<(NodeId, NodeId)> = HashSet::new();
+        for scc in self.get_sccs() {
+            let mut edge_flows: HashSet<((NodeId, NodeId), EdgeFlow)> = HashSet::new();
             if scc.len() == 1 {
-                // Only add edges if they self refernce the node
-                let node = match scc.get(0) {
-                    Some(n) => n,
-                    None => panic!("Race condition? Vector size changed inbetween."),
-                };
-                for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
-                    if incomming == *node {
-                        edges.insert((incomming, *node));
+                // Normally SCCs with one node won't be duplicated. Except they have a self-referencing edge.
+                // Because this edge is a loop.
+                let node = scc.get(0).unwrap();
+                let mut self_ref = false;
+                for incoming in self.get_graph().neighbors_directed(*node, Incoming) {
+                    if incoming == *node {
+                        // Continue with edge cloning.
+                        self_ref = true;
+                        break;
                     }
                 }
-                if edges.is_empty() {
-                    // Not a self referencing SCC
+                if !self_ref {
+                    // Single node SCC without a self referencing edge.
+                    // No edges to clone for this one.
                     continue;
                 }
             }
             // Accumulate all edges of an SCC
             for node in scc.iter() {
-                for incomming in self.get_graph().neighbors_directed(*node, Incoming) {
-                    edges.insert((incomming, *node));
+                for incoming in self.get_graph().neighbors_directed(*node, Incoming) {
+                    edge_flows.insert((
+                        (incoming, *node),
+                        self.get_scc_edge_flow(&incoming, node, node),
+                    ));
                 }
                 for outgoing in self.get_graph().neighbors_directed(*node, Outgoing) {
-                    edges.insert((*node, outgoing));
+                    edge_flows.insert((
+                        (*node, outgoing),
+                        self.get_scc_edge_flow(node, &outgoing, node),
+                    ));
                 }
             }
-            scc_groups.push((scc, edges));
+            sccs_edge_flows.push(edge_flows);
         }
+        println!("{:?}", sccs_edge_flows);
         // WITHIN a SCC:
         // Remove any edge which points to the previous clone (smaller clone id).
         // These are back-edges, which have been already resolved, and should not be added again.
         // They are not detected as back-edges in `clone_nodes`, but as Outsider edges
         // (due to the different clone id). Due to this, they remain in the graph
         // and produce a loop.
-        for (_, edges) in scc_groups.iter_mut() {
-            edges.retain(|(f, t)| {
+        for edge_flows in sccs_edge_flows.iter_mut() {
+            edge_flows.retain(|((f, t), _)| {
                 f.icfg_clone_id >= t.icfg_clone_id && f.cfg_clone_id >= t.cfg_clone_id
             })
         }
         // Resolve loops for each SCC
-        for (scc, scc_edges) in scc_groups {
-            if scc_edges.is_empty() {
-                continue;
-            }
-            self.clone_nodes(&scc, &scc_edges);
-        }
+        self.clone_nodes(sccs_edge_flows);
         self.clean_up_acyclic();
         self.sort();
-        if spinner_text.is_some() {
-            spinner.done(spinner_text.clone().unwrap());
-        }
     }
 
     /// Specific clean up tasks after making the graph acyclic.
@@ -623,7 +680,7 @@ pub trait FlowGraphOperations {
 
     fn get_graph(&self) -> &FlowGraph;
 
-    /// Marks the node with [nid] as an Exit node (if applicable).
+    /// Marks the last cloned node with [nid] as an Exit node (if applicable).
     fn mark_exit_node(&mut self, _nid: &NodeId) {}
 
     fn get_name(&self) -> String;
