@@ -42,7 +42,7 @@ use binding::{
 };
 use num_bigint::{BigInt, ToBigUint};
 
-use crate::interpreter::{AbstrVM, AbstrVal, Address, Const};
+use crate::interpreter::{AbstrVM, AbstrVal, Address, Const, TaintFlag};
 
 pub const IL_OP_VAR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_VAR;
 pub const IL_OP_ITE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ITE;
@@ -145,13 +145,13 @@ macro_rules! check_effect_success {
 
 fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
     let v = AbstrVal::new_global(vm.get_pc_ic(), Const::get_false(), None, vm.get_pc());
-    vm.set_taint_flag(&v, false);
+    vm.set_taint_flag(&v, TaintFlag::Unset);
     Some(v)
 }
 
 fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
     let v = AbstrVal::new_global(vm.get_pc_ic(), Const::get_true(), None, vm.get_pc());
-    vm.set_taint_flag(&v, false);
+    vm.set_taint_flag(&v, TaintFlag::Unset);
     Some(v)
 }
 
@@ -160,7 +160,7 @@ fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     let bv = unsafe { pderef!(op).op.bitv.value };
     let (num, bits) = bv_to_int(bv);
     let v = AbstrVal::new_global(vm.get_pc_ic(), Const::new(num, bits), None, vm.get_pc());
-    vm.set_taint_flag(&v, false);
+    vm.set_taint_flag(&v, TaintFlag::Unset);
     Some(v)
 }
 
@@ -664,7 +664,7 @@ fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     check_pure_validity!(fill, None);
     let mut v3_const: Const;
     let v3: AbstrVal;
-    let mut tainted = false;
+    let mut tainted = TaintFlag::Unset;
     (v3_const, tainted) = v1
         .as_ref()
         .unwrap()
@@ -1032,12 +1032,12 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     // We assume for now a size of 8 bytes. Just as rz_il_mem_value_len() does.
     let size = 8;
     let (v, is_sampled) = vm.get_mem_val(&norm_k, size);
-    if is_sampled {
+    if is_sampled != TaintFlag::Unset {
         vm.set_taint_flag(&norm_k, is_sampled);
     }
-    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    let norm_t = key_t | vm.get_taint_flag(&norm_k);
     vm.set_taint_flag(&norm_k, norm_t);
-    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+    if norm_k.is_global() && vm.get_taint_flag(&norm_k).is_unset() {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, size as u64);
     }
     if norm_k.is_stack() {
@@ -1056,12 +1056,12 @@ fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal
     let norm_k = vm.normalize_val(key);
     vm.enqueue_mos(&norm_k);
     let (v, is_sampled) = vm.get_mem_val(&norm_k, n_bytes as usize);
-    if is_sampled {
+    if is_sampled.is_set() {
         vm.set_taint_flag(&norm_k, is_sampled);
     }
-    let norm_t = key_t || vm.get_taint_flag(&norm_k);
+    let norm_t = key_t | vm.get_taint_flag(&norm_k);
     vm.set_taint_flag(&norm_k, norm_t);
-    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+    if norm_k.is_global() && vm.get_taint_flag(&norm_k).is_unset() {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, n_bytes as u64);
     }
     if norm_k.is_stack() {
@@ -1093,12 +1093,12 @@ fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     let value = eval_pure(vm, unsafe { (*op).op.store.value });
     check_pure_validity!(value, false);
     let v = value.unwrap();
-    let norm_t = vm.get_taint_flag(&key) || vm.get_taint_flag(&v);
+    let norm_t = vm.get_taint_flag(&key) | vm.get_taint_flag(&v);
     let norm_k = &vm.normalize_val(key);
     vm.enqueue_mos(&norm_k);
     vm.set_mem_val(norm_k, v.clone());
     vm.set_taint_flag(&norm_k, norm_t);
-    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+    if norm_k.is_global() && vm.get_taint_flag(&norm_k).is_unset() {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, 8 as u64);
     }
     if norm_k.is_stack() {
@@ -1115,12 +1115,12 @@ fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     let value = eval_pure(vm, unsafe { (*op).op.storew.value });
     check_pure_validity!(value, false);
     let v = value.unwrap();
-    let norm_t = vm.get_taint_flag(&key) || vm.get_taint_flag(&v);
+    let norm_t = vm.get_taint_flag(&key) | vm.get_taint_flag(&v);
     let norm_k = &vm.normalize_val(key);
     vm.enqueue_mos(&norm_k);
     vm.set_mem_val(norm_k, v.clone());
     vm.set_taint_flag(&norm_k, norm_t);
-    if norm_k.is_global() && !vm.get_taint_flag(&norm_k) {
+    if norm_k.is_global() && !vm.get_taint_flag(&norm_k).is_unset() {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, 8 as u64);
     }
     if norm_k.is_stack() {
@@ -1162,8 +1162,8 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // There is the possibility that a jump to this address wasn't disovered yet.
     // Log it for later.
     let addr = jdst.get_as_addr() as Address;
-    if vm.get_taint_flag(jdst) {
-        // Tainted addresses rely on sampled values and are useless to us.
+    if vm.get_taint_flag(jdst).is_known() {
+        // Tainted addresses rely on sampled/unknown values and are useless to us.
         return true;
     }
     // Jump is pretty much ignored (because the path was already sampled).
@@ -1205,7 +1205,7 @@ fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
     let mut cond = eval_pure(vm, unsafe { (*op).op.repeat.condition });
     check_pure_validity!(cond, false);
-    if vm.get_taint_flag(cond.as_ref().unwrap()) {
+    if vm.get_taint_flag(cond.as_ref().unwrap()).is_known() {
         // Condition depends on some sampled value, so we iterate until the limit.
         for _ in (0..vm.get_limit_repeat()) {
             let body_success = eval_effect(vm, unsafe { (*op).op.repeat.data_eff });
@@ -1217,7 +1217,7 @@ fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
         while cond.as_ref().unwrap().is_false()
             && cond
                 .as_ref()
-                .is_some_and(|c| c.is_global() && vm.get_taint_flag(c))
+                .is_some_and(|c| c.is_global() && vm.get_taint_flag(c).is_unset())
         {
             let body_success = eval_effect(vm, unsafe { (*op).op.repeat.data_eff });
             check_effect_success!(body_success);

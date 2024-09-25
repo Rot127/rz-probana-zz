@@ -313,17 +313,17 @@ mod tests {
         assert_ne!(u_32_max.v(), 0xffffffffu64.to_bigint().unwrap());
 
         let (mut casted, mut tainted) = u_32_max.cast(64, AbstrVal::new_false());
-        assert!(!tainted);
+        assert!(tainted.is_unset());
         assert_eq!(casted.vu(), 0xffffffffu32.to_biguint().unwrap());
         assert_eq!(casted.v(), 0xffffffffu64.to_bigint().unwrap());
 
         (casted, tainted) = u_32_max.cast(64, AbstrVal::new_true());
-        assert!(!tainted);
+        assert!(tainted.is_unset());
         assert_eq!(casted.vu(), 0xffffffffffffffffu64.to_biguint().unwrap());
         assert_eq!(casted.v(), -1.to_bigint().unwrap());
 
         (casted, tainted) = u_32_max.cast(0, AbstrVal::new_false());
-        assert!(!tainted);
+        assert!(tainted.is_unset());
         assert_eq!(casted.vu(), 0x0u64.to_biguint().unwrap());
         assert_eq!(casted.v(), 0.to_bigint().unwrap());
 
@@ -333,7 +333,7 @@ mod tests {
         assert_ne!(u_16_half.v(), 0xffffu64.to_bigint().unwrap());
 
         (casted, tainted) = u_16_half.cast(64, AbstrVal::new_true());
-        assert!(!tainted);
+        assert!(tainted.is_unset());
         assert_eq!(casted.vu(), 0xffffffffffffffffu64.to_biguint().unwrap());
         assert_eq!(casted.v(), -1.to_bigint().unwrap());
 
@@ -341,7 +341,7 @@ mod tests {
         assert_eq!(u_16_pat.vu(), 0x1010u64.to_biguint().unwrap());
         assert_eq!(u_16_pat.v(), 0x1010u64.to_bigint().unwrap());
         (casted, tainted) = u_16_pat.cast(64, AbstrVal::new_true());
-        assert!(!tainted);
+        assert!(tainted.is_unset());
         assert_eq!(casted.vu(), 0xffffffffffff1010u64.to_biguint().unwrap());
         assert_eq!(
             casted.v(),
@@ -354,7 +354,7 @@ mod tests {
             64,
             AbstrVal::new_global(1, Const::new_u64(0xffff, 16), None, 0),
         );
-        assert!(tainted);
+        assert!(tainted.is_set());
     }
 
     #[test]

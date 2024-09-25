@@ -26,6 +26,49 @@ pub type Address = u64;
 
 const MAX_U64_ADDRESS: u64 = u64::MAX;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum TaintFlag {
+    /// The value was known during interpretation.
+    Unset,
+    /// The value is derived by sampling from a distribution.
+    Set,
+    /// The value was not set during interpretation.
+    /// It is not known if it is an allocated or not constant value.
+    Unknown,
+}
+
+impl TaintFlag {
+    pub fn is_known(&self) -> bool {
+        *self == TaintFlag::Unset
+    }
+
+    pub fn is_unset(&self) -> bool {
+        *self == TaintFlag::Unset
+    }
+
+    pub fn is_set(&self) -> bool {
+        *self == TaintFlag::Set
+    }
+
+    pub fn _is_unknown(&self) -> bool {
+        *self == TaintFlag::Unknown
+    }
+}
+
+impl std::ops::BitOr for TaintFlag {
+    type Output = TaintFlag;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        if self == TaintFlag::Set || rhs == TaintFlag::Set {
+            TaintFlag::Set
+        } else if self == TaintFlag::Unknown || rhs == TaintFlag::Unknown {
+            TaintFlag::Unknown
+        } else {
+            TaintFlag::Unset
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash)]
 pub struct Const {
     v: BigUint,
@@ -207,16 +250,16 @@ impl Const {
     /// - The [fill] bit was used
     /// AND
     /// - [fill] is not a global true or false value, and has been sampled.
-    pub fn cast(&self, len: u64, fill: AbstrVal) -> (Const, bool) {
+    pub(crate) fn cast(&self, len: u64, fill: AbstrVal) -> (Const, TaintFlag) {
         if len <= self.width() {
-            return (Const::new(self.v.clone(), len), false);
+            return (Const::new(self.v.clone(), len), TaintFlag::Unset);
         }
         let (fill_bit, tainted) = if fill.is_true() {
-            (true, false)
+            (true, TaintFlag::Unset)
         } else if fill.is_false() {
-            (false, false)
+            (false, TaintFlag::Unset)
         } else {
-            (rand::thread_rng().gen_bool(0.5), true)
+            (rand::thread_rng().gen_bool(0.5), TaintFlag::Set)
         };
         let mut v = self.v.clone();
         if len <= self.width() {
@@ -756,9 +799,9 @@ pub struct AbstrVM {
     /// MemStore map
     ms: HashMap<AbstrVal, AbstrVal>,
     /// MemTaint map
-    mt: HashMap<AbstrVal, bool>,
+    mt: HashMap<AbstrVal, TaintFlag>,
     /// RegTaint map. Techincally this stores all global variables.
-    rt: HashMap<String, bool>,
+    rt: HashMap<String, TaintFlag>,
     /// Path
     pa: IntrpPath,
     /// Entry point of the currerntly executed procedure.
@@ -1086,7 +1129,7 @@ impl AbstrVM {
                 true => {
                     stack_access_size = rsize;
                     let svar = AbstrVal::new_stack(1, Const::get_zero(rsize as u64), self.get_pc());
-                    self.set_taint_flag(&svar, false);
+                    self.set_taint_flag(&svar, TaintFlag::Unset);
                     svar
                 }
                 false => {
@@ -1095,7 +1138,7 @@ impl AbstrVM {
             };
             self.reg_sizes.insert(name.clone(), rsize as usize);
             self.gvars.insert(name.clone(), init_val);
-            self.rt.insert(name.to_owned(), false);
+            self.rt.insert(name.to_owned(), TaintFlag::Unset);
         }
         self.setup_initial_stack(stack_access_size as u64);
         true
@@ -1109,17 +1152,17 @@ impl AbstrVM {
     /// Calculates the result of an operation on one abstract value and the taint flag [^1]
     /// Returns the calculated result as abstract value and the taint flag.
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
-    pub fn calc_value_1(
+    pub(crate) fn calc_value_1(
         &mut self,
         op: AbstrOp1,
         v1: AbstrVal,
         sample_bool: bool,
-    ) -> (AbstrVal, bool) {
-        let tainted: bool;
+    ) -> (AbstrVal, TaintFlag) {
+        let tainted: TaintFlag;
         let v3: AbstrVal;
         if v1.m.class == MemRegionClass::Global {
             v3 = AbstrVal::new(v1.m.clone(), op(&v1.c), None);
-            tainted = false;
+            tainted = TaintFlag::Unset;
         } else {
             v3 = AbstrVal::new_global(
                 self.get_pc_ic(),
@@ -1131,7 +1174,7 @@ impl AbstrVM {
                 None,
                 self.get_pc(),
             );
-            tainted = true;
+            tainted = TaintFlag::Set;
         }
         (v3, tainted)
     }
@@ -1141,21 +1184,21 @@ impl AbstrVM {
     /// It assumes that [v1] and [v2] are of the same bit width and [op] produces a
     /// value of the same bit width.
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
-    pub fn calc_value_2(
+    pub(crate) fn calc_value_2(
         &mut self,
         op: AbstrOp2,
         v1: AbstrVal,
         v2: AbstrVal,
         sample_bool: bool,
-    ) -> (AbstrVal, bool) {
-        let tainted: bool;
+    ) -> (AbstrVal, TaintFlag) {
+        let tainted: TaintFlag;
         let v3: AbstrVal;
         if v1.m.class == MemRegionClass::Global {
             v3 = AbstrVal::new(v2.m.clone(), op(&v1.c, &v2.c), None);
-            tainted = false;
+            tainted = TaintFlag::Unset;
         } else if v2.m.class == MemRegionClass::Global {
             v3 = AbstrVal::new(v1.m.clone(), op(&v1.c, &v2.c), None);
-            tainted = false;
+            tainted = TaintFlag::Unset;
         } else {
             let pc = self.pc;
             let ic_pc = self.get_ic(pc);
@@ -1169,7 +1212,7 @@ impl AbstrVM {
                 None,
                 self.get_pc(),
             );
-            tainted = true;
+            tainted = TaintFlag::Set;
         }
         (v3, tainted)
     }
@@ -1194,7 +1237,7 @@ impl AbstrVM {
         v
     }
 
-    pub fn get_taint_flag(&mut self, v: &AbstrVal) -> bool {
+    pub(crate) fn get_taint_flag(&mut self, v: &AbstrVal) -> TaintFlag {
         if v.il_gvar.is_some() {
             if let Some(t) = self.rt.get(v.il_gvar.as_ref().unwrap()) {
                 return *t;
@@ -1203,16 +1246,18 @@ impl AbstrVM {
             }
         }
         if v.is_global() {
-            return false;
+            return TaintFlag::Unset;
         }
         if let Some(t) = self.mt.get(v) {
             *t
         } else {
-            panic!("Has no taint flag set for abstr. memory value {}", v)
+            // If there was not taint flag set, it means the path did not walked over
+            // the instruction setting it.
+            TaintFlag::Unknown
         }
     }
 
-    pub fn set_taint_flag(&mut self, v3: &AbstrVal, tainted: bool) {
+    pub(crate) fn set_taint_flag(&mut self, v3: &AbstrVal, tainted: TaintFlag) {
         if let Some(il_gvar) = v3.il_gvar.clone() {
             if let Some(_) = self.gvars.get(&il_gvar) {
                 self.rt.insert(il_gvar, tainted);
@@ -1233,17 +1278,17 @@ impl AbstrVM {
     /// from the memory mapped in Rizins IO.
     /// If [n_bytes] == 0, it panics as well.
     /// Returns the new Abstract value and if it was sampled.
-    pub fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, bool) {
+    pub(crate) fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, TaintFlag) {
         if let Some(v) = self.ms.get(key) {
             // println!("LOAD: AT: {} -> {}", key, v);
-            return (v.clone(), false);
+            return (v.clone(), TaintFlag::Unset);
         }
         if n_bytes == 0 {
             panic!("Cannot read 0 bytes for: {}", key);
         }
-        let mut is_sampled = false;
+        let mut is_sampled = TaintFlag::Unset;
         if !key.is_global() {
-            is_sampled = true;
+            is_sampled = TaintFlag::Set;
         }
         let gmem_val = Const::new_u64(
             self.read_io_at_u64(key.get_as_addr(), n_bytes),
@@ -1315,7 +1360,12 @@ impl AbstrVM {
         // println!("POP: {}", cf.as_ref().unwrap());
         self.proc_entry.pop();
         // println!("{:?}", self.proc_entry);
-        self.set_sp(cf.as_ref().unwrap().sp.clone());
+        self.set_sp(
+            cf.as_ref()
+                .expect("There should be a call frame")
+                .sp
+                .clone(),
+        );
         cf
     }
 
@@ -1430,10 +1480,9 @@ impl AbstrVM {
     }
 
     pub fn get_cur_entry(&self) -> u64 {
-        return *self
-            .proc_entry
-            .last()
-            .expect("No entry in list, PUSH and POP go out of sync");
+        return *self.proc_entry.last().expect(
+            format!("No entry in list, PUSH and POP go out of sync: {}", self.pc).as_str(),
+        );
     }
 
     fn is_max_addr(&self, to: u64) -> bool {
