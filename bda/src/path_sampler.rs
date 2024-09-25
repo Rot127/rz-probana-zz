@@ -205,8 +205,8 @@ fn select_branch(mut weights: VecDeque<WeightID>, wmap: &RwLock<WeightMap>) -> u
 }
 
 fn node_in_ranges(nid: &NodeId, addr_ranges: &Vec<(Address, Address)>) -> bool {
-    !addr_ranges.is_empty()
-        && addr_ranges
+    addr_ranges.is_empty()
+        || addr_ranges
             .iter()
             .any(|r| r.0 <= nid.address && nid.address <= r.1)
 }
