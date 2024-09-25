@@ -195,7 +195,10 @@ impl WeightMap {
                 .neighbors_directed(n, petgraph::Direction::Incoming)
             {
                 if !icfg.has_procedure(&incoming) || seen.contains(&incoming) {
-                    panic!("There should be no loops in the iCFG.");
+                    panic!(
+                        "There should be no loops in the iCFG. Loop: (incoming in seen) {} -> {:#?}",
+                        incoming, seen
+                    );
                 }
                 seen.insert(incoming);
                 todo.push(incoming);

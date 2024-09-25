@@ -9,7 +9,7 @@ use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
 
 use crate::{
     cfg::{InsnNodeWeightType, CFG},
-    flow_graphs::{Address, NodeId},
+    flow_graphs::{Address, NodeId, NodeIdSet},
     icfg::ICFG,
     weight::{WeightID, WeightMap},
 };
@@ -204,6 +204,32 @@ fn select_branch(mut weights: VecDeque<WeightID>, wmap: &RwLock<WeightMap>) -> u
     candidate
 }
 
+fn node_in_ranges(nid: &NodeId, addr_ranges: &Vec<(Address, Address)>) -> bool {
+    !addr_ranges.is_empty()
+        && addr_ranges
+            .iter()
+            .any(|r| r.0 <= nid.address && nid.address <= r.1)
+}
+
+fn filter_call_targets(
+    cfg: &mut CFG,
+    cur: NodeId,
+    addr_ranges: &Vec<(Address, Address)>,
+) -> NodeIdSet {
+    let mut call_targets = NodeIdSet::new();
+    for i in cfg.nodes_meta.get(&cur).unwrap().insns.iter() {
+        if i.call_targets.is_empty() {
+            continue;
+        }
+        i.call_targets.iter().for_each(|ct| {
+            if node_in_ranges(ct, addr_ranges) {
+                call_targets.insert(ct.clone());
+            }
+        });
+    }
+    call_targets
+}
+
 fn sample_cfg_path(
     icfg: &ICFG,
     cfg: &mut CFG,
@@ -224,11 +250,7 @@ fn sample_cfg_path(
     let mut node_follows_call = false;
     let mut cur = start;
     loop {
-        if !addr_ranges.is_empty()
-            && addr_ranges
-                .iter()
-                .all(|r| cur.address < r.0 || r.1 < cur.address)
-        {
+        if !node_in_ranges(&cur, addr_ranges) {
             return;
         }
         let mut ninfo = PathNodeInfo {
@@ -250,22 +272,9 @@ fn sample_cfg_path(
             node_follows_call = true;
             // The instr. word has a call.
             // First visit these procedures and add it to the path
-            let call_targets = cfg
-                .nodes_meta
-                .get(&cur)
-                .unwrap()
-                .insns
-                .iter()
-                .filter_map(|i| {
-                    if !i.call_targets.is_empty() {
-                        Some(i.call_targets.clone())
-                    } else {
-                        None
-                    }
-                });
-            // Only works for iwords with a single call instructions
-            if let Some(cts) = call_targets.last() {
-                let ct = cts.sample();
+            let call_targets = filter_call_targets(cfg, cur, addr_ranges);
+            if !call_targets.is_empty() {
+                let ct = call_targets.sample();
                 if icfg.is_malloc(&ct) {
                     ninfo.calls_malloc = true;
                 }
@@ -347,6 +356,12 @@ pub fn sample_path(
         .write()
         .unwrap();
     entry_node = entry_proc.get_cfg().get_entry();
+    if !node_in_ranges(&entry_node, addr_ranges) {
+        panic!(
+            "Entry point {} outside of allowed ranges: {:?}",
+            entry_node, addr_ranges
+        );
+    }
     sample_cfg_path(
         icfg,
         entry_proc.get_cfg_mut(),
