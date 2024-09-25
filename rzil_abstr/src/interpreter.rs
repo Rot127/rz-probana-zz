@@ -841,7 +841,7 @@ impl AbstrVM {
     }
 
     pub fn add_call_xref(&mut self, proc_addr: Address, to: Address) {
-        if self.is_max_addr(to) {
+        if self.is_invalid_addr(to) {
             return;
         }
         self.calls_xref.insert(ConcreteCall {
@@ -1438,6 +1438,10 @@ impl AbstrVM {
 
     fn is_max_addr(&self, to: u64) -> bool {
         to == (u64::MAX >> 64 - self.pc_bit_width)
+    }
+
+    fn is_invalid_addr(&self, to: u64) -> bool {
+        self.is_max_addr(to) || to == 0x0
     }
 }
 
