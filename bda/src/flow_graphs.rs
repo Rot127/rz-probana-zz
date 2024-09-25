@@ -713,8 +713,4 @@ pub trait FlowGraphOperations {
             )
         );
     }
-
-    fn print_dot_graph(&self) {
-        petgraph_evcxr::draw_graph(self.get_graph(), self.get_name());
-    }
 }
