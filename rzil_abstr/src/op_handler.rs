@@ -1162,7 +1162,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // There is the possibility that a jump to this address wasn't disovered yet.
     // Log it for later.
     let addr = jdst.get_as_addr() as Address;
-    if vm.get_taint_flag(jdst).is_known() {
+    if !vm.get_taint_flag(jdst).is_known() {
         // Tainted addresses rely on sampled/unknown values and are useless to us.
         return true;
     }
