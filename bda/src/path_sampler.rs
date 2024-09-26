@@ -273,38 +273,31 @@ fn sample_cfg_path(
             // The instr. word has a call.
             // First visit these procedures and add it to the path
             let call_targets = filter_call_targets(cfg, cur, addr_ranges);
-            if call_targets.is_empty() {
-                ninfo.calls_unmapped = true;
+            ninfo.calls_malloc = call_targets.iter().any(|ct| icfg.is_malloc(ct));
+            ninfo.calls_input = call_targets.iter().any(|ct| icfg.is_input(ct));
+            ninfo.calls_unmapped = call_targets.iter().any(|ct| icfg.is_unmapped(ct));
+
+            if ninfo.calls_unmapped
+                || ninfo.calls_malloc
+                || ninfo.calls_input
+                || call_targets.is_empty()
+            {
+                // Either a dynamically linked procedure (without CFG)
+                // or a malloc/input call. We don't recurse in those.
                 path.push(cur, ninfo);
             } else {
+                // recurse into CFG to sample a new path.
+                path.push(cur, ninfo);
                 let ct = call_targets.sample();
-                if icfg.is_malloc(&ct) {
-                    ninfo.calls_malloc = true;
-                }
-                if icfg.is_input(&ct) {
-                    ninfo.calls_input = true;
-                }
-                if icfg.is_unmapped(&ct) {
-                    ninfo.calls_unmapped = true;
-                }
-
-                if ninfo.calls_unmapped || ninfo.calls_malloc || ninfo.calls_input {
-                    // Either a dynamically linked procedure (without CFG)
-                    // or a malloc/input call. We don't recurse in those.
-                    path.push(cur, ninfo);
-                } else {
-                    // recurse into CFG to sample a new path.
-                    path.push(cur, ninfo);
-                    sample_cfg_path(
-                        icfg,
-                        icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
-                        ct,
-                        path,
-                        i + 1,
-                        wmap,
-                        addr_ranges,
-                    );
-                }
+                sample_cfg_path(
+                    icfg,
+                    icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
+                    ct,
+                    path,
+                    i + 1,
+                    wmap,
+                    addr_ranges,
+                );
             }
         } else {
             path.push(cur, ninfo);

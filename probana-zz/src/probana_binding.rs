@@ -232,7 +232,7 @@ pub extern "C" fn rz_bda_init_core(core: *mut RzCore) -> bool {
                 str_to_c!("0x0-0xffffffffffffffff"),
                 Some(rz_set_bda_range),
             ),
-            str_to_c!("Comma separated list of address ranges to analyse."),
+            str_to_c!("Comma separated list of address ranges to analyse. Any instruction outside of the ranges, will be ignored by the path sampler."),
         );
         rz_config_node_desc(
             rz_config_set_cb(
