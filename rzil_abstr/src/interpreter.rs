@@ -367,6 +367,50 @@ pub struct IntrpPath {
     path: VecDeque<(Address, AddrInfo)>,
 }
 
+impl std::fmt::Display for IntrpPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Err(e) = write!(f, "[") {
+            return Err(e);
+        }
+        for (i, n) in self.path.iter().enumerate() {
+            if i != 0 {
+                if let Err(e) = write!(f, " -> ") {
+                    return Err(e);
+                }
+            }
+            if let Err(e) = write!(f, "{:#x}|", n.0) {
+                return Err(e);
+            }
+            if n.1.is_call {
+                if let Err(e) = write!(f, "c") {
+                    return Err(e);
+                }
+            }
+            if n.1.is_return_point {
+                if let Err(e) = write!(f, "r") {
+                    return Err(e);
+                }
+            }
+            if n.1.calls_malloc {
+                if let Err(e) = write!(f, "m") {
+                    return Err(e);
+                }
+            }
+            if n.1.calls_input {
+                if let Err(e) = write!(f, "i") {
+                    return Err(e);
+                }
+            }
+            if n.1.calls_unmapped {
+                if let Err(e) = write!(f, "u") {
+                    return Err(e);
+                }
+            }
+        }
+        write!(f, "]")
+    }
+}
+
 impl IntrpPath {
     pub fn new() -> IntrpPath {
         IntrpPath {
