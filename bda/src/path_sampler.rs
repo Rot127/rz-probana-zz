@@ -273,7 +273,10 @@ fn sample_cfg_path(
             // The instr. word has a call.
             // First visit these procedures and add it to the path
             let call_targets = filter_call_targets(cfg, cur, addr_ranges);
-            if !call_targets.is_empty() {
+            if call_targets.is_empty() {
+                ninfo.calls_unmapped = true;
+                path.push(cur, ninfo);
+            } else {
                 let ct = call_targets.sample();
                 if icfg.is_malloc(&ct) {
                     ninfo.calls_malloc = true;
@@ -302,8 +305,6 @@ fn sample_cfg_path(
                         addr_ranges,
                     );
                 }
-            } else {
-                path.push(cur, ninfo);
             }
         } else {
             path.push(cur, ninfo);
