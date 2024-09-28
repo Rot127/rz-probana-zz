@@ -1055,7 +1055,7 @@ impl AbstrVM {
         } else {
             return false;
         }
-        // println!("pc = {:#x} ({:?})", self.pc, self.insn_info);
+        // println!("pc = {:#x}", self.pc);
 
         *self.ic.entry(self.pc).or_default() += 1;
 
@@ -1080,14 +1080,14 @@ impl AbstrVM {
             self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             if dont_execute {
-                // Push dummy value which gets popped in the next instruction.
-                self.call_stack_push(0);
-                self.move_heap_val_into_ret_reg();
+                if self.insn_info.calls_malloc || self.insn_info.calls_input {
+                    self.move_heap_val_into_ret_reg();
+                }
                 result = true;
             } else if effect != std::ptr::null_mut() {
-                // Otherwise not implemented
                 result = eval_effect(self, effect);
             } else {
+                // Otherwise not implemented
                 result = true;
             }
             unsafe { rz_analysis_insn_word_free(iword) };
@@ -1096,13 +1096,14 @@ impl AbstrVM {
             self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
             if dont_execute {
-                self.call_stack_push(0);
-                self.move_heap_val_into_ret_reg();
+                if self.insn_info.calls_malloc || self.insn_info.calls_input {
+                    self.move_heap_val_into_ret_reg();
+                }
                 result = true;
             } else if effect != std::ptr::null_mut() {
-                // Otherwise not implemented
                 result = eval_effect(self, effect);
             } else {
+                // Otherwise not implemented
                 result = true;
             }
             unsafe { rz_analysis_op_free(ana_op.cast()) };

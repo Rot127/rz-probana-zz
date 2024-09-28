@@ -9,7 +9,7 @@ use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
 
 use crate::{
     cfg::{InsnNodeWeightType, CFG},
-    flow_graphs::{Address, NodeId, NodeIdSet},
+    flow_graphs::{Address, NodeId, NodeIdSet, INVALID_NODE_ID},
     icfg::ICFG,
     weight::{WeightID, WeightMap},
 };
@@ -266,38 +266,38 @@ fn sample_cfg_path(
 
         // println!("{}", format!("{}-> {}", " ".repeat(i), cur));
         if is_call(cfg, cur) {
-            // For indirect calls without an set address we do not recuse into it to sample a path.
             // Put we set the meta information for the path node (marking it as call).
             ninfo.is_call = true;
-            node_follows_call = true;
-            // The instr. word has a call.
-            // First visit these procedures and add it to the path
+
             let call_targets = filter_call_targets(cfg, cur, addr_ranges);
             ninfo.calls_malloc = call_targets.iter().any(|ct| icfg.is_malloc(ct));
             ninfo.calls_input = call_targets.iter().any(|ct| icfg.is_input(ct));
             ninfo.calls_unmapped = call_targets.iter().any(|ct| icfg.is_unmapped(ct));
 
-            if ninfo.calls_unmapped
-                || ninfo.calls_malloc
-                || ninfo.calls_input
-                || call_targets.is_empty()
-            {
+            if ninfo.calls_unmapped || ninfo.calls_malloc || ninfo.calls_input {
                 // Either a dynamically linked procedure (without CFG)
-                // or a malloc/input call. We don't recurse in those.
+                // a malloc/input call or indirect call with unknown addresses.
+                // We don't recurse in those.
                 path.push(cur, ninfo);
+                // These calls are effectively not followed.
+                // So the next instruction does not follow a semantic call.
+                node_follows_call = false;
             } else {
+                node_follows_call = true;
                 // recurse into CFG to sample a new path.
                 path.push(cur, ninfo);
                 let ct = call_targets.sample();
-                sample_cfg_path(
-                    icfg,
-                    icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
-                    ct,
-                    path,
-                    i + 1,
-                    wmap,
-                    addr_ranges,
-                );
+                if ct != INVALID_NODE_ID {
+                    sample_cfg_path(
+                        icfg,
+                        icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
+                        ct,
+                        path,
+                        i + 1,
+                        wmap,
+                        addr_ranges,
+                    );
+                }
             }
         } else {
             path.push(cur, ninfo);
