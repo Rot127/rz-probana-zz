@@ -1157,6 +1157,9 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
     let jdst = &dst.unwrap();
     if !jdst.is_global() {
+        if vm.pc_is_call() {
+            vm.call_stack_push(0);
+        }
         return true;
     }
     // There is the possibility that a jump to this address wasn't disovered yet.
@@ -1164,6 +1167,9 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     let addr = jdst.get_as_addr() as Address;
     if !vm.get_taint_flag(jdst).is_known() {
         // Tainted addresses rely on sampled/unknown values and are useless to us.
+        if vm.pc_is_call() {
+            vm.call_stack_push(addr); // Push dummy
+        }
         return true;
     }
     // Jump is pretty much ignored (because the path was already sampled).

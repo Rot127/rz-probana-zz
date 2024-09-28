@@ -1409,7 +1409,14 @@ impl AbstrVM {
         // println!("{:?}", self.proc_entry);
         self.set_sp(
             cf.as_ref()
-                .expect("There should be a call frame")
+                .expect(
+                    format!(
+                        "There should be a call frame. PC = {:#x} ic = {}",
+                        self.pc,
+                        self.ic.get(&self.pc).unwrap()
+                    )
+                    .as_str(),
+                )
                 .sp
                 .clone(),
         );
