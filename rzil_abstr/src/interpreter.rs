@@ -1051,70 +1051,6 @@ impl AbstrVM {
         }
     }
 
-    fn step(&mut self) -> bool {
-        if let Some((pc, addr_info)) = self.pa.next() {
-            self.pc = pc;
-            self.insn_info = addr_info;
-        } else {
-            return false;
-        }
-        // println!("pc = {:#x}", self.pc);
-
-        *self.ic.entry(self.pc).or_default() += 1;
-
-        if self.is_return_point() {
-            self.call_stack_pop();
-        }
-
-        let mut dont_execute = false;
-        // Not yet done for iwords. iwords must only skip the call part.
-        if self.insn_info.calls_malloc
-            || self.insn_info.calls_unmapped
-            || self.insn_info.calls_input
-        {
-            dont_execute = true;
-        }
-
-        let iword_decoder = unlocked_core!(self).get_iword_decoder();
-        let effect;
-        let result;
-        if iword_decoder.is_some() {
-            let iword = unlocked_core!(self).get_iword(self.pc);
-            self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
-            effect = pderef!(iword).il_op;
-            if dont_execute {
-                if self.insn_info.calls_malloc || self.insn_info.calls_input {
-                    self.move_heap_val_into_ret_reg();
-                }
-                result = true;
-            } else if effect != std::ptr::null_mut() {
-                result = eval_effect(self, effect);
-            } else {
-                // Otherwise not implemented
-                result = true;
-            }
-            unsafe { rz_analysis_insn_word_free(iword) };
-        } else {
-            let ana_op = unlocked_core!(self).get_analysis_op(self.pc);
-            self.is.insert(self.pc, pderef!(ana_op).size as u64);
-            effect = pderef!(ana_op).il_op;
-            if dont_execute {
-                if self.insn_info.calls_malloc || self.insn_info.calls_input {
-                    self.move_heap_val_into_ret_reg();
-                }
-                result = true;
-            } else if effect != std::ptr::null_mut() {
-                result = eval_effect(self, effect);
-            } else {
-                // Otherwise not implemented
-                result = true;
-            }
-            unsafe { rz_analysis_op_free(ana_op.cast()) };
-        }
-        self.lvars.clear();
-        result
-    }
-
     /// Initializes the register profile, register alias and their initial
     /// abstract values.
     /// Returns false if it fails.
@@ -1549,6 +1485,70 @@ impl AbstrVM {
 
     fn is_invalid_addr(&self, to: u64) -> bool {
         self.is_max_addr(to) || to == 0x0
+    }
+
+    fn step(&mut self) -> bool {
+        if let Some((pc, addr_info)) = self.pa.next() {
+            self.pc = pc;
+            self.insn_info = addr_info;
+        } else {
+            return false;
+        }
+        // println!("pc = {:#x}", self.pc);
+
+        *self.ic.entry(self.pc).or_default() += 1;
+
+        if self.is_return_point() {
+            self.call_stack_pop();
+        }
+
+        let mut dont_execute = false;
+        // Not yet done for iwords. iwords must only skip the call part.
+        if self.insn_info.calls_malloc
+            || self.insn_info.calls_unmapped
+            || self.insn_info.calls_input
+        {
+            dont_execute = true;
+        }
+
+        let iword_decoder = unlocked_core!(self).get_iword_decoder();
+        let effect;
+        let result;
+        if iword_decoder.is_some() {
+            let iword = unlocked_core!(self).get_iword(self.pc);
+            self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
+            effect = pderef!(iword).il_op;
+            if dont_execute {
+                if self.insn_info.calls_malloc || self.insn_info.calls_input {
+                    self.move_heap_val_into_ret_reg();
+                }
+                result = true;
+            } else if effect != std::ptr::null_mut() {
+                result = eval_effect(self, effect);
+            } else {
+                // Otherwise not implemented
+                result = true;
+            }
+            unsafe { rz_analysis_insn_word_free(iword) };
+        } else {
+            let ana_op = unlocked_core!(self).get_analysis_op(self.pc);
+            self.is.insert(self.pc, pderef!(ana_op).size as u64);
+            effect = pderef!(ana_op).il_op;
+            if dont_execute {
+                if self.insn_info.calls_malloc || self.insn_info.calls_input {
+                    self.move_heap_val_into_ret_reg();
+                }
+                result = true;
+            } else if effect != std::ptr::null_mut() {
+                result = eval_effect(self, effect);
+            } else {
+                // Otherwise not implemented
+                result = true;
+            }
+            unsafe { rz_analysis_op_free(ana_op.cast()) };
+        }
+        self.lvars.clear();
+        result
     }
 }
 
