@@ -890,10 +890,10 @@ impl AbstrVM {
     /// Creates a new abstract interpreter VM.
     /// It takes the initial programm counter [pc], the [path] to walk
     /// and the sampling function for generating random values for input values.
-    pub fn new(rz_core: GRzCore, pc: PC, path: IntrpPath) -> AbstrVM {
+    pub fn new(rz_core: GRzCore, entry: PC, path: IntrpPath) -> AbstrVM {
         let limit_repeat = rz_core.lock().unwrap().get_bda_max_iterations() as usize;
-        AbstrVM {
-            pc,
+        let mut vm = AbstrVM {
+            pc: entry,
             insn_info: NO_ADDR_INFO,
             pc_bit_width: 0,
             is: HashMap::new(),
@@ -913,10 +913,13 @@ impl AbstrVM {
             calls_xref: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
-            rz_core,
+            rz_core: rz_core.clone(),
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
             limit_repeat,
-        }
+        };
+        vm.proc_entry.push(entry);
+        vm.init_register_file(rz_core);
+        vm
     }
 
     pub fn get_limit_repeat(&self) -> usize {
@@ -1115,7 +1118,7 @@ impl AbstrVM {
     /// Initializes the register profile, register alias and their initial
     /// abstract values.
     /// Returns false if it fails.
-    fn init_register_file(&mut self, rz_core: GRzCore) -> bool {
+    fn init_register_file(&mut self, rz_core: GRzCore) {
         log_rz!(
             LOG_DEBUG,
             None,
@@ -1186,7 +1189,6 @@ impl AbstrVM {
             self.rt.insert(name.to_owned(), TaintFlag::Unset);
         }
         self.setup_initial_stack(stack_access_size as u64);
-        true
     }
 
     /// Gives the invocation count for a given instruction address.
@@ -1526,7 +1528,11 @@ impl AbstrVM {
 
     pub fn get_cur_entry(&self) -> u64 {
         return *self.proc_entry.last().expect(
-            format!("No entry in list, PUSH and POP go out of sync: {}", self.pc).as_str(),
+            format!(
+                "No entry point on stack, PUSH and POP go out of sync. PC = {:#x}",
+                self.pc
+            )
+            .as_str(),
         );
     }
 
@@ -1541,10 +1547,8 @@ impl AbstrVM {
 
 /// Interprets the given path with the given interpreter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
+    println!("{}", path);
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
-    if !vm.init_register_file(vm.get_rz_core().clone()) {
-        return;
-    }
 
     while vm.step() {}
 
