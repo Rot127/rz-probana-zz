@@ -38,7 +38,7 @@ pub(crate) enum TaintFlag {
 }
 
 impl TaintFlag {
-    pub fn is_known(&self) -> bool {
+    pub fn is_known_const(&self) -> bool {
         *self == TaintFlag::Unset
     }
 
@@ -1554,7 +1554,7 @@ impl AbstrVM {
 
 /// Interprets the given path with the given interpreter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
-    println!("{}", path);
+    // println!("{}", path);
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
 
     while vm.step() {}

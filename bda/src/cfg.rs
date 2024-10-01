@@ -890,7 +890,7 @@ impl CFG {
         let ninfo = self
             .nodes_meta
             .get_mut(nid)
-            .expect(&format!("{} has no information saved.", nid));
+            .expect(&format!("{} has no meta data entry.", nid));
         let mut call_set = false;
         for (j, insn) in ninfo.insns.iter_mut().enumerate() {
             if i >= 0 && i != j as isize {

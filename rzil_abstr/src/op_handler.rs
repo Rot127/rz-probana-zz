@@ -1165,7 +1165,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     // There is the possibility that a jump to this address wasn't disovered yet.
     // Log it for later.
     let addr = jdst.get_as_addr() as Address;
-    if !vm.get_taint_flag(jdst).is_known() {
+    if !vm.get_taint_flag(jdst).is_known_const() {
         // Tainted addresses rely on sampled/unknown values and are useless to us.
         if vm.pc_is_call() {
             vm.call_stack_push(addr); // Push dummy
@@ -1211,7 +1211,7 @@ fn rz_il_handler_repeat(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     null_check!(op);
     let mut cond = eval_pure(vm, unsafe { (*op).op.repeat.condition });
     check_pure_validity!(cond, false);
-    if vm.get_taint_flag(cond.as_ref().unwrap()).is_known() {
+    if vm.get_taint_flag(cond.as_ref().unwrap()).is_known_const() {
         // Condition depends on some sampled value, so we iterate until the limit.
         for _ in (0..vm.get_limit_repeat()) {
             let body_success = eval_effect(vm, unsafe { (*op).op.repeat.data_eff });
