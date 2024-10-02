@@ -449,10 +449,17 @@ impl IntrpPath {
     }
 }
 
-/// A concretely resolved indirect call.
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
+pub enum CodeXrefType {
+    IndirectCall,
+    IndirectJump,
+}
+
+/// A concretely resolved indirect call or jump.
 /// Those can be discovered, if only constant value were used to define the call target.
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
-pub struct ConcreteCall {
+pub struct ConcreteCodeXref {
+    xtype: CodeXrefType,
     /// The address of the procedure this call occurs.
     proc_addr: Address,
     /// The caller
@@ -461,13 +468,26 @@ pub struct ConcreteCall {
     to: Address,
 }
 
-impl ConcreteCall {
-    pub fn new(proc_addr: Address, from: Address, to: Address) -> Self {
+impl ConcreteCodeXref {
+    pub fn new(xtype: CodeXrefType, proc_addr: Address, from: Address, to: Address) -> Self {
         Self {
+            xtype,
             proc_addr,
             from,
             to,
         }
+    }
+
+    pub fn get_xtype(&self) -> CodeXrefType {
+        self.xtype
+    }
+
+    pub fn is_icall(&self) -> bool {
+        self.xtype == CodeXrefType::IndirectCall
+    }
+
+    pub fn is_ijump(&self) -> bool {
+        self.xtype == CodeXrefType::IndirectJump
     }
 
     pub fn get_proc_addr(&self) -> Address {
@@ -483,11 +503,11 @@ impl ConcreteCall {
     }
 }
 
-impl std::fmt::Display for ConcreteCall {
+impl std::fmt::Display for ConcreteCodeXref {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "icall {:#x} : {:#x} -> {:#x}",
+            "icodexref {:#x} : {:#x} -> {:#x}",
             self.proc_addr, self.from, self.to
         )
     }
@@ -811,7 +831,8 @@ type CallStack = Vec<CallFrame>;
 #[derive(Debug)]
 pub struct IntrpProducts {
     /// Indirect calls resolved during interpretation
-    pub concrete_calls: HashSet<ConcreteCall>,
+    pub concrete_calls: HashSet<ConcreteCodeXref>,
+    pub concrete_jumps: HashSet<ConcreteCodeXref>,
     pub mem_xrefs: HashSet<MemXref>,
     pub stack_xrefs: HashSet<StackXref>,
     pub mos: MemOpSeq,
@@ -821,6 +842,7 @@ impl IntrpProducts {
     pub fn new() -> IntrpProducts {
         IntrpProducts {
             concrete_calls: HashSet::new(),
+            concrete_jumps: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
             mos: MemOpSeq::new(),
@@ -866,8 +888,10 @@ pub struct AbstrVM {
     reg_roles: HashMap<RzRegisterId, String>,
     /// Register sizes in bits, indexed by name
     reg_sizes: HashMap<String, usize>,
+    /// Const value call targets
+    calls_xref: HashSet<ConcreteCodeXref>,
     /// Const value jump targets
-    calls_xref: HashSet<ConcreteCall>,
+    jumps_xref: HashSet<ConcreteCodeXref>,
     /// Const value memory values loaded or stored.
     mem_xrefs: HashSet<MemXref>,
     /// Stack references
@@ -915,6 +939,7 @@ impl AbstrVM {
             reg_roles: HashMap::new(),
             reg_sizes: HashMap::new(),
             calls_xref: HashSet::new(),
+            jumps_xref: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
             rz_core: rz_core.clone(),
@@ -949,7 +974,20 @@ impl AbstrVM {
         if self.is_invalid_addr(to) {
             return;
         }
-        self.calls_xref.insert(ConcreteCall {
+        self.calls_xref.insert(ConcreteCodeXref {
+            xtype: CodeXrefType::IndirectCall,
+            proc_addr,
+            from: self.pc,
+            to,
+        });
+    }
+
+    pub fn add_jump_xref(&mut self, proc_addr: Address, to: Address) {
+        if self.is_invalid_addr(to) {
+            return;
+        }
+        self.jumps_xref.insert(ConcreteCodeXref {
+            xtype: CodeXrefType::IndirectJump,
             proc_addr,
             from: self.pc,
             to,
@@ -1590,6 +1628,7 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
     // Replace with Channel and send/rcv
     let products = IntrpProducts {
         concrete_calls: vm.calls_xref.into(),
+        concrete_jumps: vm.jumps_xref.into(),
         mem_xrefs: vm.mem_xrefs.into(),
         stack_xrefs: vm.stack_xrefs.into(),
         mos: vm.mos.into(),

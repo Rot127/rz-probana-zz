@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rzil_abstr::interpreter::{ConcreteCall, MemOpSeq, MemXref, StackXref};
+use rzil_abstr::interpreter::{ConcreteCodeXref, MemOpSeq, MemXref, StackXref};
 
 use crate::weight::WeightMap;
 
@@ -77,8 +77,10 @@ pub struct BDAState {
     pub num_threads: usize,
     /// The weight map for every node in all graphs.
     weight_map: RwLock<WeightMap>,
-    /// Discovered icalls
-    pub calls: HashSet<ConcreteCall>,
+    /// Discovered indirect calls
+    pub calls: HashSet<ConcreteCodeXref>,
+    /// Discovered indirect jumps
+    pub jumps: HashSet<ConcreteCodeXref>,
     /// Discovered mem_xrefs
     pub mem_xrefs: HashSet<MemXref>,
     /// Discovered stacK_xrefs
@@ -97,6 +99,7 @@ impl BDAState {
             num_threads,
             weight_map: WeightMap::new(),
             calls: HashSet::new(),
+            jumps: HashSet::new(),
             mem_xrefs: HashSet::new(),
             stack_xrefs: HashSet::new(),
             mos: MemOpSeq::new(),
@@ -116,8 +119,12 @@ impl BDAState {
         &self.weight_map
     }
 
-    pub fn update_calls(&mut self, icalls: HashSet<ConcreteCall>) {
+    pub fn update_calls(&mut self, icalls: HashSet<ConcreteCodeXref>) {
         self.calls.extend(icalls);
+    }
+
+    pub fn update_jumps(&mut self, ijumps: HashSet<ConcreteCodeXref>) {
+        self.jumps.extend(ijumps);
     }
 
     pub fn update_mem_xrefs(&mut self, xrefs: HashSet<MemXref>) {

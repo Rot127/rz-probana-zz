@@ -34,6 +34,14 @@ pub enum InsnNodeWeightType {
     ///   W\[iaddr\] = W\[ret_addr\] × W\[callee\]
     ///
     Call,
+    /// A node which jumps to one or multiple nodes.
+    /// The jump target is sampled uniformally at random.
+    /// Its weight is defined as:
+    ///
+    ///   foreach s in addr.successors:
+    ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
+    ///
+    Jump,
     /// A return node. This is always a leaf and always has
     ///
     ///   W\[iaddr\] = 1
@@ -76,7 +84,7 @@ pub struct InsnNodeData {
     pub call_targets: NodeIdSet,
     /// Node this instruction jumps to.
     /// It always points to the original NodeId. It is not updated if a cloned edge is added.
-    pub orig_jump_target: NodeId,
+    pub orig_jump_targets: NodeIdSet,
     /// Follwing instruction address.
     /// It always points to the original NodeId. It is not updated if a cloned edge is added.
     pub orig_next: NodeId,
@@ -96,7 +104,7 @@ impl InsnNodeData {
             addr,
             itype: InsnNodeType::new(InsnNodeWeightType::Call, false),
             call_targets,
-            orig_jump_target: jump_target,
+            orig_jump_targets: NodeIdSet::from_nid(jump_target),
             orig_next: next,
             is_indirect_call,
         }
@@ -114,7 +122,7 @@ impl InsnNodeData {
             addr,
             itype,
             call_targets: NodeIdSet::from_nid(call_target),
-            orig_jump_target,
+            orig_jump_targets: NodeIdSet::from_nid(orig_jump_target),
             orig_next,
             is_indirect_call,
         }
@@ -125,7 +133,7 @@ impl InsnNodeData {
             addr: self.addr,
             itype: self.itype.clone(),
             call_targets: self.call_targets.get_clone(-1, 0),
-            orig_jump_target: self.orig_jump_target,
+            orig_jump_targets: self.orig_jump_targets.get_clone(-1, -1),
             orig_next: self.orig_next,
             is_indirect_call: self.is_indirect_call,
         }
@@ -147,7 +155,9 @@ impl InsnNodeData {
         let mut sum_succ_weights: WeightID = wmap.read().unwrap().get_zero();
         for (successor_nid, succ_weight) in iword_succ_weights.iter() {
             if self.call_targets.contains(successor_nid)
-                || self.orig_jump_target.address == successor_nid.address
+                || self
+                    .orig_jump_targets
+                    .contains(&successor_nid.get_orig_node_id())
                 || self.orig_next.address == successor_nid.address
             {
                 if succ_weight.is_none() {
@@ -158,7 +168,8 @@ impl InsnNodeData {
             }
         }
         if sum_succ_weights == wmap.read().unwrap().get_zero()
-            && self.itype.weight_type == InsnNodeWeightType::Normal
+            && (self.itype.weight_type == InsnNodeWeightType::Normal
+                || self.itype.weight_type == InsnNodeWeightType::Jump)
         {
             // This indicates the CFG has an endless loop of normal instructions
             // without any Return or Exit nodes.
@@ -166,13 +177,15 @@ impl InsnNodeData {
             // need to assign at least one node a weight of 1.
             // Otherwise the whole weight of the CFG would be 0.
             // Which doesn't match the reality.
+            //
+            // It also can be a jump without target (indirect jump).
             return const_one.clone();
         }
         let weight = match self.itype.weight_type {
             InsnNodeWeightType::Return | InsnNodeWeightType::Exit => {
                 panic!("Should have been handled before.")
             }
-            InsnNodeWeightType::Normal => sum_succ_weights,
+            InsnNodeWeightType::Normal | InsnNodeWeightType::Jump => sum_succ_weights,
             InsnNodeWeightType::Call => {
                 // This sampling step breaks the promise of path insensitivity of the algorithm.
                 // But due to the design decission, to seperate path sampling from
@@ -297,7 +310,7 @@ impl CFGNodeData {
             addr,
             itype: ntype,
             call_targets: NodeIdSet::new(),
-            orig_jump_target: jump_target,
+            orig_jump_targets: NodeIdSet::from_nid(jump_target),
             orig_next: next,
             is_indirect_call: false,
         });
@@ -883,7 +896,6 @@ impl CFG {
     }
 
     /// Insert a call target at instruction [i] of the node [nid].
-    /// If the node is not a call instruction, it returns silently.
     /// If [i] is -1, it panics if there are more than one call instructions part of the node.
     /// Otherwise it assigns the new call target.
     fn insert_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
@@ -906,6 +918,41 @@ impl CFG {
         }
         if !call_set {
             panic!("Call target was not updated, either because no call exist or the instruction index is off.");
+        }
+    }
+
+    /// Insert a jump target to the first jump instruction int the iword of the node [nid].
+    /// Otherwise it assigns the new jump target.
+    fn insert_jump_target(&mut self, nid: &NodeId, jump_target: &NodeId) {
+        let ninfo = self
+            .nodes_meta
+            .get_mut(nid)
+            .expect(&format!("{} has no meta data entry.", nid));
+        let mut jump_set = false;
+        for insn in ninfo.insns.iter_mut() {
+            if insn.itype.weight_type == InsnNodeWeightType::Jump {
+                if jump_set {
+                    panic!("Two jumps exist, but it wasn't specifies which one to update.");
+                }
+                insn.orig_jump_targets
+                    .insert(jump_target.get_orig_node_id());
+                jump_set = true;
+            }
+        }
+        self.add_edge(
+            (
+                *nid,
+                self.get_nodes_meta(&nid.get_orig_node_id())
+                    .get_clone(nid.icfg_clone_id, nid.cfg_clone_id),
+            ),
+            (
+                *jump_target,
+                self.get_nodes_meta(&jump_target.get_orig_node_id())
+                    .get_clone(jump_target.icfg_clone_id, jump_target.cfg_clone_id),
+            ),
+        );
+        if !jump_set {
+            panic!("jump target was not updated, either because no jump exist or the instruction index is off.");
         }
     }
 }
@@ -1257,6 +1304,14 @@ impl Procedure {
     /// It panics if no call was updated.
     pub fn insert_call_target(&mut self, nid: &NodeId, i: isize, call_target: &NodeId) {
         self.get_cfg_mut().insert_call_target(nid, i, call_target);
+    }
+
+    /// Insert jump target at instruction [i] of the node [nid] in the procedures CFG.
+    /// If [i] is -1, it panics if there are more than one jump instructions part of the node.
+    /// Otherwise it updates the single jump.
+    /// It panics if no jump was updated.
+    pub fn insert_jump_target(&mut self, nid: &NodeId, jump_target: &NodeId) {
+        self.get_cfg_mut().insert_jump_target(nid, jump_target);
     }
 
     /// For each call target

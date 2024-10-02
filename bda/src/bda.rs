@@ -11,12 +11,12 @@ use std::{
 use binding::{log_rizin, log_rz, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
-use rzil_abstr::interpreter::{interpret, IntrpProducts};
+use rzil_abstr::interpreter::{interpret, CodeXrefType, IntrpProducts};
 
 use crate::{
     bda_binding::{get_bin_entries, setup_procedure_at_addr},
     cfg::Procedure,
-    flow_graphs::{Address, NodeId},
+    flow_graphs::{Address, FlowGraphOperations, NodeId},
     icfg::ICFG,
     path_sampler::sample_path,
     state::{run_condition_fulfilled, BDAState, StatisticID},
@@ -47,13 +47,14 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
         None => -1,
     };
     format!(
-        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interpreted: {} Discovered icalls: {} Avg. sampling time: {} Max path len: {}",
+        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interp.: {} - icalls: {} - ijumps: {} - Avg. sampling time: {} - Max path len: {}",
         state.num_threads,
         hours,
         minutes,
         passed,
         formatted_path_num,
         state.calls.len(),
+        state.jumps.len(),
         if ps_time_ms > 1000 { format!("{}s", ps_time_ms / 1000) } else { format!("{}ms", ps_time_ms) },
         state.runtime_stats.get_max_path_len()
     )
@@ -98,6 +99,7 @@ fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts
     for _ in 0..products.len() {
         let p = products.pop().unwrap();
         state.update_calls(p.concrete_calls);
+        state.update_jumps(p.concrete_jumps);
         state.update_mem_xrefs(p.mem_xrefs);
         state.update_stack_xrefs(p.stack_xrefs);
         state.update_mos(p.mos);
@@ -106,43 +108,68 @@ fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts
 
 /// Updates the iCFG with newly discovered calls.
 fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &[IntrpProducts]) {
-    let mut call_added = false;
+    let mut cxref_added = false;
     let mut edited_procs = Vec::<NodeId>::new();
-    products.iter().for_each(|prod| {
-        for code_xref in prod.concrete_calls.iter() {
-            if state.calls.contains(code_xref) {
+    for prod in products {
+        let mut xrefs = Vec::from_iter(prod.concrete_calls.iter());
+        xrefs.extend(prod.concrete_jumps.iter());
+        for code_xref in xrefs {
+            if state.calls.contains(code_xref) || state.jumps.contains(code_xref) {
                 continue;
             }
             let from_proc_addr = NodeId::from(code_xref.get_proc_addr());
-            let call_insn_addr = NodeId::from(code_xref.get_from());
-            let to_proc_addr = NodeId::from(code_xref.get_to());
-            let procedure_from: Option<Procedure> = if icfg.has_procedure(&from_proc_addr) {
-                None
-            } else {
-                setup_procedure_at_addr(&core.lock().unwrap(), from_proc_addr.address)
-            };
-            if procedure_from.is_none() && !icfg.has_procedure(&from_proc_addr) {
-                panic!("Could not initialize procedure at {}", from_proc_addr);
+            let xref_insn_addr = NodeId::from(code_xref.get_from());
+            let xref_to_addr = NodeId::from(code_xref.get_to());
+            let mut from_edited = false;
+            match code_xref.get_xtype() {
+                CodeXrefType::IndirectCall => {
+                    let procedure_from: Option<Procedure> = if icfg.has_procedure(&from_proc_addr) {
+                        None
+                    } else {
+                        setup_procedure_at_addr(&core.lock().unwrap(), from_proc_addr.address)
+                    };
+                    if procedure_from.is_none() && !icfg.has_procedure(&from_proc_addr) {
+                        panic!("Could not initialize procedure at {}", from_proc_addr);
+                    }
+                    state.calls.insert(code_xref.clone());
+                    let procedure_to: Option<Procedure> = if icfg.has_procedure(&xref_to_addr) {
+                        None
+                    } else {
+                        setup_procedure_at_addr(&core.lock().unwrap(), xref_to_addr.address)
+                    };
+                    if procedure_to.is_none() && !icfg.has_procedure(&xref_to_addr) {
+                        panic!("Could not initialize procedure at {}", xref_to_addr);
+                    }
+                    from_edited = !icfg.add_edge(
+                        (from_proc_addr, procedure_from),
+                        (xref_to_addr, procedure_to),
+                        Some(xref_insn_addr),
+                    );
+                }
+                CodeXrefType::IndirectJump => {
+                    if icfg.has_procedure(&from_proc_addr) {
+                        state.jumps.insert(code_xref.clone());
+                        from_edited = !icfg
+                            .get_procedure(&from_proc_addr)
+                            .read()
+                            .unwrap()
+                            .get_cfg()
+                            .get_graph()
+                            .contains_edge(xref_insn_addr, xref_to_addr);
+                        icfg.get_procedure(&from_proc_addr)
+                            .write()
+                            .unwrap()
+                            .insert_jump_target(&xref_insn_addr, &xref_to_addr);
+                    }
+                }
             }
-            let procedure_to: Option<Procedure> = if icfg.has_procedure(&to_proc_addr) {
-                None
-            } else {
-                setup_procedure_at_addr(&core.lock().unwrap(), to_proc_addr.address)
-            };
-            if procedure_to.is_none() && !icfg.has_procedure(&to_proc_addr) {
-                panic!("Could not initialize procedure at {}", to_proc_addr);
-            }
-            if !icfg.add_edge(
-                (from_proc_addr, procedure_from),
-                (to_proc_addr, procedure_to),
-                Some(call_insn_addr),
-            ) {
+            if from_edited {
                 edited_procs.push(from_proc_addr);
-                call_added = true;
+                cxref_added = true;
             }
         }
-    });
-    if call_added {
+    }
+    if cxref_added {
         icfg.resolve_loops(4);
         state
             .get_weight_map()

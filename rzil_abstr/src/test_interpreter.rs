@@ -15,7 +15,7 @@ mod tests {
     use num_bigint::{ToBigInt, ToBigUint};
 
     use crate::interpreter::{
-        interpret, AbstrVal, AddrInfo, ConcreteCall, Const, IntrpPath, IntrpProducts, MemOp,
+        interpret, AbstrVal, AddrInfo, ConcreteCodeXref, Const, IntrpPath, IntrpProducts, MemOp,
         MemXref, StackXref, NO_ADDR_INFO,
     };
 
@@ -197,9 +197,24 @@ mod tests {
             panic!("Received no products.");
         }
         let mut call_expected = HashSet::new();
-        call_expected.insert(ConcreteCall::new(0x08000040, 0x0800005d, 0x080000b0));
-        call_expected.insert(ConcreteCall::new(0x08000040, 0x0800007a, 0x080000c0));
-        call_expected.insert(ConcreteCall::new(0x08000040, 0x08000097, 0x080000d0));
+        call_expected.insert(ConcreteCodeXref::new(
+            crate::interpreter::CodeXrefType::IndirectCall,
+            0x08000040,
+            0x0800005d,
+            0x080000b0,
+        ));
+        call_expected.insert(ConcreteCodeXref::new(
+            crate::interpreter::CodeXrefType::IndirectCall,
+            0x08000040,
+            0x0800007a,
+            0x080000c0,
+        ));
+        call_expected.insert(ConcreteCodeXref::new(
+            crate::interpreter::CodeXrefType::IndirectCall,
+            0x08000040,
+            0x08000097,
+            0x080000d0,
+        ));
         assert!(products.concrete_calls.eq(&call_expected));
         println!("Stack xrefs");
         for sxref in products.stack_xrefs.iter() {
@@ -267,9 +282,24 @@ mod tests {
             panic!("Received no products.");
         }
         let mut call_expected = HashSet::new();
-        call_expected.insert(ConcreteCall::new(0x08000040, 0x08000050, 0x08000070));
-        call_expected.insert(ConcreteCall::new(0x08000040, 0x08000058, 0x08000080));
-        call_expected.insert(ConcreteCall::new(0x08000040, 0x08000060, 0x08000090));
+        call_expected.insert(ConcreteCodeXref::new(
+            crate::interpreter::CodeXrefType::IndirectCall,
+            0x08000040,
+            0x08000050,
+            0x08000070,
+        ));
+        call_expected.insert(ConcreteCodeXref::new(
+            crate::interpreter::CodeXrefType::IndirectCall,
+            0x08000040,
+            0x08000058,
+            0x08000080,
+        ));
+        call_expected.insert(ConcreteCodeXref::new(
+            crate::interpreter::CodeXrefType::IndirectCall,
+            0x08000040,
+            0x08000060,
+            0x08000090,
+        ));
         println!("call xrefs");
         for call in products.concrete_calls.iter() {
             println!("{}", call);
