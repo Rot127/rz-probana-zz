@@ -15,8 +15,8 @@ use std::{
 
 use binding::{
     c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
-    RzRegisterId, RzRegisterId_RZ_REG_NAME_BP, RzRegisterId_RZ_REG_NAME_R0,
-    RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    RzAnalysisInsnWord, RzAnalysisOp, RzRegisterId, RzRegisterId_RZ_REG_NAME_BP,
+    RzRegisterId_RZ_REG_NAME_R0, RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
 use crate::op_handler::eval_effect;
@@ -878,6 +878,10 @@ pub struct AbstrVM {
     dist: Normal<f64>,
     /// Maximum number of REPEAT iteraitions, if they are not static
     limit_repeat: usize,
+    /// Buffer for iwords. Indexed by address.
+    iword_buffer: HashMap<Address, *mut RzAnalysisInsnWord>,
+    /// Buffer for iwords. Indexed by address.
+    aop_buffer: HashMap<Address, *mut RzAnalysisOp>,
 }
 
 macro_rules! unlocked_core {
@@ -916,10 +920,21 @@ impl AbstrVM {
             rz_core: rz_core.clone(),
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
             limit_repeat,
+            iword_buffer: HashMap::new(),
+            aop_buffer: HashMap::new(),
         };
         vm.proc_entry.push(entry);
         vm.init_register_file(rz_core);
         vm
+    }
+
+    fn free_buffers(&mut self) {
+        self.aop_buffer.iter_mut().for_each(|aop| {
+            unsafe { rz_analysis_op_free(aop.1.cast()) };
+        });
+        self.iword_buffer.iter_mut().for_each(|iword| {
+            unsafe { rz_analysis_insn_word_free(iword.1.cast()) };
+        });
     }
 
     pub fn get_limit_repeat(&self) -> usize {
@@ -1515,7 +1530,13 @@ impl AbstrVM {
         let effect;
         let result;
         if iword_decoder.is_some() {
-            let iword = unlocked_core!(self).get_iword(self.pc);
+            let iword = if self.iword_buffer.get(&self.pc).is_some() {
+                *self.iword_buffer.get(&self.pc).unwrap()
+            } else {
+                let ptr = unlocked_core!(self).get_iword(self.pc);
+                self.iword_buffer.insert(self.pc, ptr);
+                ptr
+            };
             self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             if dont_execute {
@@ -1529,9 +1550,14 @@ impl AbstrVM {
                 // Otherwise not implemented
                 result = true;
             }
-            unsafe { rz_analysis_insn_word_free(iword) };
         } else {
-            let ana_op = unlocked_core!(self).get_analysis_op(self.pc);
+            let ana_op = if self.iword_buffer.get(&self.pc).is_some() {
+                *self.aop_buffer.get(&self.pc).unwrap()
+            } else {
+                let ptr = unlocked_core!(self).get_analysis_op(self.pc);
+                self.aop_buffer.insert(self.pc, ptr);
+                ptr
+            };
             self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
             if dont_execute {
@@ -1545,7 +1571,6 @@ impl AbstrVM {
                 // Otherwise not implemented
                 result = true;
             }
-            unsafe { rz_analysis_op_free(ana_op.cast()) };
         }
         self.lvars.clear();
         result
@@ -1558,6 +1583,8 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
 
     while vm.step() {}
+
+    vm.free_buffers();
 
     // println!("EXIT\n");
     // Replace with Channel and send/rcv
