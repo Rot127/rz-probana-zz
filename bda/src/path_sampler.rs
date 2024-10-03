@@ -204,6 +204,25 @@ fn filter_call_targets(
     call_targets
 }
 
+fn filter_jump_targets(
+    cfg: &mut CFG,
+    cur: NodeId,
+    addr_ranges: &Vec<(Address, Address)>,
+) -> NodeIdSet {
+    let mut jump_targets = NodeIdSet::new();
+    for i in cfg.nodes_meta.get(&cur).unwrap().insns.iter() {
+        if i.orig_jump_targets.is_empty() {
+            continue;
+        }
+        i.orig_jump_targets.iter().for_each(|ct| {
+            if node_in_ranges(ct, addr_ranges) {
+                jump_targets.insert(ct.clone());
+            }
+        });
+    }
+    jump_targets
+}
+
 fn sample_cfg_path(
     icfg: &ICFG,
     cfg: &mut CFG,
@@ -283,8 +302,45 @@ fn sample_cfg_path(
                     );
                 }
             }
+        } else if is_tail_call(cfg, cur) {
+            path.push(cur, ninfo);
+            let jump_targets = filter_jump_targets(cfg, cur, addr_ranges);
+            let jt = jump_targets.sample();
+            if jt != INVALID_NODE_ID {
+                sample_cfg_path(
+                    icfg,
+                    icfg.get_procedure(&jt).write().unwrap().get_cfg_mut(),
+                    jt,
+                    path,
+                    i + 1,
+                    wmap,
+                    addr_ranges,
+                );
+            }
+            // This is not quite correct. Because the jump_target list is already filterd.
+            // But for now it is a nice debug test.
+            // A better test can follow, once we hit this one.
+            debug_assert_eq!(
+                cfg.graph.neighbors_directed(cur, Outgoing).count(),
+                jump_targets.len(),
+                "The instruction word at {:#x} is marked as tail jump but as other outgoing edges which are no jumps.", cur.address
+            );
+            return;
         } else {
             path.push(cur, ninfo);
+            if is_exit(cfg, cur) {
+                println!("{:?}", ninfo);
+                debug_assert_eq!(
+                    cfg.graph.neighbors_directed(cur, Outgoing).count(),
+                    {
+                        let jump_targets = filter_jump_targets(cfg, cur, addr_ranges);
+                        let call_targets = filter_call_targets(cfg, cur, addr_ranges);
+                        jump_targets.len() + call_targets.len()
+                    },
+                    "The instruction word at {:#x} is marked as exit but as other outgoing edges which are no jumps/calls.", cur.address
+                );
+                return;
+            }
         }
 
         // Visit all neighbors and decide which one to add to the path

@@ -445,6 +445,7 @@ impl CFGNodeData {
     }
 }
 
+#[derive(Debug)]
 pub struct CFGNodeDataMap {
     map: HashMap<NodeId, CFGNodeData>,
     /// Tracks the NodeIds of call instructions for faster iteration.
@@ -740,6 +741,7 @@ impl CFGNodeDataMap {
 }
 
 /// A control-flow graph of a procedure
+#[derive(Debug)]
 pub struct CFG {
     /// The graph.
     pub graph: FlowGraph,

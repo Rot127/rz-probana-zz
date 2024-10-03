@@ -18,9 +18,21 @@ use binding::{
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t,
     rz_graph_free, rz_notify_error, str_to_c, GRzCore, RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC,
     RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode,
-    RzGraphNodeCFGSubType, RzGraphNodeInfo, RzGraphNodeInfoDataCFG, RzGraphNodeType,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, LOG_DEBUG, LOG_ERROR, LOG_INFO, LOG_WARN,
+    RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_COND,
+    RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_ENTRY,
+    RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_EXIT,
+    RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_NONE,
+    RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_RETURN,
+    RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_TAIL, RzGraphNodeCFGSubType,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_TAIL, RzGraphNodeInfo, RzGraphNodeInfoDataCFG,
+    RzGraphNodeType, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG,
+    LOG_DEBUG, LOG_ERROR, LOG_INFO, LOG_WARN,
 };
 use helper::progress::ProgressBar;
 use helper::spinner::Spinner;
@@ -161,7 +173,20 @@ fn get_insn_node_data(
     )
 }
 
+fn test_enum_sync_assumption() {
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    debug_assert_eq!(RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_NONE, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE, "Enums out of sync");
+    debug_assert_eq!(RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_ENTRY, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY, "Enums out of sync");
+    debug_assert_eq!(RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_RETURN, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, "Enums out of sync");
+    debug_assert_eq!(RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_EXIT, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT, "Enums out of sync");
+    debug_assert_eq!(RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_COND, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND, "Enums out of sync");
+    debug_assert_eq!(RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_TAIL, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_TAIL, "Enums out of sync");
+    }
+}
+
 fn get_rz_node_info_nodeid(node_info: &RzGraphNodeInfo) -> NodeId {
+    test_enum_sync_assumption();
     let rz_node_type: RzGraphNodeType = node_info.type_;
     let addr = match rz_node_type {
         RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG => unsafe { node_info.__bindgen_anon_1.cfg.address },
