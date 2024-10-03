@@ -5,7 +5,7 @@ use std::{collections::VecDeque, sync::RwLock};
 
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
-use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
+use rzil_abstr::interpreter::{IWordInfo, IntrpPath};
 
 use crate::{
     cfg::CFG,
@@ -15,35 +15,9 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct PathNodeInfo {
-    /// True if the iword calls another procedure.
-    is_call: bool,
-    /// True if the iword calls malloc.
-    calls_malloc: bool,
-    /// True if the iword calls an input function.
-    calls_input: bool,
-    /// True if the iword calls an unmapped function.
-    calls_unmapped: bool,
-    /// True if the iword is executed after a call from a subroutine.
-    is_return_point: bool,
-}
-
-impl PathNodeInfo {
-    fn as_addr_info(&self) -> AddrInfo {
-        AddrInfo::new(
-            self.is_call,
-            self.calls_malloc,
-            self.calls_input,
-            self.calls_unmapped,
-            self.is_return_point,
-        )
-    }
-}
-
-#[derive(Debug)]
 pub struct Path {
     path: Vec<NodeId>,
-    node_info: Vec<PathNodeInfo>,
+    node_info: Vec<IWordInfo>,
 }
 
 impl std::hash::Hash for Path {
@@ -77,7 +51,7 @@ impl Path {
         }
     }
 
-    pub fn push(&mut self, nid: NodeId, info: PathNodeInfo) {
+    pub fn push(&mut self, nid: NodeId, info: IWordInfo) {
         self.path.push(nid);
         self.node_info.push(info);
     }
@@ -90,7 +64,7 @@ impl Path {
         );
         let mut ipath: IntrpPath = IntrpPath::new();
         for (n, info) in self.path.into_iter().zip(self.node_info) {
-            ipath.push(n.address, Some(info.as_addr_info()));
+            ipath.push(n.address, info);
         }
         ipath
     }
@@ -253,28 +227,38 @@ fn sample_cfg_path(
         if !node_in_ranges(&cur, addr_ranges) {
             return;
         }
-        let mut ninfo = PathNodeInfo {
-            is_call: false,
-            calls_malloc: false,
-            calls_input: false,
-            calls_unmapped: false,
-            is_return_point: node_follows_call,
-        };
+        let mut ninfo = IWordInfo::None;
         if node_follows_call {
+            ninfo |= IWordInfo::IsReturnPoint;
             node_follows_call = false;
+        }
+        if is_jump(cfg, cur) {
+            ninfo |= IWordInfo::IsJump;
+        }
+        if is_tail_call(cfg, cur) {
+            ninfo |= IWordInfo::IsTailCall;
+        }
+        if is_exit(cfg, cur) {
+            ninfo |= IWordInfo::IsExit;
         }
 
         // println!("{}", format!("{}-> {}", " ".repeat(i), cur));
         if is_call(cfg, cur) {
             // Put we set the meta information for the path node (marking it as call).
-            ninfo.is_call = true;
+            ninfo |= IWordInfo::IsCall;
 
             let call_targets = filter_call_targets(cfg, cur, addr_ranges);
-            ninfo.calls_malloc = call_targets.iter().any(|ct| icfg.is_malloc(ct));
-            ninfo.calls_input = call_targets.iter().any(|ct| icfg.is_input(ct));
-            ninfo.calls_unmapped = call_targets.iter().any(|ct| icfg.is_unmapped(ct));
+            if call_targets.iter().any(|ct| icfg.is_malloc(ct)) {
+                ninfo |= IWordInfo::CallsMalloc;
+            }
+            if call_targets.iter().any(|ct| icfg.is_input(ct)) {
+                ninfo |= IWordInfo::CallsInput;
+            }
+            if call_targets.iter().any(|ct| icfg.is_unmapped(ct)) {
+                ninfo |= IWordInfo::CallsUnmapped;
+            }
 
-            if ninfo.calls_unmapped || ninfo.calls_malloc || ninfo.calls_input {
+            if ninfo.calls_unmapped() || ninfo.calls_malloc() || ninfo.calls_input() {
                 // Either a dynamically linked procedure (without CFG)
                 // a malloc/input call or indirect call with unknown addresses.
                 // We don't recurse in those.
@@ -331,6 +315,24 @@ fn is_call(cfg: &mut CFG, cur: NodeId) -> bool {
     cfg.nodes_meta
         .get(&cur)
         .is_some_and(|meta| meta.insns.iter().any(|i| i.itype.is_call()))
+}
+
+fn is_jump(cfg: &mut CFG, cur: NodeId) -> bool {
+    cfg.nodes_meta
+        .get(&cur)
+        .is_some_and(|meta| meta.insns.iter().any(|i| i.itype.is_jump()))
+}
+
+fn is_tail_call(cfg: &mut CFG, cur: NodeId) -> bool {
+    cfg.nodes_meta
+        .get(&cur)
+        .is_some_and(|meta| meta.node_type.is_tail_call())
+}
+
+fn is_exit(cfg: &mut CFG, cur: NodeId) -> bool {
+    cfg.nodes_meta
+        .get(&cur)
+        .is_some_and(|meta| meta.node_type.is_exit())
 }
 
 /// Sample a path from the given [icfg] and return it as vector.

@@ -15,7 +15,7 @@ mod tests {
     use num_bigint::{ToBigInt, ToBigUint};
 
     use crate::interpreter::{
-        interpret, AbstrVal, AddrInfo, ConcreteCodeXref, Const, IntrpPath, IntrpProducts, MemOp,
+        interpret, AbstrVal, ConcreteCodeXref, Const, IWordInfo, IntrpPath, IntrpProducts, MemOp,
         MemXref, StackXref, NO_ADDR_INFO,
     };
 
@@ -36,12 +36,12 @@ mod tests {
             (0x08000056, NO_ADDR_INFO),
             (0x08000059, NO_ADDR_INFO),
             (0x0800005b, NO_ADDR_INFO),
-            (0x0800005d, AddrInfo::new_call()),
+            (0x0800005d, IWordInfo::IsCall),
             (0x080000b0, NO_ADDR_INFO),
             (0x080000b1, NO_ADDR_INFO),
             (0x080000b4, NO_ADDR_INFO),
             (0x080000b6, NO_ADDR_INFO),
-            (0x080000b7, AddrInfo::new_return_point()),
+            (0x080000b7, IWordInfo::IsReturnPoint),
             (0x08000064, NO_ADDR_INFO),
             (0x08000067, NO_ADDR_INFO),
             (0x0800006a, NO_ADDR_INFO),
@@ -50,12 +50,12 @@ mod tests {
             (0x08000073, NO_ADDR_INFO),
             (0x08000076, NO_ADDR_INFO),
             (0x08000078, NO_ADDR_INFO),
-            (0x0800007a, AddrInfo::new_call()),
+            (0x0800007a, IWordInfo::IsCall),
             (0x080000c0, NO_ADDR_INFO),
             (0x080000c1, NO_ADDR_INFO),
             (0x080000c4, NO_ADDR_INFO),
             (0x080000c9, NO_ADDR_INFO),
-            (0x080000ca, AddrInfo::new_return_point()),
+            (0x080000ca, IWordInfo::IsReturnPoint),
             (0x08000081, NO_ADDR_INFO),
             (0x08000084, NO_ADDR_INFO),
             (0x08000087, NO_ADDR_INFO),
@@ -64,18 +64,18 @@ mod tests {
             (0x08000090, NO_ADDR_INFO),
             (0x08000093, NO_ADDR_INFO),
             (0x08000095, NO_ADDR_INFO),
-            (0x08000097, AddrInfo::new_call()),
+            (0x08000097, IWordInfo::IsCall),
             (0x080000d0, NO_ADDR_INFO),
             (0x080000d1, NO_ADDR_INFO),
             (0x080000d4, NO_ADDR_INFO),
             (0x080000d9, NO_ADDR_INFO),
-            (0x080000da, AddrInfo::new_return_point()),
+            (0x080000da, IWordInfo::IsReturnPoint),
             (0x0800009e, NO_ADDR_INFO),
             (0x080000a1, NO_ADDR_INFO),
             (0x080000a4, NO_ADDR_INFO),
             (0x080000a7, NO_ADDR_INFO),
             (0x080000ab, NO_ADDR_INFO),
-            (0x080000ac, AddrInfo::new_return_point()),
+            (0x080000ac, IWordInfo::IsReturnPoint),
         ]);
         let path = IntrpPath::from(v);
 
@@ -93,15 +93,15 @@ mod tests {
         let v = VecDeque::from(vec![
             (0x08000040, NO_ADDR_INFO),
             (0x0800004c, NO_ADDR_INFO),
-            (0x08000050, AddrInfo::new_call()),
-            (0x08000070, AddrInfo::new_return_point()),
+            (0x08000050, IWordInfo::IsCall),
+            (0x08000070, IWordInfo::IsReturnPoint),
             (0x08000054, NO_ADDR_INFO),
-            (0x08000058, AddrInfo::new_call()),
-            (0x08000080, AddrInfo::new_return_point()),
+            (0x08000058, IWordInfo::IsCall),
+            (0x08000080, IWordInfo::IsReturnPoint),
             (0x0800005c, NO_ADDR_INFO),
-            (0x08000060, AddrInfo::new_call()),
-            (0x08000090, AddrInfo::new_return_point()),
-            (0x08000064, AddrInfo::new_return_point()),
+            (0x08000060, IWordInfo::IsCall),
+            (0x08000090, IWordInfo::IsReturnPoint),
+            (0x08000064, IWordInfo::IsReturnPoint),
         ]);
         let path = IntrpPath::from(v);
 
@@ -123,11 +123,11 @@ mod tests {
             (0x08000064, NO_ADDR_INFO),
             (0x08000068, NO_ADDR_INFO),
             (0x0800006f, NO_ADDR_INFO),
-            (0x08000074, AddrInfo::new_malloc_call()),
-            (0x08000079, AddrInfo::new_return_point()),
+            (0x08000074, IWordInfo::CallsMalloc),
+            (0x08000079, IWordInfo::IsReturnPoint),
             (0x0800007d, NO_ADDR_INFO),
-            (0x08000082, AddrInfo::new_malloc_call()),
-            (0x08000087, AddrInfo::new_return_point()),
+            (0x08000082, IWordInfo::CallsMalloc),
+            (0x08000087, IWordInfo::IsReturnPoint),
             (0x0800008b, NO_ADDR_INFO),
             (0x0800008f, NO_ADDR_INFO),
             (0x08000099, NO_ADDR_INFO),
@@ -140,7 +140,7 @@ mod tests {
             (0x080000bb, NO_ADDR_INFO),
             (0x080000bd, NO_ADDR_INFO),
             (0x080000c1, NO_ADDR_INFO),
-            (0x080000c2, AddrInfo::new_return_point()),
+            (0x080000c2, IWordInfo::IsReturnPoint),
         ]);
         let path = IntrpPath::from(v);
 
@@ -161,11 +161,11 @@ mod tests {
             (0x08000064, NO_ADDR_INFO),
             (0x08000068, NO_ADDR_INFO),
             (0x0800006c, NO_ADDR_INFO),
-            (0x08000070, AddrInfo::new_malloc_call()),
-            (0x08000074, AddrInfo::new_return_point()),
+            (0x08000070, IWordInfo::CallsMalloc),
+            (0x08000074, IWordInfo::IsReturnPoint),
             (0x08000078, NO_ADDR_INFO),
-            (0x0800007c, AddrInfo::new_malloc_call()),
-            (0x08000080, AddrInfo::new_return_point()),
+            (0x0800007c, IWordInfo::CallsMalloc),
+            (0x08000080, IWordInfo::IsReturnPoint),
             (0x08000084, NO_ADDR_INFO),
             (0x08000088, NO_ADDR_INFO),
             (0x08000090, NO_ADDR_INFO),
@@ -177,7 +177,7 @@ mod tests {
             (0x080000b4, NO_ADDR_INFO),
             (0x080000b8, NO_ADDR_INFO),
             (0x080000c0, NO_ADDR_INFO),
-            (0x080000c4, AddrInfo::new_return_point()),
+            (0x080000c4, IWordInfo::IsReturnPoint),
         ]);
         let path = IntrpPath::from(v);
         (rz_core, path)

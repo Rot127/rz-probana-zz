@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use bitflags::bitflags;
 use helper::num::subscript;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
@@ -278,93 +279,79 @@ impl Const {
 
 type PC = Address;
 
-pub const NO_ADDR_INFO: AddrInfo = AddrInfo {
-    is_call: false,
-    calls_malloc: false,
-    calls_input: false,
-    calls_unmapped: false,
-    is_return_point: false,
-};
+pub const NO_ADDR_INFO: IWordInfo = IWordInfo::None;
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct AddrInfo {
-    /// IWord calls a procedure.
-    is_call: bool,
-    /// IWord calls an allocating function.
-    calls_malloc: bool,
-    /// IWord calls an input function.
-    calls_input: bool,
-    /// True if the iword calls an unmapped function.
-    calls_unmapped: bool,
-    /// IWord is executed on return of a procedure.
-    is_return_point: bool,
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct IWordInfo: u64 {
+        /// No information provided for this instruction word.
+        const None = 0;
+        /// The iword has an jump instruction.
+        const IsJump = 1 << 0;
+        /// The iword has an call instruction.
+        const IsCall = 1 << 1;
+        /// The iword is a jump or cal to another procedure, but has no following instruction.
+        const IsTail = 1 << 2;
+        /// The iword will exit the program. If the exit happens via a call, jump or due to the iword itself depends on the bits set.
+        const IsExit = 1 << 3;
+        /// IWord is executed on return of a procedure. It effectively follows a call instruction.
+        const IsReturnPoint = 1 << 4;
+        /// IWord calls an allocating function.
+        const CallsMalloc = 1 << 5 | Self::IsCall.bits();
+        /// IWord calls an input function.
+        const CallsInput = 1 << 6 | Self::IsCall.bits();
+        /// True if the iword calls an unmapped function.
+        const CallsUnmapped = 1 << 7 | Self::IsCall.bits();
+        /// A tail call to another function.
+        const IsTailCall = Self::IsTail.bits() | Self::IsJump.bits();
+        /// Exits the program by calling a fucntion (e.g. abort, stack_chk_fail).
+        const IsExitCall = Self::IsExit.bits() | Self::IsCall.bits();
+        /// Exits the program by jumping to a procedure
+        const IsExitJump = Self::IsExit.bits() | Self::IsJump.bits();
+    }
 }
 
-impl AddrInfo {
-    pub fn new(
-        is_call: bool,
-        calls_malloc: bool,
-        calls_input: bool,
-        calls_unmapped: bool,
-        is_return_point: bool,
-    ) -> AddrInfo {
-        AddrInfo {
-            is_call,
-            calls_malloc,
-            calls_input,
-            calls_unmapped,
-            is_return_point,
-        }
+impl IWordInfo {
+    pub fn is_none(&self) -> bool {
+        *self == IWordInfo::None
     }
 
-    pub fn new_call() -> AddrInfo {
-        AddrInfo {
-            is_call: true,
-            calls_malloc: false,
-            calls_input: false,
-            calls_unmapped: false,
-            is_return_point: false,
-        }
+    pub fn is_jump(&self) -> bool {
+        (*self & IWordInfo::IsJump) == IWordInfo::IsJump
     }
 
-    pub fn new_malloc_call() -> AddrInfo {
-        AddrInfo {
-            is_call: true,
-            calls_malloc: true,
-            calls_input: false,
-            calls_unmapped: false,
-            is_return_point: false,
-        }
+    pub fn is_call(&self) -> bool {
+        (*self & IWordInfo::IsCall) == IWordInfo::IsCall
     }
 
-    pub fn new_return_point() -> AddrInfo {
-        AddrInfo {
-            is_call: false,
-            calls_malloc: false,
-            calls_input: false,
-            calls_unmapped: false,
-            is_return_point: true,
-        }
+    pub fn is_exit(&self) -> bool {
+        (*self & IWordInfo::IsExit) == IWordInfo::IsExit
     }
 
-    pub fn new_input() -> AddrInfo {
-        AddrInfo {
-            is_call: true,
-            calls_malloc: false,
-            calls_input: true,
-            calls_unmapped: false,
-            is_return_point: false,
-        }
+    pub fn is_tail_call(&self) -> bool {
+        (*self & IWordInfo::IsTailCall) == IWordInfo::IsTailCall
     }
 
-    fn none() -> AddrInfo {
-        NO_ADDR_INFO
+    pub fn is_return_point(&self) -> bool {
+        (*self & IWordInfo::IsReturnPoint) == IWordInfo::IsReturnPoint
+    }
+
+    pub fn calls_malloc(&self) -> bool {
+        (*self & IWordInfo::CallsMalloc) == IWordInfo::CallsMalloc
+    }
+
+    pub fn calls_input(&self) -> bool {
+        (*self & IWordInfo::CallsInput) == IWordInfo::CallsInput
+    }
+
+    pub fn calls_unmapped(&self) -> bool {
+        (*self & IWordInfo::CallsUnmapped) == IWordInfo::CallsUnmapped
     }
 }
 
 pub struct IntrpPath {
     /// Execution path of instructions.
-    path: VecDeque<(Address, AddrInfo)>,
+    path: VecDeque<(Address, IWordInfo)>,
 }
 
 impl std::fmt::Display for IntrpPath {
@@ -381,27 +368,27 @@ impl std::fmt::Display for IntrpPath {
             if let Err(e) = write!(f, "{:#x}|", n.0) {
                 return Err(e);
             }
-            if n.1.is_call {
+            if n.1.is_call() {
                 if let Err(e) = write!(f, "c") {
                     return Err(e);
                 }
             }
-            if n.1.is_return_point {
+            if n.1.is_return_point() {
                 if let Err(e) = write!(f, "r") {
                     return Err(e);
                 }
             }
-            if n.1.calls_malloc {
+            if n.1.calls_malloc() {
                 if let Err(e) = write!(f, "m") {
                     return Err(e);
                 }
             }
-            if n.1.calls_input {
+            if n.1.calls_input() {
                 if let Err(e) = write!(f, "i") {
                     return Err(e);
                 }
             }
-            if n.1.calls_unmapped {
+            if n.1.calls_unmapped() {
                 if let Err(e) = write!(f, "u") {
                     return Err(e);
                 }
@@ -418,30 +405,23 @@ impl IntrpPath {
         }
     }
 
-    pub fn from(vec: VecDeque<(Address, AddrInfo)>) -> IntrpPath {
+    pub fn from(vec: VecDeque<(Address, IWordInfo)>) -> IntrpPath {
         IntrpPath { path: vec }
     }
 
-    pub fn push(&mut self, addr: Address, info: Option<AddrInfo>) {
-        self.path.push_back((
-            addr,
-            if let Some(i) = info {
-                i
-            } else {
-                AddrInfo::none()
-            },
-        ));
+    pub fn push(&mut self, addr: Address, info: IWordInfo) {
+        self.path.push_back((addr, info));
     }
 
-    pub fn next(&mut self) -> Option<(Address, AddrInfo)> {
+    pub fn next(&mut self) -> Option<(Address, IWordInfo)> {
         self.path.pop_front()
     }
 
-    pub fn peak_next(&self) -> Option<&(Address, AddrInfo)> {
+    pub fn peak_next(&self) -> Option<&(Address, IWordInfo)> {
         self.path.get(0)
     }
 
-    pub fn get(&self, i: usize) -> (Address, AddrInfo) {
+    pub fn get(&self, i: usize) -> (Address, IWordInfo) {
         self.path
             .get(i)
             .expect(&format!("Index i = {} out of range", i))
@@ -856,7 +836,7 @@ pub struct AbstrVM {
     /// Program counter
     pc: PC,
     /// Information about the instruction at the current PC
-    insn_info: AddrInfo,
+    insn_info: IWordInfo,
     /// PC size in bits
     pc_bit_width: usize,
     /// Instruction sizes map
@@ -966,6 +946,13 @@ impl AbstrVM {
     pub fn peak_next_addr(&self) -> Option<Address> {
         if let Some(next) = self.pa.peak_next() {
             return Some(next.0);
+        }
+        None
+    }
+
+    pub fn peak_next_info(&self) -> Option<IWordInfo> {
+        if let Some(next) = self.pa.peak_next() {
+            return Some(next.1);
         }
         None
     }
@@ -1436,11 +1423,11 @@ impl AbstrVM {
     }
 
     pub(crate) fn pc_is_call(&self) -> bool {
-        self.insn_info.is_call
+        self.insn_info.is_call()
     }
 
     fn is_return_point(&self) -> bool {
-        self.insn_info.is_return_point
+        self.insn_info.is_return_point()
     }
 
     pub(crate) fn get_pc(&self) -> Address {
@@ -1565,9 +1552,9 @@ impl AbstrVM {
 
         let mut dont_execute = false;
         // Not yet done for iwords. iwords must only skip the call part.
-        if self.insn_info.calls_malloc
-            || self.insn_info.calls_unmapped
-            || self.insn_info.calls_input
+        if self.insn_info.calls_malloc()
+            || self.insn_info.calls_unmapped()
+            || self.insn_info.calls_input()
         {
             dont_execute = true;
         }
@@ -1586,7 +1573,7 @@ impl AbstrVM {
             self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             if dont_execute {
-                if self.insn_info.calls_malloc || self.insn_info.calls_input {
+                if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
                     self.move_heap_val_into_ret_reg();
                 }
                 result = true;
@@ -1607,7 +1594,7 @@ impl AbstrVM {
             self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
             if dont_execute {
-                if self.insn_info.calls_malloc || self.insn_info.calls_input {
+                if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
                     self.move_heap_val_into_ret_reg();
                 }
                 result = true;
