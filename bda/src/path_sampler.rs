@@ -8,7 +8,7 @@ use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{AddrInfo, IntrpPath};
 
 use crate::{
-    cfg::{InsnNodeWeightType, CFG},
+    cfg::CFG,
     flow_graphs::{Address, NodeId, NodeIdSet, INVALID_NODE_ID},
     icfg::ICFG,
     weight::{WeightID, WeightMap},
@@ -328,11 +328,9 @@ fn sample_cfg_path(
 }
 
 fn is_call(cfg: &mut CFG, cur: NodeId) -> bool {
-    cfg.nodes_meta.get(&cur).is_some_and(|meta| {
-        meta.insns
-            .iter()
-            .any(|i| i.itype.weight_type == InsnNodeWeightType::Call)
-    })
+    cfg.nodes_meta
+        .get(&cur)
+        .is_some_and(|meta| meta.insns.iter().any(|i| i.itype.is_call()))
 }
 
 /// Sample a path from the given [icfg] and return it as vector.

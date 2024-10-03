@@ -6,7 +6,7 @@ use std::ptr::null;
 use std::{panic, ptr};
 
 use crate::bda::run_bda;
-use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG};
+use crate::cfg::{CFGNodeData, InsnNodeData, InsnNodeType, Procedure, CFG};
 use crate::flow_graphs::{Address, FlowGraph, FlowGraphOperations, NodeId, MAX_ADDRESS};
 use crate::icfg::ICFG;
 use crate::state::BDAState;
@@ -18,16 +18,9 @@ use binding::{
     rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t,
     rz_graph_free, rz_notify_error, str_to_c, GRzCore, RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC,
     RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode,
-    RzGraphNodeCFGSubType, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_JUMP,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE,
-    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN, RzGraphNodeInfo,
-    RzGraphNodeInfoDataCFG, RzGraphNodeType, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG,
-    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG,
-    LOG_DEBUG, LOG_ERROR, LOG_INFO, LOG_WARN,
+    RzGraphNodeCFGSubType, RzGraphNodeInfo, RzGraphNodeInfoDataCFG, RzGraphNodeType,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD,
+    RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG, LOG_DEBUG, LOG_ERROR, LOG_INFO, LOG_WARN,
 };
 use helper::progress::ProgressBar;
 use helper::spinner::Spinner;
@@ -146,26 +139,7 @@ pub fn get_graph(rz_graph: *mut RzGraph) -> FlowGraph {
 }
 
 fn convert_rz_cfg_node_type(rz_node_type: RzGraphNodeCFGSubType) -> InsnNodeType {
-    let is_entry: bool =
-        (rz_node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY) != 0;
-    let mut node_type = rz_node_type & !RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY;
-    node_type = node_type & !RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND;
-    if node_type == RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE {
-        return InsnNodeType::new(InsnNodeWeightType::Normal, is_entry);
-    }
-    if (node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL) != 0 {
-        return InsnNodeType::new(InsnNodeWeightType::Call, is_entry);
-    }
-    if (node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN) != 0 {
-        return InsnNodeType::new(InsnNodeWeightType::Return, is_entry);
-    }
-    if (node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_JUMP) != 0 {
-        return InsnNodeType::new(InsnNodeWeightType::Jump, is_entry);
-    }
-    if (node_type & RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT) != 0 {
-        return InsnNodeType::new(InsnNodeWeightType::Exit, is_entry);
-    }
-    panic!("RzGraphNodeSubType {} not handled.", rz_node_type);
+    InsnNodeType::from_bits(rz_node_type).expect("Unknown bits were set.")
 }
 
 fn get_insn_node_data(
@@ -176,8 +150,7 @@ fn get_insn_node_data(
     let call_target = NodeId::new_original(data.call_address);
     let jump_target = NodeId::new_original(data.jump_address);
     let next = NodeId::new_original(data.next);
-    let is_indirect_call =
-        inode_type.weight_type == InsnNodeWeightType::Call && call_target.address == MAX_ADDRESS;
+    let is_indirect_call = inode_type.is_call() && call_target.address == MAX_ADDRESS;
     InsnNodeData::new(
         nid.address,
         inode_type,
@@ -206,11 +179,28 @@ fn make_cfg_node(node_info: &RzGraphNodeInfo) -> CFGNodeData {
     let rz_node_type: RzGraphNodeType = node_info.type_;
     if rz_node_type == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG {
         let ntype = convert_rz_cfg_node_type(unsafe { node_info.__bindgen_anon_1.cfg.subtype });
+        if ntype.is_entry() {
+            node_data.node_type |= InsnNodeType::Entry;
+        }
+        if ntype.is_tail() {
+            node_data.node_type |= InsnNodeType::Tail;
+        }
+        if ntype.is_exit() {
+            node_data.node_type |= InsnNodeType::Exit;
+        }
+        if ntype.is_return() {
+            node_data.node_type |= InsnNodeType::Return;
+        }
+        if ntype.is_cond() {
+            node_data.node_type |= InsnNodeType::Cond;
+        }
         node_data.insns.push(get_insn_node_data(nid, ntype, unsafe {
             &node_info.__bindgen_anon_1.cfg
         }));
         return node_data;
     } else if rz_node_type == RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD {
+        node_data.node_type =
+            convert_rz_cfg_node_type(unsafe { node_info.__bindgen_anon_1.cfg_iword.subtype });
         for idata in mpvec_to_vec::<RzGraphNodeInfoDataCFG>(unsafe {
             node_info.__bindgen_anon_1.cfg_iword.insn
         }) {

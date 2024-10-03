@@ -4,7 +4,7 @@
 use std::sync::RwLock;
 
 use crate::{
-    cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG},
+    cfg::{CFGNodeData, InsnNodeType, Procedure, CFG},
     flow_graphs::{Address, NodeId, INVALID_NODE_ID},
     icfg::ICFG,
     weight::WeightMap,
@@ -34,36 +34,25 @@ pub fn get_endless_loop_icfg() -> (ICFG, RwLock<WeightMap>) {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    cfg_a.add_edge(
-        (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2))),
-    );
-    cfg_a.add_edge(
-        (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2))),
-        (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
-    );
+    let a0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let a1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
+    let a2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    cfg_a.add_edge(a0, a1.clone());
+    cfg_a.add_edge(a1, a2);
 
-    cfg_b.add_edge(
-        (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2))),
-    );
-    cfg_b.add_edge(
-        (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2))),
-        (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
-    );
+    let b0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
+    let b1 = (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2)));
+    let b2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    cfg_b.add_edge(b0, b1.clone());
+    cfg_b.add_edge(b1, b2);
 
-    cfg_c.add_edge(
-        (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xc1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2))),
-    );
-    cfg_c.add_edge(
-        (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2))),
-        (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single_call(0xc2, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xc3))),
-    );
-    cfg_c.add_edge(
-        (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single_call(0xc2, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xc3))),
-        (NodeId::new(0, 0, 0xc3), CFGNodeData::new_test_single(0xc3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
-    );
+    let c0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
+    let c1 = (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2)));
+    let c2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single_call(0xc2, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xc3)));
+    let c3 = (NodeId::new(0, 0, 0xc3), CFGNodeData::new_test_single(0xc3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    cfg_c.add_edge(c0, c1.clone());
+    cfg_c.add_edge(c1, c2.clone());
+    cfg_c.add_edge(c2, c3);
 
     icfg.add_edge_test(
         (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false, false)),
@@ -95,32 +84,23 @@ pub fn get_endless_recurse_icfg() -> (ICFG, RwLock<WeightMap>) {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    cfg_a.add_edge(
-        (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2))),
-    );
-    cfg_a.add_edge(
-        (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2))),
-        (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
-    );
+    let a0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let a1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
+    let a2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    cfg_a.add_edge(a0, a1.clone());
+    cfg_a.add_edge(a1, a2);
 
-    cfg_b.add_edge(
-        (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2))),
-    );
-    cfg_b.add_edge(
-        (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2))),
-        (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
-    );
+    let b0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
+    let b1 = (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2)));
+    let b2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    cfg_b.add_edge(b0, b1.clone());
+    cfg_b.add_edge(b1, b2);
 
-    cfg_c.add_edge(
-        (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xc1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2))),
-    );
-    cfg_c.add_edge(
-        (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2))),
-        (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
-    );
+    let c0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
+    let c1 = (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2)));
+    let c2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    cfg_c.add_edge(c0, c1.clone());
+    cfg_c.add_edge(c1, c2);
 
     icfg.add_edge_test(
         (NodeId::new(0, 0, A_ADDR), Procedure::new(Some(cfg_a), false, false, false)),
@@ -154,34 +134,34 @@ pub fn get_endless_recurse_icfg_nonlinear_address() -> (ICFG, RwLock<WeightMap>)
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let b0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
+    let b0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
     let b1 = (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2)));
-    let b2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let b2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_b.add_edge(b0, b1.clone());
     cfg_b.add_edge(b1, b2);
 
-    let c0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
+    let c0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
     let c1 = (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2)));
     let c2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single_call(0xc2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xc3)));
     let c3 = (NodeId::new(0, 0, 0xc3), CFGNodeData::new_test_single_call(0xc3, NodeId::new(0, 0, NULL_ADDR), false, NodeId::new(0, 0, 0xc4)));
-    let c4 = (NodeId::new(0, 0, 0xc4), CFGNodeData::new_test_single(0xc4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let c4 = (NodeId::new(0, 0, 0xc4), CFGNodeData::new_test_single(0xc4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_c.add_edge(c0, c1.clone());
     cfg_c.add_edge(c1, c2.clone());
     cfg_c.add_edge(c2, c3.clone());
     cfg_c.add_edge(c3, c4);
 
-    let a0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let a0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
     let a1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xa2)));
-    let a2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let a2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_a.add_edge(a0, a1.clone());
     cfg_a.add_edge(a1, a2);
 
-    let d0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xd1), INVALID_NODE_ID));
-    let d1 = (NodeId::new(0, 0, 0xd1), CFGNodeData::new_test_single(0xd1, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let d0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xd1), INVALID_NODE_ID));
+    let d1 = (NodeId::new(0, 0, 0xd1), CFGNodeData::new_test_single(0xd1, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_d.add_edge(d0, d1);
 
-    let n0 = (NodeId::new(0, 0, 0x00), CFGNodeData::new_test_single(0x00, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0x01), INVALID_NODE_ID));
-    let n1 = (NodeId::new(0, 0, 0x01), CFGNodeData::new_test_single(0x01, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let n0 = (NodeId::new(0, 0, 0x00), CFGNodeData::new_test_single(0x00, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0x01), INVALID_NODE_ID));
+    let n1 = (NodeId::new(0, 0, 0x01), CFGNodeData::new_test_single(0x01, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_0.add_edge(n0, n1);
 
 
@@ -227,41 +207,41 @@ pub fn get_loop_to_loop_icfg() -> (ICFG, RwLock<WeightMap>) {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let cfg_a_0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_a_0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
     let cfg_a_1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
-    let cfg_a_2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_a_2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_a.add_edge(cfg_a_0, cfg_a_1.clone());
     cfg_a.add_edge(cfg_a_1, cfg_a_2);
 
-    let cfg_b_0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
+    let cfg_b_0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
     let cfg_b_1 = (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xb2)));
-    let cfg_b_2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_b_2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_b.add_edge(cfg_b_0, cfg_b_1.clone());
     cfg_b.add_edge(cfg_b_1, cfg_b_2);
 
-    let cfg_c_0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
+    let cfg_c_0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
     let cfg_c_1 = (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xc2)));
-    let cfg_c_2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_c_2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_c.add_edge(cfg_c_0, cfg_c_1.clone());
     cfg_c.add_edge(cfg_c_1, cfg_c_2);
 
-    let cfg_d_0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xd1), INVALID_NODE_ID));
+    let cfg_d_0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xd1), INVALID_NODE_ID));
     let cfg_d_1 = (NodeId::new(0, 0, 0xd1), CFGNodeData::new_test_single_call(0xd1, NodeId::new(0, 0, E_ADDR), false, NodeId::new(0, 0, 0xd2)));
-    let cfg_d_2 = (NodeId::new(0, 0, 0xd2), CFGNodeData::new_test_single(0xd2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_d_2 = (NodeId::new(0, 0, 0xd2), CFGNodeData::new_test_single(0xd2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_d.add_edge(cfg_d_0, cfg_d_1.clone());
     cfg_d.add_edge(cfg_d_1, cfg_d_2);
 
-    let cfg_e_0 = (NodeId::new(0, 0, 0xe0), CFGNodeData::new_test_single(0xe0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xe1), INVALID_NODE_ID));
+    let cfg_e_0 = (NodeId::new(0, 0, 0xe0), CFGNodeData::new_test_single(0xe0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xe1), INVALID_NODE_ID));
     let cfg_e_1 = (NodeId::new(0, 0, 0xe1), CFGNodeData::new_test_single_call(0xe1, NodeId::new(0, 0, F_ADDR), false, NodeId::new(0, 0, 0xe2)));
     let cfg_e_2 = (NodeId::new(0, 0, 0xe2), CFGNodeData::new_test_single_call(0xe2, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xe3)));
-    let cfg_e_3 = (NodeId::new(0, 0, 0xe3), CFGNodeData::new_test_single(0xe3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_e_3 = (NodeId::new(0, 0, 0xe3), CFGNodeData::new_test_single(0xe3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_e.add_edge(cfg_e_0, cfg_e_1.clone());
     cfg_e.add_edge(cfg_e_1, cfg_e_2.clone());
     cfg_e.add_edge(cfg_e_2, cfg_e_3);
 
-    let cfg_f_0 = (NodeId::new(0, 0, 0xf0), CFGNodeData::new_test_single(0xf0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xf1), INVALID_NODE_ID));
+    let cfg_f_0 = (NodeId::new(0, 0, 0xf0), CFGNodeData::new_test_single(0xf0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xf1), INVALID_NODE_ID));
     let cfg_f_1 = (NodeId::new(0, 0, 0xf1), CFGNodeData::new_test_single_call(0xf1, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xf2)));
-    let cfg_f_2 = (NodeId::new(0, 0, 0xf2), CFGNodeData::new_test_single(0xf2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_f_2 = (NodeId::new(0, 0, 0xf2), CFGNodeData::new_test_single(0xf2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_f.add_edge(cfg_f_0, cfg_f_1.clone());
     cfg_f.add_edge(cfg_f_1, cfg_f_2);
 
@@ -306,23 +286,23 @@ pub fn get_endless_loop_icfg_branch() -> (ICFG, RwLock<WeightMap>) {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let a0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let a0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
     let a1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
-    let a2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let a2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_a.add_edge(a0, a1.clone());
     cfg_a.add_edge(a1, a2);
 
-    let b0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
+    let b0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
     let b1 = (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xb2)));
-    let b2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let b2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_b.add_edge(b0, b1.clone());
     cfg_b.add_edge(b1, b2);
 
-    let d0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xd1), NodeId::new(0, 0, 0xd2)));
+    let d0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xd1), NodeId::new(0, 0, 0xd2)));
     let d1 = (NodeId::new(0, 0, 0xd1), CFGNodeData::new_test_single_call(0xd1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xd3)));
     let d2 = (NodeId::new(0, 0, 0xd2), CFGNodeData::new_test_single_call(0xd2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xd3)));
-    let d3 = (NodeId::new(0, 0, 0xd3), CFGNodeData::new_test_single(0xd3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let d3 = (NodeId::new(0, 0, 0xd3), CFGNodeData::new_test_single(0xd3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_d.add_edge(d0.clone(), d1.clone());
     cfg_d.add_edge(d1, d3.clone());
@@ -359,27 +339,27 @@ pub fn get_gee_cfg() -> CFG {
     {
     // gee()
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
     );
     // if (input()) ... else ...
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 4), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 4), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 4), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), INVALID_NODE_ID)),
     );
     // *a = 0
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 4), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 4), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     // *a = 2
     cfg.add_edge(
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 4), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -395,30 +375,30 @@ pub fn get_foo_cfg() -> CFG {
     {
     // foo()
     cfg.add_edge(
-        (NodeId::new(0, 0, 6), CFGNodeData::new_test_single(6, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 7), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 6), CFGNodeData::new_test_single(6, InsnNodeType::NormalEntry, NodeId::new(0, 0, 7), INVALID_NODE_ID)),
         (NodeId::new(0, 0, 7), CFGNodeData::new_test_single_call(7, NodeId::new(0, 0, GEE_ADDR), false, NodeId::new(0, 0, 8))),
     );
 
     // gee()
     cfg.add_edge(
         (NodeId::new(0, 0, 7), CFGNodeData::new_test_single_call(7, NodeId::new(0, 0, GEE_ADDR), false, NodeId::new(0, 0, 8))),
-        (NodeId::new(0, 0, 8), CFGNodeData::new_test_single(8, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 9), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 8), CFGNodeData::new_test_single(8, InsnNodeType::Normal, NodeId::new(0, 0, 9), NodeId::new(0, 0, 1))),
     );
 
     // if (intput())
     cfg.add_edge(
-        (NodeId::new(0, 0, 8), CFGNodeData::new_test_single(8, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 9), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 9), CFGNodeData::new_test_single(9, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 8), CFGNodeData::new_test_single(8, InsnNodeType::Normal, NodeId::new(0, 0, 9), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 9), CFGNodeData::new_test_single(9, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 8), CFGNodeData::new_test_single(8, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 9), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 8), CFGNodeData::new_test_single(8, InsnNodeType::Normal, NodeId::new(0, 0, 9), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
 
     // *a += 1
     cfg.add_edge(
-        (NodeId::new(0, 0, 9), CFGNodeData::new_test_single(9, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 9), CFGNodeData::new_test_single(9, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
 
@@ -435,27 +415,27 @@ pub fn get_main_cfg() -> CFG {
     {
     // main()
     cfg.add_edge(
-        (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 12), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 13), NodeId::new(0, 0, 14))),
+        (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::NormalEntry, NodeId::new(0, 0, 12), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::Normal, NodeId::new(0, 0, 13), NodeId::new(0, 0, 14))),
     );
     // if (input()) ... else ...
     cfg.add_edge(
-        (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 13), NodeId::new(0, 0, 14))),
+        (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::Normal, NodeId::new(0, 0, 13), NodeId::new(0, 0, 14))),
         (NodeId::new(0, 0, 13), CFGNodeData::new_test_single_call(13, NodeId::new(0, 0, GEE_ADDR), false, NodeId::new(0, 0, 15))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 13), NodeId::new(0, 0, 14))),
+        (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::Normal, NodeId::new(0, 0, 13), NodeId::new(0, 0, 14))),
         (NodeId::new(0, 0, 14), CFGNodeData::new_test_single_call(14, NodeId::new(0, 0, FOO_ADDR), false, NodeId::new(0, 0, 15))),
     );
     // gee()
     cfg.add_edge(
         (NodeId::new(0, 0, 13), CFGNodeData::new_test_single_call(13, NodeId::new(0, 0, GEE_ADDR), false, NodeId::new(0, 0, 15))),
-        (NodeId::new(0, 0, 15), CFGNodeData::new_test_single(15, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 15), CFGNodeData::new_test_single(15, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     // foo()
     cfg.add_edge(
         (NodeId::new(0, 0, 14), CFGNodeData::new_test_single_call(14, NodeId::new(0, 0, FOO_ADDR), false, NodeId::new(0, 0, 15))),
-        (NodeId::new(0, 0, 15), CFGNodeData::new_test_single(15, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 15), CFGNodeData::new_test_single(15, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
 
@@ -493,16 +473,16 @@ pub fn get_entry_loop_cfg() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0), NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 0), NodeId::new(0, 0, 2))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 0))),
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 0))),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 0))),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 0))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -516,12 +496,12 @@ pub fn get_loop_to_loop_cfg() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID));
-    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID));
-    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0), INVALID_NODE_ID));
-    let n10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 11), INVALID_NODE_ID));
-    let n11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 12), NodeId::new(0, 0, 1)));
-    let n12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 10), INVALID_NODE_ID));
+    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID));
+    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID));
+    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 0), INVALID_NODE_ID));
+    let n10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::Normal, NodeId::new(0, 0, 11), INVALID_NODE_ID));
+    let n11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::Normal, NodeId::new(0, 0, 12), NodeId::new(0, 0, 1)));
+    let n12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::Normal, NodeId::new(0, 0, 10), INVALID_NODE_ID));
     cfg.add_edge(n0.clone(), n1.clone());
     cfg.add_edge(n1.clone(), n2.clone());
     cfg.add_edge(n2, n0);
@@ -545,12 +525,12 @@ pub fn get_loop_high_low() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID));
-    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID));
-    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0), INVALID_NODE_ID));
-    let n10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 11), INVALID_NODE_ID));
-    let n11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 12), NodeId::new(0, 0, 1)));
-    let n12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 10), INVALID_NODE_ID));
+    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID));
+    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID));
+    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 0), INVALID_NODE_ID));
+    let n10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::NormalEntry, NodeId::new(0, 0, 11), INVALID_NODE_ID));
+    let n11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::Normal, NodeId::new(0, 0, 12), NodeId::new(0, 0, 1)));
+    let n12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::Normal, NodeId::new(0, 0, 10), INVALID_NODE_ID));
     cfg.add_edge(n0.clone(), n1.clone());
     cfg.add_edge(n1.clone(), n2.clone());
     cfg.add_edge(n2, n0);
@@ -583,13 +563,13 @@ pub fn get_cfg_no_loop_sub_routine() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let n_10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 11), INVALID_NODE_ID));
-    let n_11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0), INVALID_NODE_ID));
-    let n_12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 13), INVALID_NODE_ID));
-    let n_13 = (NodeId::new(0, 0, 13), CFGNodeData::new_test_single(13, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
-    let n_0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID));
-    let n_1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID));
-    let n_2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 12), INVALID_NODE_ID));
+    let n_10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::NormalEntry, NodeId::new(0, 0, 11), INVALID_NODE_ID));
+    let n_11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::Normal, NodeId::new(0, 0, 0), INVALID_NODE_ID));
+    let n_12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::Normal, NodeId::new(0, 0, 13), INVALID_NODE_ID));
+    let n_13 = (NodeId::new(0, 0, 13), CFGNodeData::new_test_single(13, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    let n_0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID));
+    let n_1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID));
+    let n_2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 12), INVALID_NODE_ID));
     cfg.add_edge(n_10, n_11.clone());
     cfg.add_edge(n_11, n_0.clone());
     cfg.add_edge(n_0, n_1.clone());
@@ -609,14 +589,14 @@ pub fn get_cfg_no_loop_sub_routine_loop_ret() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID));
-    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 0)));
-    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
-    let n10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 11), NodeId::new(0, 0, 1)));
-    let n11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 12), INVALID_NODE_ID));
-    let n12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 13), INVALID_NODE_ID));
-    let n13 = (NodeId::new(0, 0, 13), CFGNodeData::new_test_single(13, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 14), NodeId::new(0, 0, 11)));
-    let n14 = (NodeId::new(0, 0, 14), CFGNodeData::new_test_single(14, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID));
+    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 0)));
+    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
+    let n10 = (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::NormalEntry, NodeId::new(0, 0, 11), NodeId::new(0, 0, 1)));
+    let n11 = (NodeId::new(0, 0, 11), CFGNodeData::new_test_single(11, InsnNodeType::Normal, NodeId::new(0, 0, 12), INVALID_NODE_ID));
+    let n12 = (NodeId::new(0, 0, 12), CFGNodeData::new_test_single(12, InsnNodeType::Normal, NodeId::new(0, 0, 13), INVALID_NODE_ID));
+    let n13 = (NodeId::new(0, 0, 13), CFGNodeData::new_test_single(13, InsnNodeType::Normal, NodeId::new(0, 0, 14), NodeId::new(0, 0, 11)));
+    let n14 = (NodeId::new(0, 0, 14), CFGNodeData::new_test_single(14, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg.add_edge(n0.clone(), n1.clone());
     cfg.add_edge(n1.clone(), n0.clone());
     cfg.add_edge(n1.clone(), n2);
@@ -636,7 +616,7 @@ pub fn get_cfg_single_node() -> CFG {
         NodeId::new(0, 0, 0),
         CFGNodeData::new_test_single(
             0,
-            InsnNodeType::new(InsnNodeWeightType::Return, true),
+            InsnNodeType::Return | InsnNodeType::Entry,
             INVALID_NODE_ID,
             INVALID_NODE_ID,
         ),
@@ -648,7 +628,7 @@ pub fn get_cfg_single_self_ref() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let n_0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Return, true), INVALID_NODE_ID, NodeId::new(0, 0, 0)));
+    let n_0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::Return | InsnNodeType::Entry, INVALID_NODE_ID, NodeId::new(0, 0, 0)));
     cfg.add_edge(n_0.clone(), n_0);
     }
     cfg
@@ -662,16 +642,16 @@ pub fn get_cfg_self_ref_call() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
         (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call(1, NodeId::from(0), false, NodeId::new(0, 0, 2))),
     );
     cfg.add_edge(
         (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call(1, NodeId::from(0), false, NodeId::new(0, 0, 2))),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 3))),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -684,16 +664,16 @@ pub fn get_cfg_linear() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -704,16 +684,16 @@ pub fn get_cfg_linear_call() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Call, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Call, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -728,20 +708,20 @@ pub fn get_cfg_simple_loop() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -752,28 +732,28 @@ pub fn get_cfg_simple_loop_extra_nodes() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 10), CFGNodeData::new_test_single(10, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 13), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 13), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 13), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 13), CFGNodeData::new_test_single(13, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 13), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 13), CFGNodeData::new_test_single(13, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -785,9 +765,9 @@ pub fn get_cfg_self_ref_loop() -> CFG {
     let mut cfg = CFG::new();
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID));
-    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), NodeId::new(0, 0, 1)));
-    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID));
+    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), NodeId::new(0, 0, 1)));
+    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg.add_edge(n0, n1.clone());
     cfg.add_edge(n1.clone(), n1.clone());
     cfg.add_edge(n1, n2);
@@ -812,29 +792,29 @@ pub fn get_cfg_loop_self_ref() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 4))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 4))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
 
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 4))),
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 4))),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Normal, NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Normal, NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Normal, NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Normal, NodeId::new(0, 0, 1), NodeId::new(0, 0, 4))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     }
     cfg
@@ -845,30 +825,30 @@ pub fn get_paper_example_cfg_loop() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-    );
-    // Back edge
-    cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-    );
-    cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
     );
     // Back edge
     cfg.add_edge(
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
+    );
+    // Back edge
+    cfg.add_edge(
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+    );
+    cfg.add_edge(
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
     cfg
@@ -883,12 +863,12 @@ pub fn get_unset_indirect_call_cfg() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single( 0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
         (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call( 1, INVALID_NODE_ID, true, NodeId::new(0, 0, 2))),
     );
     cfg.add_edge(
         (NodeId::new(0, 0, 1), CFGNodeData::new_test_single_call( 1, INVALID_NODE_ID, true, NodeId::new(0, 0, 2))),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::Return, NodeId::new(0, 0, 3), INVALID_NODE_ID)),
     );
     }
 
@@ -904,12 +884,12 @@ pub fn get_unset_indirect_call_to_0_cfg() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0x6000), CFGNodeData::new_test_single(0x6000, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0x6001), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0x6000), CFGNodeData::new_test_single(0x6000, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0x6001), INVALID_NODE_ID)),
         (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(0x6001, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
     );
     cfg.add_edge(
         (NodeId::new(0, 0, 0x6001), CFGNodeData::new_test_single_call(0x6001, INVALID_NODE_ID, true, NodeId::new(0, 0, 0x6002))),
-        (NodeId::new(0, 0, 0x6002), CFGNodeData::new_test_single(0x6002, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 0x6003), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0x6002), CFGNodeData::new_test_single(0x6002, InsnNodeType::Return, NodeId::new(0, 0, 0x6003), INVALID_NODE_ID)),
     );
     }
 
@@ -923,16 +903,16 @@ pub fn get_endless_loop_cfg() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single( 0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 0, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single( 2, InsnNodeType::Normal, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single( 1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
     }
 
@@ -949,12 +929,12 @@ pub fn get_A() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0xaaaaaa0), CFGNodeData::new_test_single(0xaaaaaa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xaaaaaa1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xaaaaaa0), CFGNodeData::new_test_single(0xaaaaaa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xaaaaaa1), INVALID_NODE_ID)),
         (NodeId::new(0, 0, 0xaaaaaa1), CFGNodeData::new_test_single_call(0xaaaaaa1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xaaaaaa2))),
     );
     cfg.add_edge(
         (NodeId::new(0, 0, 0xaaaaaa1), CFGNodeData::new_test_single_call(0xaaaaaa1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xaaaaaa2))),
-        (NodeId::new(0, 0, 0xaaaaaa2), CFGNodeData::new_test_single(0xaaaaaa2, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 0xaaaaaa3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xaaaaaa2), CFGNodeData::new_test_single(0xaaaaaa2, InsnNodeType::Return, NodeId::new(0, 0, 0xaaaaaa3), INVALID_NODE_ID)),
     );
     }
 
@@ -974,20 +954,20 @@ pub fn get_B() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0xbbbbbb0), CFGNodeData::new_test_single(0xbbbbbb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xbbbbbb1), NodeId::new(0, 0, 0xbbbbbb2))),
+        (NodeId::new(0, 0, 0xbbbbbb0), CFGNodeData::new_test_single(0xbbbbbb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xbbbbbb1), NodeId::new(0, 0, 0xbbbbbb2))),
         (NodeId::new(0, 0, 0xbbbbbb1), CFGNodeData::new_test_single_call(0xbbbbbb1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xbbbbbb3))),
     );
     cfg.add_edge(
         (NodeId::new(0, 0, 0xbbbbbb1), CFGNodeData::new_test_single_call(0xbbbbbb1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xbbbbbb3))),
-        (NodeId::new(0, 0, 0xbbbbbb3), CFGNodeData::new_test_single(0xbbbbbb3, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 0xbbbbbb3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xbbbbbb3), CFGNodeData::new_test_single(0xbbbbbb3, InsnNodeType::Return, NodeId::new(0, 0, 0xbbbbbb3), INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 0xbbbbbb0), CFGNodeData::new_test_single(0xbbbbbb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xbbbbbb1), NodeId::new(0, 0, 0xbbbbbb2))),
+        (NodeId::new(0, 0, 0xbbbbbb0), CFGNodeData::new_test_single(0xbbbbbb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xbbbbbb1), NodeId::new(0, 0, 0xbbbbbb2))),
         (NodeId::new(0, 0, 0xbbbbbb2), CFGNodeData::new_test_single_call(0xbbbbbb2, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xbbbbbb3))),
     );
     cfg.add_edge(
         (NodeId::new(0, 0, 0xbbbbbb2), CFGNodeData::new_test_single_call(0xbbbbbb2, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xbbbbbb3))),
-        (NodeId::new(0, 0, 0xbbbbbb3), CFGNodeData::new_test_single(0xbbbbbb3, InsnNodeType::new(InsnNodeWeightType::Return, false), NodeId::new(0, 0, 0xbbbbbb3), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xbbbbbb3), CFGNodeData::new_test_single(0xbbbbbb3, InsnNodeType::Return, NodeId::new(0, 0, 0xbbbbbb3), INVALID_NODE_ID)),
     );
     }
 
@@ -1005,12 +985,12 @@ pub fn get_C() -> CFG {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
     cfg.add_edge(
-        (NodeId::new(0, 0, 0xcccccc0), CFGNodeData::new_test_single(0xcccccc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xcccccc1), NodeId::new(0, 0, 0xcccccc2))),
-        (NodeId::new(0, 0, 0xcccccc1), CFGNodeData::new_test_single(0xcccccc1, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xcccccc0), CFGNodeData::new_test_single(0xcccccc0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xcccccc1), NodeId::new(0, 0, 0xcccccc2))),
+        (NodeId::new(0, 0, 0xcccccc1), CFGNodeData::new_test_single(0xcccccc1, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     cfg.add_edge(
-        (NodeId::new(0, 0, 0xcccccc0), CFGNodeData::new_test_single(0xcccccc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xcccccc1), NodeId::new(0, 0, 0xcccccc2))),
-        (NodeId::new(0, 0, 0xcccccc2), CFGNodeData::new_test_single(0xcccccc2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 0xcccccc0), CFGNodeData::new_test_single(0xcccccc0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xcccccc1), NodeId::new(0, 0, 0xcccccc2))),
+        (NodeId::new(0, 0, 0xcccccc2), CFGNodeData::new_test_single(0xcccccc2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
     );
     }
 
@@ -1029,10 +1009,10 @@ pub fn get_D() -> CFG {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let d_n0 = (NodeId::new(0, 0, 0xdddddd0), CFGNodeData::new_test_single(0xdddddd0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xdddddd1), NodeId::new(0, 0, 0xdddddd2)));
+    let d_n0 = (NodeId::new(0, 0, 0xdddddd0), CFGNodeData::new_test_single(0xdddddd0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xdddddd1), NodeId::new(0, 0, 0xdddddd2)));
     let d_n1 = (NodeId::new(0, 0, 0xdddddd1), CFGNodeData::new_test_single_call(0xdddddd1, NodeId::from(CFG_ENTRY_A), false, NodeId::new(0, 0, 0xdddddd3)));
-    let d_n2 = (NodeId::new(0, 0, 0xdddddd2), CFGNodeData::new_test_single(0xdddddd2, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 0xdddddd3), INVALID_NODE_ID));
-    let d_n3 = (NodeId::new(0, 0, 0xdddddd3), CFGNodeData::new_test_single(0xdddddd3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let d_n2 = (NodeId::new(0, 0, 0xdddddd2), CFGNodeData::new_test_single(0xdddddd2, InsnNodeType::Normal, NodeId::new(0, 0, 0xdddddd3), INVALID_NODE_ID));
+    let d_n3 = (NodeId::new(0, 0, 0xdddddd3), CFGNodeData::new_test_single(0xdddddd3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg.add_edge(d_n0.clone(), d_n1.clone());
     cfg.add_edge(d_n0, d_n2.clone());
     cfg.add_edge(d_n1, d_n3.clone());
@@ -1061,40 +1041,40 @@ pub fn get_scc_refs_scc() -> (ICFG, RwLock<WeightMap>) {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let cfg_a_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_a_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
     let cfg_a_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
     let cfg_a_n2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single_call(0xa2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xa3)));
-    let cfg_a_n3 = (NodeId::new(0, 0, 0xa3), CFGNodeData::new_test_single(0xa3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_a_n3 = (NodeId::new(0, 0, 0xa3), CFGNodeData::new_test_single(0xa3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_a.add_edge(cfg_a_n0, cfg_a_n1.clone());
     cfg_a.add_edge(cfg_a_n1, cfg_a_n2.clone());
     cfg_a.add_edge(cfg_a_n2, cfg_a_n3);
 
-    let cfg_b_n0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
+    let cfg_b_n0 = (NodeId::new(0, 0, 0xb0), CFGNodeData::new_test_single(0xb0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xb1), INVALID_NODE_ID));
     let cfg_b_n1 = (NodeId::new(0, 0, 0xb1), CFGNodeData::new_test_single_call(0xb1, NodeId::new(0, 0, A_ADDR), false, NodeId::new(0, 0, 0xb2)));
-    let cfg_b_n2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_b_n2 = (NodeId::new(0, 0, 0xb2), CFGNodeData::new_test_single(0xb2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_b.add_edge(cfg_b_n0, cfg_b_n1.clone());
     cfg_b.add_edge(cfg_b_n1, cfg_b_n2);
 
-    let cfg_c_n0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
+    let cfg_c_n0 = (NodeId::new(0, 0, 0xc0), CFGNodeData::new_test_single(0xc0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xc1), INVALID_NODE_ID));
     let cfg_c_n1 = (NodeId::new(0, 0, 0xc1), CFGNodeData::new_test_single_call(0xc1, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xc2)));
-    let cfg_c_n2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_c_n2 = (NodeId::new(0, 0, 0xc2), CFGNodeData::new_test_single(0xc2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_c.add_edge(cfg_c_n0, cfg_c_n1.clone());
     cfg_c.add_edge(cfg_c_n1, cfg_c_n2);
 
-    let cfg_d_n0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xd1), INVALID_NODE_ID));
+    let cfg_d_n0 = (NodeId::new(0, 0, 0xd0), CFGNodeData::new_test_single(0xd0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xd1), INVALID_NODE_ID));
     let cfg_d_n1 = (NodeId::new(0, 0, 0xd1), CFGNodeData::new_test_single_call(0xd1, NodeId::new(0, 0, E_ADDR), false, NodeId::new(0, 0, 0xd2)));
-    let cfg_d_n2 = (NodeId::new(0, 0, 0xd2), CFGNodeData::new_test_single(0xd2, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_d_n2 = (NodeId::new(0, 0, 0xd2), CFGNodeData::new_test_single(0xd2, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_d.add_edge(cfg_d_n0, cfg_d_n1.clone());
     cfg_d.add_edge(cfg_d_n1, cfg_d_n2);
 
-    let cfg_e_n0 = (NodeId::new(0, 0, 0xe0), CFGNodeData::new_test_single(0xe0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xe1), INVALID_NODE_ID));
+    let cfg_e_n0 = (NodeId::new(0, 0, 0xe0), CFGNodeData::new_test_single(0xe0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xe1), INVALID_NODE_ID));
     let cfg_e_n1 = (NodeId::new(0, 0, 0xe1), CFGNodeData::new_test_single_call(0xe1, NodeId::new(0, 0, C_ADDR), false, NodeId::new(0, 0, 0xe2)));
     let cfg_e_n2 = (NodeId::new(0, 0, 0xe2), CFGNodeData::new_test_single_call(0xe2, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xe3)));
-    let cfg_e_n3 = (NodeId::new(0, 0, 0xe3), CFGNodeData::new_test_single(0xe3, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_e_n3 = (NodeId::new(0, 0, 0xe3), CFGNodeData::new_test_single(0xe3, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_e.add_edge(cfg_e_n0, cfg_e_n1.clone());
     cfg_e.add_edge(cfg_e_n1, cfg_e_n2.clone());
@@ -1139,26 +1119,26 @@ pub fn get_node_data_iter_test() -> (CFG, CFG, CFG) {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     {
-    let cfg_cm_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_cm_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
     let cfg_cm_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, NodeId::new(0, 0, B_ADDR), false, NodeId::new(0, 0, 0xa2)));
     let cfg_cm_n2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single_call(0xa2, NodeId::new(0, 0, D_ADDR), false, NodeId::new(0, 0, 0xa3)));
     let cfg_cm_n3 = (NodeId::new(0, 0, 0xa3), CFGNodeData::new_test_single_call(0xa3, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xa4)));
-    let cfg_cm_n4 = (NodeId::new(0, 0, 0xa4), CFGNodeData::new_test_single(0xa4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_cm_n4 = (NodeId::new(0, 0, 0xa4), CFGNodeData::new_test_single(0xa4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_call_mix.add_edge(cfg_cm_n0, cfg_cm_n1.clone());
     cfg_call_mix.add_edge(cfg_cm_n1, cfg_cm_n2.clone());
     cfg_call_mix.add_edge(cfg_cm_n2, cfg_cm_n3.clone());
     cfg_call_mix.add_edge(cfg_cm_n3, cfg_cm_n4);
 
-    let cfg_nc_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
-    let cfg_nc_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single(0xa1, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_nc_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_nc_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single(0xa1, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
     cfg_no_call.add_edge(cfg_nc_n0, cfg_nc_n1);
 
-    let cfg_oi_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
+    let cfg_oi_n0 = (NodeId::new(0, 0, 0xa0), CFGNodeData::new_test_single(0xa0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 0xa1), INVALID_NODE_ID));
     let cfg_oi_n1 = (NodeId::new(0, 0, 0xa1), CFGNodeData::new_test_single_call(0xa1, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xa2)));
-    let cfg_oi_n2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 0xa3), INVALID_NODE_ID));
+    let cfg_oi_n2 = (NodeId::new(0, 0, 0xa2), CFGNodeData::new_test_single(0xa2, InsnNodeType::Normal, NodeId::new(0, 0, 0xa3), INVALID_NODE_ID));
     let cfg_oi_n3 = (NodeId::new(0, 0, 0xa3), CFGNodeData::new_test_single_call(0xa3, INVALID_NODE_ID, true, NodeId::new(0, 0, 0xa4)));
-    let cfg_oi_n4 = (NodeId::new(0, 0, 0xa4), CFGNodeData::new_test_single(0xa4, InsnNodeType::new(InsnNodeWeightType::Return, false), INVALID_NODE_ID, INVALID_NODE_ID));
+    let cfg_oi_n4 = (NodeId::new(0, 0, 0xa4), CFGNodeData::new_test_single(0xa4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID));
 
     cfg_only_indirect.add_edge(cfg_oi_n0, cfg_oi_n1.clone());
     cfg_only_indirect.add_edge(cfg_oi_n1, cfg_oi_n2.clone());

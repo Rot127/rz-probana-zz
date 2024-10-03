@@ -11,7 +11,7 @@ use helper::progress::ProgressBar;
 use petgraph::Direction::Outgoing;
 
 use crate::{
-    cfg::{InsnNodeWeightType, Procedure},
+    cfg::Procedure,
     flow_graphs::{EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, ProcedureMap},
     weight::{WeightID, WeightMap},
 };
@@ -388,7 +388,7 @@ impl FlowGraphOperations for ICFG {
             .write()
             .unwrap()
             .for_each_cinsn(|i| {
-                if i.itype.weight_type != InsnNodeWeightType::Call {
+                if !i.itype.is_call() {
                     return;
                 }
                 i.call_targets.retain_mut(|ct| {
@@ -400,7 +400,7 @@ impl FlowGraphOperations for ICFG {
                     return true;
                 });
                 if i.call_targets.is_empty() {
-                    i.itype.weight_type = InsnNodeWeightType::Normal;
+                    i.itype.is_normal();
                 }
             });
     }

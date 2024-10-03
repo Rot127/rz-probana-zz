@@ -801,6 +801,7 @@ impl std::fmt::Display for MemOp {
 
 pub type MemOpSeq = Vec<MemOp>;
 
+#[derive(Debug)]
 pub struct CallFrame {
     /// The invocation site
     in_site: Address,
@@ -1622,6 +1623,12 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
 
     while vm.step() {}
 
+    assert_eq!(
+        vm.cs.len(),
+        1,
+        "Call stack invalid. Should only hold the initial frame: {:?}",
+        vm.cs
+    );
     vm.free_buffers();
 
     // println!("EXIT\n");

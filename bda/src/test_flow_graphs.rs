@@ -9,7 +9,7 @@ mod tests {
     use petgraph::dot::Dot;
 
     use crate::{
-        cfg::{CFGNodeData, InsnNodeType, InsnNodeWeightType, Procedure, CFG},
+        cfg::{CFGNodeData, InsnNodeType, Procedure, CFG},
         flow_graphs::{FlowGraphOperations, NodeId, ProcedureMap, INVALID_NODE_ID},
         icfg::ICFG,
         proc_map_get_cfg_mut,
@@ -332,11 +332,11 @@ mod tests {
         cfg.add_edge(
             (
                 NodeId::new(0, 0, 0),
-                CFGNodeData::new_test_single(0, InsnNodeType::new(InsnNodeWeightType::Normal, true), NodeId::new(0, 0, 1), INVALID_NODE_ID),
+                CFGNodeData::new_test_single(0, InsnNodeType::Normal | InsnNodeType::Entry, NodeId::new(0, 0, 1), INVALID_NODE_ID),
             ),
             (
                 NodeId::new(0, 0, 1),
-                CFGNodeData::new_test_single(1, InsnNodeType::new(InsnNodeWeightType::Normal, false), NodeId::new(0, 0, 2), INVALID_NODE_ID),
+                CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID),
             ),
         );
         }

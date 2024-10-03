@@ -1,13 +1,23 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use bitflags::bitflags;
 use core::panic;
 use std::{
     collections::{hash_map, hash_set, HashMap, HashSet, VecDeque},
     sync::RwLock,
 };
 
-use binding::{log_rizin, log_rz, LOG_DEBUG};
+use binding::{
+    log_rizin, log_rz, RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_JUMP,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN,
+    RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_TAIL, LOG_DEBUG,
+};
 use petgraph::Direction::Outgoing;
 
 use crate::{
@@ -18,56 +28,105 @@ use crate::{
     weight::{NodeWeightIDRefMap, WeightID, WeightMap},
 };
 
-/// The type of a node which determines the weight calculation of it.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum InsnNodeWeightType {
-    /// A node without any special meaning in the graph.
-    /// It's weight is:
-    ///
-    ///   foreach s in addr.successors:
-    ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
-    ///
-    Normal,
-    /// A node which calls a procedure.
-    /// Its weight is defined as:
-    ///
-    ///   W\[iaddr\] = W\[ret_addr\] × W\[callee\]
-    ///
-    Call,
-    /// A node which jumps to one or multiple nodes.
-    /// The jump target is sampled uniformally at random.
-    /// Its weight is defined as:
-    ///
-    ///   foreach s in addr.successors:
-    ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
-    ///
-    Jump,
-    /// A return node. This is always a leaf and always has
-    ///
-    ///   W\[iaddr\] = 1
-    ///
-    Return,
-    /// A node which exits the procedure without return.
-    /// Its weight is defined by:
-    ///
-    ///   W\[iaddr\] = 1
-    ///
-    Exit,
-}
+bitflags! {
+    /// The type of a node which determines the weight calculation of it.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct InsnNodeType: u32 {
+        /// A node without any special meaning in the graph.
+        /// It's weight is:
+        ///
+        ///   foreach s in addr.successors:
+        ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
+        ///
+        const Normal = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE;
+        /// A node which calls a procedure.
+        /// Its weight is defined as:
+        ///
+        ///   W\[iaddr\] = W\[ret_addr\] × W\[callee\]
+        ///
+        const Call = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL;
+        /// A return node. This is always a leaf and always has
+        ///
+        ///   W\[iaddr\] = 1
+        ///
+        const Return = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN;
+        /// A node which exits the procedure without return.
+        /// Its weight is defined by:
+        ///
+        ///   W\[iaddr\] = 1
+        ///
+        const Exit = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT;
+        /// A node which jumps to one or multiple nodes.
+        /// Its weight is defined as:
+        ///
+        ///   foreach s in addr.successors:
+        ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
+        ///
+        const Jump = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_JUMP;
 
-/// The node type of a instruction.
-#[derive(Clone, Debug, PartialEq)]
-pub struct InsnNodeType {
-    pub is_entry: bool,
-    pub weight_type: InsnNodeWeightType,
+        /// Other properties of the node. They don't have an effect on the weight calculation.
+        /// An procdeure entry node. It is treated as a normal node.
+        const Entry = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY;
+        const NormalEntry = Self::Normal.bits() | Self::Entry.bits();
+        /// An node with a conditional instruction. It is treated as a normal node.
+        const Cond = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND;
+        /// Indicating it is the end of an function.
+        /// In case it is also a call, it is an exit. If it is a jump, it is
+        /// likely a tail call. It requires the VM to pop from the call stack.
+        const Tail = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_TAIL;
+        /// A jump to another procedure at the end of the function.
+        /// The return value of the procedure jumped to, is als returned by the procedure.
+        const TailCall = Self::Tail.bits() | Self::Jump.bits();
+        /// A call to another procedure as the last instruction of a function.
+        /// This call does not return and is considered an exit.
+        const TailExit = Self::Tail.bits() | Self::Call.bits();
+        /// Mask for no weight affected properties.
+        const HintMask = Self::Tail.bits() | Self::Cond.bits() | Self::Entry.bits();
+    }
 }
 
 impl InsnNodeType {
-    pub fn new(weight_type: InsnNodeWeightType, is_entry: bool) -> InsnNodeType {
-        InsnNodeType {
-            is_entry,
-            weight_type,
-        }
+    pub fn is_call(&self) -> bool {
+        (*self & InsnNodeType::Call) == InsnNodeType::Call
+    }
+
+    pub fn is_return(&self) -> bool {
+        (*self & InsnNodeType::Return) == InsnNodeType::Return
+    }
+
+    pub fn is_jump(&self) -> bool {
+        (*self & InsnNodeType::Jump) == InsnNodeType::Jump
+    }
+
+    pub fn is_exit(&self) -> bool {
+        (*self & InsnNodeType::Exit) == InsnNodeType::Exit
+            || (*self & InsnNodeType::TailExit) == InsnNodeType::TailExit
+    }
+
+    pub fn is_tail(&self) -> bool {
+        (*self & InsnNodeType::Tail) == InsnNodeType::Tail
+    }
+
+    /// Jump to another procedure.
+    /// This is NOT a call instruction.
+    pub fn is_tail_call(&self) -> bool {
+        *self == InsnNodeType::TailCall
+    }
+
+    pub fn is_cond(&self) -> bool {
+        (*self & InsnNodeType::Cond) == InsnNodeType::Cond
+    }
+
+    pub fn is_entry(&self) -> bool {
+        (*self & InsnNodeType::Entry) == InsnNodeType::Entry
+    }
+
+    pub fn is_normal(&self) -> bool {
+        (*self & !(InsnNodeType::HintMask)) == InsnNodeType::Normal
+    }
+
+    pub fn without_hint(&self) -> InsnNodeType {
+        *self & !(InsnNodeType::HintMask)
     }
 }
 
@@ -102,7 +161,7 @@ impl InsnNodeData {
     ) -> InsnNodeData {
         InsnNodeData {
             addr,
-            itype: InsnNodeType::new(InsnNodeWeightType::Call, false),
+            itype: InsnNodeType::Call,
             call_targets,
             orig_jump_targets: NodeIdSet::from_nid(jump_target),
             orig_next: next,
@@ -147,9 +206,7 @@ impl InsnNodeData {
         wmap: &RwLock<WeightMap>,
     ) -> WeightID {
         let const_one = &wmap.read().unwrap().get_one();
-        if self.itype.weight_type == InsnNodeWeightType::Return
-            || self.itype.weight_type == InsnNodeWeightType::Exit
-        {
+        if self.itype.is_return() || self.itype.is_tail_call() || self.itype.is_exit() {
             return const_one.clone();
         }
         let mut sum_succ_weights: WeightID = wmap.read().unwrap().get_zero();
@@ -168,8 +225,7 @@ impl InsnNodeData {
             }
         }
         if sum_succ_weights == wmap.read().unwrap().get_zero()
-            && (self.itype.weight_type == InsnNodeWeightType::Normal
-                || self.itype.weight_type == InsnNodeWeightType::Jump)
+            && (self.itype.is_normal() || self.itype.is_jump())
         {
             // This indicates the CFG has an endless loop of normal instructions
             // without any Return or Exit nodes.
@@ -181,19 +237,16 @@ impl InsnNodeData {
             // It also can be a jump without target (indirect jump).
             return const_one.clone();
         }
-        let weight = match self.itype.weight_type {
-            InsnNodeWeightType::Return | InsnNodeWeightType::Exit => {
-                panic!("Should have been handled before.")
-            }
-            InsnNodeWeightType::Normal | InsnNodeWeightType::Jump => sum_succ_weights,
-            InsnNodeWeightType::Call => {
+        let weight = match self.itype.without_hint() {
+            InsnNodeType::Normal | InsnNodeType::Jump => sum_succ_weights,
+            InsnNodeType::Call => {
                 // This sampling step breaks the promise of path insensitivity of the algorithm.
                 // But due to the design decission, to seperate path sampling from
                 // abstract interpretation, I can't come up with a better method then this for now.
                 // Because, if a single call instruction computes its targets
                 // dynamically, we do not know at this sampling stage, where it will
                 // jump to.
-                // The interpreter would know, but the sample does not.
+                // The interpreter would know, but the sampler does not.
                 let ct_nid = &self.call_targets.sample();
                 let p: Option<&RwLock<Procedure>> = procedure_map.get(ct_nid);
                 let mut has_procedure = p.is_some();
@@ -220,6 +273,9 @@ impl InsnNodeData {
                     *const_one
                 };
                 sum_succ_weights.mul(&cw, wmap)
+            }
+            _ => {
+                panic!("Should have been handled before.")
             }
         };
         weight
@@ -275,6 +331,10 @@ impl InsnNodeDataVec {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CFGNodeData {
     pub nid: NodeId,
+    /// Node types of this instruction word.
+    /// It only saves types true for the instruction word as an atomic unit.
+    /// E.g. tail, tail_exit, tail_call, exit, return
+    pub node_type: InsnNodeType,
     weight_id: Option<WeightID>,
     pub insns: InsnNodeDataVec,
 }
@@ -289,6 +349,7 @@ impl CFGNodeData {
     pub fn new(nid: NodeId) -> CFGNodeData {
         CFGNodeData {
             nid,
+            node_type: InsnNodeType::Normal,
             weight_id: None,
             insns: InsnNodeDataVec::new(),
         }
@@ -303,6 +364,7 @@ impl CFGNodeData {
     ) -> CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
+            node_type: InsnNodeType::Normal,
             weight_id: None,
             insns: InsnNodeDataVec::new(),
         };
@@ -347,6 +409,7 @@ impl CFGNodeData {
     ) -> CFGNodeData {
         let mut node = CFGNodeData {
             nid: NodeId::from(addr),
+            node_type: InsnNodeType::Normal,
             weight_id: None,
             insns: InsnNodeDataVec::new(),
         };
@@ -363,6 +426,7 @@ impl CFGNodeData {
     pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> CFGNodeData {
         let mut clone = CFGNodeData {
             nid: self.nid,
+            node_type: self.node_type,
             weight_id: self.weight_id,
             insns: self.insns.get_clone(icfg_clone_id, cfg_clone_id),
         };
@@ -371,22 +435,12 @@ impl CFGNodeData {
         clone
     }
 
-    pub fn has_type(&self, wtype: InsnNodeWeightType) -> bool {
-        for i in self.insns.iter() {
-            if i.itype.weight_type == wtype {
-                return true;
-            }
-        }
-        false
+    pub fn has_type(&self, wtype: InsnNodeType) -> bool {
+        self.insns.iter().any(|i| (i.itype & wtype) == wtype)
     }
 
     pub fn has_entry(&self) -> bool {
-        for i in self.insns.iter() {
-            if i.itype.is_entry {
-                return true;
-            }
-        }
-        false
+        self.insns.iter().any(|i| i.itype.is_entry())
     }
 }
 
@@ -647,7 +701,7 @@ impl CFGNodeDataMap {
     }
 
     pub fn insert(&mut self, key: NodeId, value: CFGNodeData) {
-        if value.has_type(InsnNodeWeightType::Call) {
+        if value.has_type(InsnNodeType::Call) {
             self.call_insns_idx.insert(key);
         }
         self.map.insert(key, value);
@@ -676,7 +730,7 @@ impl CFGNodeDataMap {
 
     pub fn extend(&mut self, other: CFGNodeDataMap) {
         for ndata in other.iter() {
-            if ndata.1.has_type(InsnNodeWeightType::Call) {
+            if ndata.1.has_type(InsnNodeType::Call) {
                 self.call_insns_idx.insert(ndata.0.clone());
             }
         }
@@ -692,6 +746,8 @@ pub struct CFG {
     pub nodes_meta: CFGNodeDataMap,
     /// Set of exit nodes, discovered while building the CFG.
     discovered_exits: NodeIdSet,
+    /// Set of tail call nodes, discovered while building the CFG.
+    discovered_tail_calls: NodeIdSet,
     /// Reverse topoloical sorted graph
     topograph: Vec<NodeId>,
     /// The node id of the entry node
@@ -722,6 +778,7 @@ impl CFG {
             nodes_meta: CFGNodeDataMap::new(),
             topograph: Vec::new(),
             discovered_exits: NodeIdSet::new(),
+            discovered_tail_calls: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
             scc_members: HashMap::new(),
@@ -735,6 +792,7 @@ impl CFG {
             nodes_meta: CFGNodeDataMap::new(),
             topograph: Vec::new(),
             discovered_exits: NodeIdSet::new(),
+            discovered_tail_calls: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
             scc_members: HashMap::new(),
@@ -774,6 +832,7 @@ impl CFG {
             graph: FlowGraph::new(),
             nodes_meta: self.nodes_meta.get_clone(icfg_clone_id, -1),
             discovered_exits: self.discovered_exits.get_clone(icfg_clone_id, -1),
+            discovered_tail_calls: self.discovered_tail_calls.get_clone(icfg_clone_id, -1),
             topograph: self.topograph.clone(),
             entry: self.entry.get_clone(icfg_clone_id, -1),
             dup_cnt: self.dup_cnt.clone(),
@@ -889,7 +948,7 @@ impl CFG {
 
     pub fn add_node_data(&mut self, node_id: NodeId, data: CFGNodeData) {
         assert!(self.graph.contains_node(node_id));
-        if data.insns.iter().any(|i| i.itype.is_entry) {
+        if data.insns.iter().any(|i| i.itype.is_entry()) {
             self.set_entry(node_id);
         }
         self.nodes_meta.insert(node_id, data);
@@ -908,7 +967,7 @@ impl CFG {
             if i >= 0 && i != j as isize {
                 continue;
             }
-            if insn.itype.weight_type == InsnNodeWeightType::Call {
+            if insn.itype.is_call() {
                 if call_set {
                     panic!("Two calls exist, but it wasn't specifies which one to update.");
                 }
@@ -930,7 +989,7 @@ impl CFG {
             .expect(&format!("{} has no meta data entry.", nid));
         let mut jump_set = false;
         for insn in ninfo.insns.iter_mut() {
-            if insn.itype.weight_type == InsnNodeWeightType::Jump {
+            if insn.itype.is_jump() {
                 if jump_set {
                     panic!("Two jumps exist, but it wasn't specifies which one to update.");
                 }
@@ -984,7 +1043,17 @@ impl FlowGraphOperations for CFG {
                 .insns
                 .last_mut()
                 .unwrap();
-            exit.itype.weight_type = InsnNodeWeightType::Exit;
+            exit.itype.is_exit();
+        }
+        for n in self.discovered_tail_calls.iter_mut() {
+            let tail_call: &mut InsnNodeData = self
+                .nodes_meta
+                .get_mut(&n)
+                .unwrap()
+                .insns
+                .last_mut()
+                .unwrap();
+            tail_call.itype.is_tail_call();
         }
     }
 
