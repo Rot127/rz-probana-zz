@@ -1178,7 +1178,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if vm.pc_is_call() {
         vm.add_call_xref(vm.get_cur_entry(), addr);
         vm.call_stack_push(addr);
-    } else {
+    } else if vm.peak_next_addr().is_none() || addr != vm.peak_next_addr().unwrap() {
         vm.add_jump_xref(vm.get_cur_entry(), addr);
     }
     true

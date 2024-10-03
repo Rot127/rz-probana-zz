@@ -963,6 +963,13 @@ impl AbstrVM {
         });
     }
 
+    pub fn peak_next_addr(&self) -> Option<Address> {
+        if let Some(next) = self.pa.peak_next() {
+            return Some(next.0);
+        }
+        None
+    }
+
     pub fn get_limit_repeat(&self) -> usize {
         self.limit_repeat
     }
@@ -1590,7 +1597,7 @@ impl AbstrVM {
                 result = true;
             }
         } else {
-            let ana_op = if self.iword_buffer.get(&self.pc).is_some() {
+            let ana_op = if self.aop_buffer.get(&self.pc).is_some() {
                 *self.aop_buffer.get(&self.pc).unwrap()
             } else {
                 let ptr = unlocked_core!(self).get_analysis_op(self.pc);
