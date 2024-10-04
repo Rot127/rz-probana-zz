@@ -1570,12 +1570,12 @@ impl AbstrVM {
         self.pa.path.back().unwrap().1.is_exit()
     }
 
-    fn step(&mut self) -> bool {
+    fn step(&mut self) -> StepResult {
         if let Some((pc, addr_info)) = self.pa.next() {
             self.pc = pc;
             self.insn_info = addr_info;
         } else {
-            return false;
+            return StepResult::Done;
         }
         // println!("pc = {:#x}", self.pc);
 
@@ -1583,6 +1583,13 @@ impl AbstrVM {
 
         if self.is_return_point() {
             self.call_stack_pop();
+        }
+        if self.insn_info.is_exit() {
+            debug_assert!(
+                self.pa.next().is_none(),
+                "Exit was not the last instruction in the path"
+            );
+            return StepResult::Exit;
         }
 
         let mut dont_execute = false;
@@ -1636,21 +1643,42 @@ impl AbstrVM {
             }
         }
         self.lvars.clear();
-        result
+        if result {
+            return StepResult::Ok;
+        }
+        return StepResult::Fail;
     }
+}
+
+#[derive(PartialEq, Eq)]
+enum StepResult {
+    // Step was executed succesfully.
+    Ok,
+    // An error occured during effect evaluation.
+    Fail,
+    // VM walked the whole path
+    Done,
+    // VM walked hit an exit.
+    Exit,
 }
 
 /// Interprets the given path with the given interpreter VM.
 pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
-    // println!("{}", path);
+    // println!("\n{}\n", path);
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
 
-    while vm.step() {}
+    let mut step = StepResult::Ok;
+    while step == StepResult::Ok {
+        step = vm.step();
+    }
+    assert!(
+        step == StepResult::Done || step == StepResult::Exit,
+        "Emulation failed with an error."
+    );
 
-    assert_eq!(
-        vm.cs.len(),
-        1,
-        "Call stack invalid. Should only hold the initial frame: {:?}",
+    assert!(
+        vm.cs.len() == 1 || step == StepResult::Exit,
+        "Call stack invalid. Should only hold the initial frame only or be an exit: {:?}",
         vm.cs
     );
     vm.free_buffers();
