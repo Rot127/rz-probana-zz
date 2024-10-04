@@ -1431,11 +1431,11 @@ impl AbstrVM {
         self.insn_info.is_call()
     }
 
-    fn is_return_point(&self) -> bool {
+    fn pc_is_return_point(&self) -> bool {
         self.insn_info.is_return_point()
     }
 
-    fn is_tail_call(&self) -> bool {
+    pub(crate) fn pc_is_tail_call(&self) -> bool {
         self.insn_info.is_tail_call()
     }
 
@@ -1566,10 +1566,6 @@ impl AbstrVM {
         iword
     }
 
-    fn last_is_exit(&self) -> bool {
-        self.pa.path.back().unwrap().1.is_exit()
-    }
-
     fn step(&mut self) -> StepResult {
         if let Some((pc, addr_info)) = self.pa.next() {
             self.pc = pc;
@@ -1581,7 +1577,7 @@ impl AbstrVM {
 
         *self.ic.entry(self.pc).or_default() += 1;
 
-        if self.is_return_point() {
+        if self.pc_is_return_point() {
             self.call_stack_pop();
         }
         if self.insn_info.is_exit() {
@@ -1635,7 +1631,7 @@ impl AbstrVM {
                 result = true;
             }
         }
-        if self.is_tail_call() {
+        if self.pc_is_tail_call() {
             // Pop CallFrame from stack before jumping to the next one.
             self.call_stack_pop();
             if let Some(target) = self.peak_next_addr() {

@@ -123,39 +123,43 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
             let mut from_edited = false;
             match code_xref.get_xtype() {
                 CodeXrefType::IndirectCall => {
-                    let procedure_from: Option<Procedure> = if icfg.has_procedure(&from_proc_addr) {
-                        None
-                    } else {
-                        setup_procedure_at_addr(&core.lock().unwrap(), from_proc_addr.address)
-                    };
-                    if procedure_from.is_none() && !icfg.has_procedure(&from_proc_addr) {
-                        panic!("Could not initialize procedure at {}", from_proc_addr);
+                    if !icfg.has_edge(from_proc_addr, xref_to_addr) {
+                        let procedure_from: Option<Procedure> = if icfg
+                            .has_procedure(&from_proc_addr)
+                        {
+                            None
+                        } else {
+                            setup_procedure_at_addr(&core.lock().unwrap(), from_proc_addr.address)
+                        };
+                        if procedure_from.is_none() && !icfg.has_procedure(&from_proc_addr) {
+                            panic!("Could not initialize procedure at {}", from_proc_addr);
+                        }
+                        state.calls.insert(code_xref.clone());
+                        let procedure_to: Option<Procedure> = if icfg.has_procedure(&xref_to_addr) {
+                            None
+                        } else {
+                            setup_procedure_at_addr(&core.lock().unwrap(), xref_to_addr.address)
+                        };
+                        if procedure_to.is_none() && !icfg.has_procedure(&xref_to_addr) {
+                            panic!("Could not initialize procedure at {}", xref_to_addr);
+                        }
+                        from_edited = !icfg.add_edge(
+                            (from_proc_addr, procedure_from),
+                            (xref_to_addr, procedure_to),
+                            Some(xref_insn_addr),
+                        );
                     }
-                    state.calls.insert(code_xref.clone());
-                    let procedure_to: Option<Procedure> = if icfg.has_procedure(&xref_to_addr) {
-                        None
-                    } else {
-                        setup_procedure_at_addr(&core.lock().unwrap(), xref_to_addr.address)
-                    };
-                    if procedure_to.is_none() && !icfg.has_procedure(&xref_to_addr) {
-                        panic!("Could not initialize procedure at {}", xref_to_addr);
-                    }
-                    from_edited = !icfg.add_edge(
-                        (from_proc_addr, procedure_from),
-                        (xref_to_addr, procedure_to),
-                        Some(xref_insn_addr),
-                    );
                 }
                 CodeXrefType::IndirectJump => {
-                    if icfg.has_procedure(&from_proc_addr) {
+                    if icfg.has_procedure(&from_proc_addr)
+                        && !icfg.cfg_contains_edge(&from_proc_addr, &xref_insn_addr, &xref_to_addr)
+                    {
                         state.jumps.insert(code_xref.clone());
-                        from_edited = !icfg
-                            .get_procedure(&from_proc_addr)
-                            .read()
-                            .unwrap()
-                            .get_cfg()
-                            .get_graph()
-                            .contains_edge(xref_insn_addr, xref_to_addr);
+                        from_edited = !icfg.cfg_contains_edge(
+                            &from_proc_addr,
+                            &xref_insn_addr,
+                            &xref_to_addr,
+                        );
                         icfg.get_procedure(&from_proc_addr)
                             .write()
                             .unwrap()

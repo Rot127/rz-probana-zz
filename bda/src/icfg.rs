@@ -311,8 +311,26 @@ impl ICFG {
         }
     }
 
-    pub(crate) fn has_edge(&self, from: NodeId, to: NodeId) -> bool {
+    pub fn has_edge(&self, from: NodeId, to: NodeId) -> bool {
         self.get_graph().contains_edge(from, to)
+    }
+
+    pub fn cfg_contains_edge(&self, cfg_entry: &NodeId, from: &NodeId, to: &NodeId) -> bool {
+        self.get_procedure(cfg_entry)
+            .read()
+            .unwrap()
+            .get_cfg()
+            .get_graph()
+            .contains_edge(*from, *to)
+    }
+
+    pub fn cfg_contains_node(&self, cfg_entry: &NodeId, nid: &NodeId) -> bool {
+        self.get_procedure(cfg_entry)
+            .read()
+            .unwrap()
+            .get_cfg()
+            .get_graph()
+            .contains_node(*nid)
     }
 }
 
