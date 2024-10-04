@@ -393,6 +393,11 @@ impl std::fmt::Display for IntrpPath {
                     return Err(e);
                 }
             }
+            if n.1.is_exit() {
+                if let Err(e) = write!(f, "e") {
+                    return Err(e);
+                }
+            }
         }
         write!(f, "]")
     }
