@@ -223,6 +223,12 @@ fn filter_jump_targets(
     jump_targets
 }
 
+#[derive(PartialEq, Eq)]
+enum SamplingState {
+    Continue,
+    Exit,
+}
+
 fn sample_cfg_path(
     icfg: &ICFG,
     cfg: &mut CFG,
@@ -231,7 +237,7 @@ fn sample_cfg_path(
     i: usize,
     wmap: &RwLock<WeightMap>,
     addr_ranges: &Vec<(Address, Address)>,
-) {
+) -> SamplingState {
     let entry = &cfg.get_entry();
     let cfg_needs_recalc = wmap.read().unwrap().needs_recalc(entry);
     if cfg_needs_recalc {
@@ -244,7 +250,7 @@ fn sample_cfg_path(
     let mut cur = start;
     loop {
         if !node_in_ranges(&cur, addr_ranges) {
-            return;
+            return SamplingState::Continue;
         }
         let mut ninfo = IWordInfo::None;
         if node_follows_call {
@@ -259,8 +265,12 @@ fn sample_cfg_path(
         }
         if is_exit(cfg, cur) {
             ninfo |= IWordInfo::IsExit;
+            // Last node in path
+            path.push(cur, ninfo);
+            return SamplingState::Exit;
         }
 
+        let mut res = SamplingState::Continue;
         // println!("{}", format!("{}-> {}", " ".repeat(i), cur));
         if is_call(cfg, cur) {
             // Put we set the meta information for the path node (marking it as call).
@@ -291,7 +301,7 @@ fn sample_cfg_path(
                 path.push(cur, ninfo);
                 let ct = call_targets.sample();
                 if ct != INVALID_NODE_ID {
-                    sample_cfg_path(
+                    if sample_cfg_path(
                         icfg,
                         icfg.get_procedure(&ct).write().unwrap().get_cfg_mut(),
                         ct,
@@ -299,15 +309,20 @@ fn sample_cfg_path(
                         i + 1,
                         wmap,
                         addr_ranges,
-                    );
+                    ) == SamplingState::Exit
+                    {
+                        // Stop sampling if exit was reached deeper in the tree.
+                        return SamplingState::Exit;
+                    }
                 }
+                // Go to following node
             }
         } else if is_tail_call(cfg, cur) {
             path.push(cur, ninfo);
             let jump_targets = filter_jump_targets(cfg, cur, addr_ranges);
             let jt = jump_targets.sample();
             if jt != INVALID_NODE_ID {
-                sample_cfg_path(
+                res = sample_cfg_path(
                     icfg,
                     icfg.get_procedure(&jt).write().unwrap().get_cfg_mut(),
                     jt,
@@ -325,22 +340,9 @@ fn sample_cfg_path(
                 jump_targets.len(),
                 "The instruction word at {:#x} is marked as tail jump but as other outgoing edges which are no jumps.", cur.address
             );
-            return;
+            return res;
         } else {
             path.push(cur, ninfo);
-            if is_exit(cfg, cur) {
-                println!("{:?}", ninfo);
-                debug_assert_eq!(
-                    cfg.graph.neighbors_directed(cur, Outgoing).count(),
-                    {
-                        let jump_targets = filter_jump_targets(cfg, cur, addr_ranges);
-                        let call_targets = filter_call_targets(cfg, cur, addr_ranges);
-                        jump_targets.len() + call_targets.len()
-                    },
-                    "The instruction word at {:#x} is marked as exit but as other outgoing edges which are no jumps/calls.", cur.address
-                );
-                return;
-            }
         }
 
         // Visit all neighbors and decide which one to add to the path
@@ -357,7 +359,7 @@ fn sample_cfg_path(
         }
         if neigh_ids.is_empty() {
             // Leaf node. We are done
-            break;
+            return SamplingState::Continue;
         }
         let picked_neighbor = *neigh_ids.get(select_branch(neigh_weights, wmap)).unwrap();
         if picked_neighbor == cur {
