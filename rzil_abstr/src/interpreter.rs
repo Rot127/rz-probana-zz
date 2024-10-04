@@ -1435,6 +1435,10 @@ impl AbstrVM {
         self.insn_info.is_return_point()
     }
 
+    fn is_tail_call(&self) -> bool {
+        self.insn_info.is_tail_call()
+    }
+
     pub(crate) fn get_pc(&self) -> Address {
         self.pc
     }
@@ -1622,6 +1626,13 @@ impl AbstrVM {
             } else {
                 // Otherwise not implemented
                 result = true;
+            }
+        }
+        if self.is_tail_call() {
+            // Pop CallFrame from stack before jumping to the next one.
+            self.call_stack_pop();
+            if let Some(target) = self.peak_next_addr() {
+                self.call_stack_push(target);
             }
         }
         self.lvars.clear();
