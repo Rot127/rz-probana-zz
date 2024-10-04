@@ -1535,6 +1535,32 @@ impl AbstrVM {
         self.is_max_addr(to) || to == 0x0
     }
 
+    fn get_buffered_aop(&mut self) -> *mut binding::rz_analysis_op_t {
+        let ana_op = if self.aop_buffer.get(&self.pc).is_some() {
+            *self.aop_buffer.get(&self.pc).unwrap()
+        } else {
+            let ptr = unlocked_core!(self).get_analysis_op(self.pc);
+            self.aop_buffer.insert(self.pc, ptr);
+            ptr
+        };
+        ana_op
+    }
+
+    fn get_buffered_iword(&mut self) -> *mut RzAnalysisInsnWord {
+        let iword = if self.iword_buffer.get(&self.pc).is_some() {
+            *self.iword_buffer.get(&self.pc).unwrap()
+        } else {
+            let ptr = unlocked_core!(self).get_iword(self.pc);
+            self.iword_buffer.insert(self.pc, ptr);
+            ptr
+        };
+        iword
+    }
+
+    fn last_is_exit(&self) -> bool {
+        self.pa.path.back().unwrap().1.is_exit()
+    }
+
     fn step(&mut self) -> bool {
         if let Some((pc, addr_info)) = self.pa.next() {
             self.pc = pc;
@@ -1563,13 +1589,7 @@ impl AbstrVM {
         let effect;
         let result;
         if iword_decoder.is_some() {
-            let iword = if self.iword_buffer.get(&self.pc).is_some() {
-                *self.iword_buffer.get(&self.pc).unwrap()
-            } else {
-                let ptr = unlocked_core!(self).get_iword(self.pc);
-                self.iword_buffer.insert(self.pc, ptr);
-                ptr
-            };
+            let iword = self.get_buffered_iword();
             self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
             effect = pderef!(iword).il_op;
             if dont_execute {
@@ -1584,13 +1604,7 @@ impl AbstrVM {
                 result = true;
             }
         } else {
-            let ana_op = if self.aop_buffer.get(&self.pc).is_some() {
-                *self.aop_buffer.get(&self.pc).unwrap()
-            } else {
-                let ptr = unlocked_core!(self).get_analysis_op(self.pc);
-                self.aop_buffer.insert(self.pc, ptr);
-                ptr
-            };
+            let ana_op = self.get_buffered_aop();
             self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
             if dont_execute {

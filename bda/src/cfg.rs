@@ -3,7 +3,6 @@
 
 use bitflags::bitflags;
 use core::panic;
-use rzil_abstr::interpreter::IWordInfo;
 use std::{
     collections::{hash_map, hash_set, HashMap, HashSet, VecDeque},
     sync::RwLock,
