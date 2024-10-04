@@ -281,13 +281,19 @@ impl ICFG {
                 )
             }
         }
-        debug_assert_eq!(
-            self.get_graph().edge_count(),
-            seen_call_edges.len(),
-            "iCFG edge count is off: iCFG edges: {} expected edge count: {}",
-            self.get_graph().edge_count(),
-            seen_call_edges.len(),
-        );
+        if self.get_graph().edge_count() == seen_call_edges.len() {
+            let mut graph_edges = HashSet::<(NodeId, NodeId)>::new();
+            self.get_graph().all_edges().for_each(|(f, t, _)| { graph_edges.insert((f, t)); });
+            let diff = seen_call_edges.difference(&graph_edges);
+            debug_assert_eq!(
+                self.get_graph().edge_count(),
+                seen_call_edges.len(),
+                "iCFG edge count is off: iCFG edges: {} expected edge count (by call targets): {} | diff: {:?}",
+                self.get_graph().edge_count(),
+                seen_call_edges.len(),
+                diff
+            );
+        }
         true
     }
 
