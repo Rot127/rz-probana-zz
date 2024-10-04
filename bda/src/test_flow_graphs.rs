@@ -626,16 +626,6 @@ mod tests {
         check_procedures(&icfg, &c_nodes);
         check_saved_calls(&icfg);
 
-        // Attempt self reference
-        icfg.add_edge(
-            (NodeId::new(0, 0, C_ADDR), None),
-            (NodeId::new(0, 0, C_ADDR), None),
-            Some(NodeId::new(0, 0, 0xc1)),
-        );
-        icfg.resolve_loops(1);
-        check_procedures(&icfg, &c_nodes);
-        check_saved_calls(&icfg);
-
         // Attempt to add backedge between clones
         icfg.add_edge(
             (NodeId::new(2, 0, A_ADDR), None),

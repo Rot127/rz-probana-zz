@@ -131,10 +131,11 @@ impl ICFG {
         to_proc_tuple: (NodeId, Option<Procedure>),
         call_insn_addr: Option<NodeId>,
     ) -> bool {
-        if self
-            .get_graph()
-            .contains_edge(from_proc_tuple.0, to_proc_tuple.0)
-        {
+        if self.has_edge(from_proc_tuple.0, to_proc_tuple.0) {
+            return true;
+        }
+        if self.has_edge(to_proc_tuple.0, from_proc_tuple.0) {
+            // Don't add an edge if the reverse of it exits already. Because it has been resolved before.
             return true;
         }
         let from_proc_nid = from_proc_tuple.0;
@@ -283,7 +284,9 @@ impl ICFG {
         }
         if self.get_graph().edge_count() == seen_call_edges.len() {
             let mut graph_edges = HashSet::<(NodeId, NodeId)>::new();
-            self.get_graph().all_edges().for_each(|(f, t, _)| { graph_edges.insert((f, t)); });
+            self.get_graph().all_edges().for_each(|(f, t, _)| {
+                graph_edges.insert((f, t));
+            });
             let diff = seen_call_edges.difference(&graph_edges);
             debug_assert_eq!(
                 self.get_graph().edge_count(),
