@@ -155,15 +155,22 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &
                         && !icfg.cfg_contains_edge(&from_proc_addr, &xref_insn_addr, &xref_to_addr)
                     {
                         state.jumps.insert(code_xref.clone());
-                        from_edited = !icfg.cfg_contains_edge(
-                            &from_proc_addr,
-                            &xref_insn_addr,
-                            &xref_to_addr,
-                        );
-                        icfg.get_procedure(&from_proc_addr)
-                            .write()
-                            .unwrap()
-                            .insert_jump_target(&xref_insn_addr, &xref_to_addr);
+                        if !icfg.cfg_contains_node(&from_proc_addr, &xref_to_addr) {
+                            // A tail call.
+                            if !icfg.has_edge(from_proc_addr, xref_to_addr) {
+                                println!("\n[Unimplemented] Skip adding tail call: {}", code_xref);
+                            }
+                        } else {
+                            from_edited = !icfg.cfg_contains_edge(
+                                &from_proc_addr,
+                                &xref_insn_addr,
+                                &xref_to_addr,
+                            );
+                            icfg.get_procedure(&from_proc_addr)
+                                .write()
+                                .unwrap()
+                                .insert_jump_target(&xref_insn_addr, &xref_to_addr);
+                        }
                     }
                 }
             }
