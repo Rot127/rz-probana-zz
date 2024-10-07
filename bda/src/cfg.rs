@@ -915,6 +915,11 @@ impl CFG {
     /// The edge is only added once.
     /// If the [from] node has the is_entry flag set, the CFG entry is updated.
     pub fn add_edge(&mut self, from: (NodeId, CFGNodeData), to: (NodeId, CFGNodeData)) {
+        if self.is_removed_backedge(&from.0, &to.0)
+            || self.is_contrary_to_cloned_backedge(&from.0, &to.0)
+        {
+            return;
+        }
         if from.0 == to.0 {
             assert_eq!(from.1, to.1);
         }
@@ -1021,6 +1026,21 @@ impl CFG {
 impl FlowGraphOperations for CFG {
     fn get_name(&self) -> String {
         self.to_string()
+    }
+
+    fn get_node_clone_id(&self, n: &NodeId) -> i32 {
+        n.cfg_clone_id
+    }
+
+    fn is_removed_backedge(&self, f: &NodeId, t: &NodeId) -> bool {
+        if f.address < t.address || self.has_edge(*f, *t) {
+            // Either no back edge or it was not removed.
+            return false;
+        }
+        // Check if it contains the back-edge clone.
+        //   Yes => The given edge was removed before and replaced by this clone.
+        //   No => The given edge is a new one, not yet in the graph.
+        self.has_edge(*f, t.get_next_cfg_clone())
     }
 
     fn set_node_dup_count(&mut self, dup_cnt: usize) {

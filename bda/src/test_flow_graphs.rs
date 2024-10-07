@@ -626,7 +626,18 @@ mod tests {
         check_procedures(&icfg, &c_nodes);
         check_saved_calls(&icfg);
 
-        // Attempt to add backedge between clones
+        // Add one between clones and check everything again.
+        icfg.add_edge(
+            (NodeId::new(1, 0, A_ADDR), None),
+            (NodeId::new(1, 0, C_ADDR), None),
+            Some(NodeId::new(1, 0, 0xa1)),
+        );
+        icfg.resolve_loops(1);
+        check_procedures(&icfg, &c_nodes);
+        check_saved_calls(&icfg);
+
+        icfg.dot_graph_to_stdout();
+        // Attempt to add contrary to cloned back edge.
         icfg.add_edge(
             (NodeId::new(2, 0, A_ADDR), None),
             (NodeId::new(1, 0, C_ADDR), None),

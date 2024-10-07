@@ -178,6 +178,13 @@ impl NodeId {
         clone
     }
 
+    /// Returns the NodeId with an incremented cfg_clone_id.
+    pub fn get_next_cfg_clone(&self) -> NodeId {
+        let mut clone = self.clone();
+        clone.cfg_clone_id += 1;
+        clone
+    }
+
     /// Returns a clone of the node id. If one of the given clone ids is smaller 0,
     /// it sets the clone ID of the original node.
     pub fn get_clone(&self, icfg_clone_id: i32, cfg_clone_id: i32) -> NodeId {
@@ -438,6 +445,8 @@ pub trait FlowGraphOperations {
         prod
     }
 
+    fn get_node_clone_id(&self, n: &NodeId) -> i32;
+
     /// Adds clones of an edge to the graph of [self].
     /// The edge [from] -> [to] is duplicated [dup_bound] times.
     /// It depends on [flow] how the edge is cloned.
@@ -593,6 +602,16 @@ pub trait FlowGraphOperations {
         }
     }
 
+    fn has_edge(&self, from: NodeId, to: NodeId) -> bool {
+        self.get_graph().contains_edge(from, to)
+    }
+
+    fn is_removed_backedge(&self, f: &NodeId, t: &NodeId) -> bool;
+
+    fn is_contrary_to_cloned_backedge(&self, f: &NodeId, t: &NodeId) -> bool {
+        self.has_edge(*t, *f) && (t.is_clone_over_limit(0) || f.is_clone_over_limit(0))
+    }
+
     /// Removes cycles in the graph.
     ///
     /// The cycle removement does the following:
@@ -652,11 +671,9 @@ pub trait FlowGraphOperations {
         // They are not detected as back-edges in `clone_nodes`, but as Outsider edges
         // (due to the different clone id). Due to this, they remain in the graph
         // and produce a loop.
-        for edge_flows in sccs_edge_flows.iter_mut() {
-            edge_flows.retain(|((f, t), _)| {
-                f.icfg_clone_id >= t.icfg_clone_id && f.cfg_clone_id >= t.cfg_clone_id
-            })
-        }
+        // for edge_flows in sccs_edge_flows.iter_mut() {
+        //     edge_flows.retain(|((f, t), _)| !self.is_removed_backedge(f, t))
+        // }
         // Resolve loops for each SCC
         self.clone_nodes(sccs_edge_flows);
         self.clean_up_acyclic();

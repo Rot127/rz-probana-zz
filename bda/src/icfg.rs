@@ -131,11 +131,10 @@ impl ICFG {
         to_proc_tuple: (NodeId, Option<Procedure>),
         call_insn_addr: Option<NodeId>,
     ) -> bool {
-        if self.has_edge(from_proc_tuple.0, to_proc_tuple.0) {
-            return true;
-        }
-        if self.has_edge(to_proc_tuple.0, from_proc_tuple.0) {
-            // Don't add an edge if the reverse of it exits already. Because it has been resolved before.
+        if self.has_edge(from_proc_tuple.0, to_proc_tuple.0)
+            || self.is_removed_backedge(&from_proc_tuple.0, &to_proc_tuple.0)
+            || self.is_contrary_to_cloned_backedge(&from_proc_tuple.0, &to_proc_tuple.0)
+        {
             return true;
         }
         let from_proc_nid = from_proc_tuple.0;
@@ -320,10 +319,6 @@ impl ICFG {
         }
     }
 
-    pub fn has_edge(&self, from: NodeId, to: NodeId) -> bool {
-        self.get_graph().contains_edge(from, to)
-    }
-
     pub fn cfg_contains_edge(&self, cfg_entry: &NodeId, from: &NodeId, to: &NodeId) -> bool {
         self.get_procedure(cfg_entry)
             .read()
@@ -346,6 +341,21 @@ impl ICFG {
 impl FlowGraphOperations for ICFG {
     fn get_name(&self) -> String {
         "ICFG".to_owned()
+    }
+
+    fn get_node_clone_id(&self, n: &NodeId) -> i32 {
+        n.icfg_clone_id
+    }
+
+    fn is_removed_backedge(&self, f: &NodeId, t: &NodeId) -> bool {
+        if f.address < t.address || self.has_edge(*f, *t) {
+            // Either no back edge or it was not removed.
+            return false;
+        }
+        // Check if it contains the back-edge clone.
+        //   Yes => The given edge was removed before and replaced by this clone.
+        //   No => The given edge is a new one, not yet in the graph.
+        self.has_edge(*f, t.get_next_icfg_clone())
     }
 
     fn set_node_dup_count(&mut self, dup_cnt: usize) {

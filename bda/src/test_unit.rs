@@ -6,14 +6,16 @@ mod tests {
     use std::collections::HashSet;
 
     use binding::{
-        get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
-        GRzCore, RzCoreWrapper,
+        get_rz_test_bin_path, get_test_bin_path, init_rizin_instance, rz_core_graph_icfg,
+        wait_for_exlusive_core, GRzCore, RzCoreWrapper,
     };
     use rzil_abstr::interpreter::{AbstrVal, Const, MemOp};
 
     use crate::{
         bda::run_bda,
-        bda_binding::{add_procedures_to_icfg, get_graph, setup_procedure_at_addr},
+        bda_binding::{
+            add_procedures_to_icfg, get_graph, rz_analysis_bda_handler, setup_procedure_at_addr,
+        },
         flow_graphs::{FlowGraphOperations, NodeId},
         icfg::ICFG,
         state::BDAState,
@@ -205,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hexagonl_discover_recurse() {
+    fn test_hexagon_discover_recurse() {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_hexagon_discover_recurse();
