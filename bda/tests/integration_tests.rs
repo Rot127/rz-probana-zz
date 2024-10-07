@@ -13,7 +13,7 @@ mod test {
     /// Nothing should break or hang.
 
     #[test]
-    fn test_aaaaPb_x86_cfg_test() {
+    fn test_x86_cfg_test() {
         wait_for_exlusive_core!();
 
         let test_bin = get_rz_test_bin_path()
@@ -38,7 +38,7 @@ mod test {
     }
 
     #[test]
-    fn test_aaaaPb_arm_ls() {
+    fn test_arm_ls() {
         wait_for_exlusive_core!();
 
         let test_bin = get_rz_test_bin_path()
@@ -59,7 +59,7 @@ mod test {
     }
 
     #[test]
-    fn test_aaaaPb_ppc_execstack() {
+    fn test_ppc_execstack() {
         wait_for_exlusive_core!();
 
         let test_bin = get_rz_test_bin_path()
@@ -80,7 +80,7 @@ mod test {
     }
 
     #[test]
-    fn test_aaaaPb_hexagon_test_jmp() {
+    fn test_hexagon_test_jmp() {
         wait_for_exlusive_core!();
 
         let test_bin = get_rz_test_bin_path()
@@ -102,7 +102,7 @@ mod test {
     }
 
     #[test]
-    fn test_aaaaPb_hexagon_hello_loop() {
+    fn test_hexagon_hello_loop() {
         wait_for_exlusive_core!();
 
         let test_bin = get_rz_test_bin_path()
