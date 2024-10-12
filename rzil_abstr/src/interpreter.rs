@@ -962,6 +962,13 @@ impl AbstrVM {
         None
     }
 
+    pub fn peak_next(&self) -> Option<&(Address, IWordInfo)> {
+        if let Some(next) = self.pa.peak_next() {
+            return Some(next);
+        }
+        None
+    }
+
     pub fn get_limit_repeat(&self) -> usize {
         self.limit_repeat
     }
@@ -1431,7 +1438,7 @@ impl AbstrVM {
         self.insn_info.is_call()
     }
 
-    fn pc_is_return_point(&self) -> bool {
+    pub(crate) fn pc_is_return_point(&self) -> bool {
         self.insn_info.is_return_point()
     }
 
