@@ -316,29 +316,9 @@ impl RzCoreWrapper {
     pub fn get_iword(&self, addr: u64) -> *mut RzAnalysisInsnWord {
         let iword_decoder = self.get_iword_decoder();
         unsafe {
-            let leading_bytes = if addr < 4 { addr } else { 4 };
             let iword = rz_analysis_insn_word_new();
-            let mut buf_len = 32;
-            let mut buf: Option<Vec<u8>> = None;
-            while buf.is_none() {
-                if buf_len < 4 {
-                    panic!("Could not read the minimum of the required memory to reliably decode an instruction.");
-                }
-                buf = self.read_io_mapped_at(addr - leading_bytes, buf_len);
-                if buf.is_some() {
-                    break;
-                }
-                // The read goes beyond a mapped region. Hence we read until we are in the maped region.
-                buf_len -= 4;
-            }
-            let success = iword_decoder.unwrap()(
-                self.get_analysis(),
-                iword,
-                addr,
-                buf.unwrap().as_ptr(),
-                buf_len,
-                leading_bytes as usize,
-            );
+            let success =
+                iword_decoder.unwrap()(self.get_analysis(), iword, addr, std::ptr::null_mut());
             if !success {
                 log_rz!(LOG_ERROR, None, "decode_iword failed".to_string());
                 return std::ptr::null_mut();
@@ -391,9 +371,7 @@ impl RzCoreWrapper {
             *mut rz_analysis_t,
             *mut RzAnalysisInsnWord,
             u64,
-            *const u8,
-            usize,
-            usize,
+            *mut rz_buf_t,
         ) -> bool,
     > {
         pderef!(self.get_cur()).decode_iword
