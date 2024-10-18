@@ -1181,7 +1181,7 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
 
 fn add_jump_ref(vm: &mut AbstrVM, target_addr: u64) -> bool {
     let insn_is_last_in_path = vm.peak_next_addr().is_none();
-    let jump_target_is_not_next_insn = target_addr != vm.peak_next_addr().unwrap();
+    let jump_target_is_not_next_insn = !insn_is_last_in_path && target_addr != vm.peak_next_addr().unwrap();
     let insn_is_return = vm
         .peak_next()
         .is_some_and(|(next_addr, info)| *next_addr != target_addr && info.is_return_point());
