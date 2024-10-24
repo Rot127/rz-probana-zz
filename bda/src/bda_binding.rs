@@ -37,6 +37,16 @@ use binding::{
 use helper::progress::ProgressBar;
 use helper::spinner::Spinner;
 
+pub struct BDAPrivateData {
+    _dummy_val: u64,
+}
+
+impl BDAPrivateData {
+    pub fn new() -> BDAPrivateData {
+        BDAPrivateData { _dummy_val: 0 }
+    }
+}
+
 fn list_elem_to_graph_node_tuple(
     elem: *mut ::std::os::raw::c_void,
 ) -> (*mut RzGraphNode, *mut RzGraphNodeInfo) {
