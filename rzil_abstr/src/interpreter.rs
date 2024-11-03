@@ -70,7 +70,7 @@ impl std::ops::BitOr for TaintFlag {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialOrd, Ord)]
 pub struct Const {
     v: BigUint,
     /// Width of constant in bits
@@ -553,7 +553,7 @@ impl std::fmt::Display for StackXref {
 }
 
 /// Memory region classes: Global, Stack, Heap
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum MemRegionClass {
     /// Global memory region. E.g. .data, .rodata, .bss
     Global,
@@ -564,7 +564,7 @@ enum MemRegionClass {
 }
 
 /// A memory region. Either of Global, Stack or Heap.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
@@ -597,7 +597,7 @@ impl std::fmt::Display for MemRegion {
 /// An abstract value.
 /// Constant values are represented a value of the Global memory region
 /// and the constant value set in [offset].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialOrd, Ord)]
 pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
@@ -763,9 +763,9 @@ type AbstrOp1 = fn(v1: &Const) -> Const;
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MemOp {
     /// Address of the memory instruction which references this value.
-    ref_addr: Address,
+    pub ref_addr: Address,
     /// The abstract memory value which is processed.
-    aval: AbstrVal,
+    pub aval: AbstrVal,
 }
 
 impl MemOp {
