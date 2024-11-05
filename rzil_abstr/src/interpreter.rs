@@ -7,7 +7,7 @@ use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
-    collections::{BTreeSet, HashMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
     fmt::LowerHex,
     hash::{Hash, Hasher},
     io::Read,
@@ -340,6 +340,18 @@ impl IWordInfo {
 
     pub fn is_return_point(&self) -> bool {
         (*self & IWordInfo::IsReturnPoint) == IWordInfo::IsReturnPoint
+    }
+
+    pub fn is_return(&self) -> bool {
+        (*self & IWordInfo::IsReturn) == IWordInfo::IsReturn
+    }
+
+    pub fn is_mem_read(&self) -> bool {
+        (*self & IWordInfo::IsMemRead) == IWordInfo::IsMemRead
+    }
+
+    pub fn is_mem_write(&self) -> bool {
+        (*self & IWordInfo::IsMemWrite) == IWordInfo::IsMemWrite
     }
 
     pub fn calls_malloc(&self) -> bool {
@@ -822,6 +834,8 @@ type CallStack = Vec<CallFrame>;
 /// Resulting by-products of the abstract interpretation.
 #[derive(Debug)]
 pub struct IntrpProducts {
+    /// Meta information collected about each instruction word executed.
+    pub iword_info: BTreeMap<Address, IWordInfo>,
     /// Indirect calls resolved during interpretation
     pub concrete_calls: BTreeSet<ConcreteCodeXref>,
     pub concrete_jumps: BTreeSet<ConcreteCodeXref>,
@@ -833,6 +847,7 @@ pub struct IntrpProducts {
 impl IntrpProducts {
     pub fn new() -> IntrpProducts {
         IntrpProducts {
+            iword_info: BTreeMap::new(),
             concrete_calls: BTreeSet::new(),
             concrete_jumps: BTreeSet::new(),
             mem_xrefs: BTreeSet::new(),
@@ -880,6 +895,8 @@ pub struct AbstrVM {
     reg_roles: HashMap<RzRegisterId, String>,
     /// Register sizes in bits, indexed by name
     reg_sizes: HashMap<String, usize>,
+    /// Meta information collected about each instruction word executed.
+    iword_info: BTreeMap<Address, IWordInfo>,
     /// Const value call targets
     calls_xref: BTreeSet<ConcreteCodeXref>,
     /// Const value jump targets
@@ -930,6 +947,7 @@ impl AbstrVM {
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
             reg_sizes: HashMap::new(),
+            iword_info: BTreeMap::new(),
             calls_xref: BTreeSet::new(),
             jumps_xref: BTreeSet::new(),
             mem_xrefs: BTreeSet::new(),
@@ -1657,6 +1675,10 @@ impl AbstrVM {
         }
         return StepResult::Fail;
     }
+
+    pub(crate) fn add_iword_info(&mut self, info: IWordInfo) {
+        self.iword_info.insert(self.get_pc(), info);
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -1695,6 +1717,7 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
     // println!("EXIT\n");
     // Replace with Channel and send/rcv
     let products = IntrpProducts {
+        iword_info: vm.iword_info.into(),
         concrete_calls: vm.calls_xref.into(),
         concrete_jumps: vm.jumps_xref.into(),
         mem_xrefs: vm.mem_xrefs.into(),

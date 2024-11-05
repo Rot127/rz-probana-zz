@@ -176,36 +176,28 @@ impl PostAnalyzer {
 
     fn is_mem_write(&self, addr: &Address) -> bool {
         if let Some(info) = self.insn_meta_data.get(addr) {
-            return info
-                .iter()
-                .any(|i| (*i & IWordInfo::IsMemWrite != IWordInfo::None));
+            return info.iter().any(|i| i.is_mem_write());
         }
         false
     }
 
     fn is_mem_read(&self, addr: &Address) -> bool {
         if let Some(info) = self.insn_meta_data.get(addr) {
-            return info
-                .iter()
-                .any(|i| (*i & IWordInfo::IsMemRead != IWordInfo::None));
+            return info.iter().any(|i| i.is_mem_read());
         }
         false
     }
 
     fn is_call(&self, addr: &Address) -> bool {
         if let Some(info) = self.insn_meta_data.get(addr) {
-            return info
-                .iter()
-                .any(|i| (*i & IWordInfo::IsCall != IWordInfo::None));
+            return info.iter().any(|i| i.is_call());
         }
         false
     }
 
     fn is_return(&self, addr: &Address) -> bool {
         if let Some(info) = self.insn_meta_data.get(addr) {
-            return info
-                .iter()
-                .any(|i| (*i & (IWordInfo::IsTail | IWordInfo::IsReturn)) != IWordInfo::None);
+            return info.iter().any(|i| i.is_return());
         }
         false
     }

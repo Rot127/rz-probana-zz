@@ -7,9 +7,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rzil_abstr::interpreter::{ConcreteCodeXref, MemOpSeq, MemXref, StackXref};
+use rzil_abstr::interpreter::{ConcreteCodeXref, IWordInfo, MemOpSeq, MemXref, StackXref};
 
-use crate::weight::WeightMap;
+use crate::{flow_graphs::Address, weight::WeightMap};
 
 pub fn run_condition_fulfilled(state: &BDAState) -> bool {
     !state.bda_timed_out()
@@ -87,6 +87,8 @@ pub struct BDAState {
     pub stack_xrefs: BTreeSet<StackXref>,
     /// Memory op sequences
     pub mos: MemOpSeq,
+    /// Meta information collected about each instruction word executed.
+    pub iword_info: BTreeMap<Address, IWordInfo>,
     /// Runtime statistics
     pub runtime_stats: RuntimeStats,
 }
@@ -98,6 +100,7 @@ impl BDAState {
             timeout: Duration::new(timeout, 0),
             num_threads,
             weight_map: WeightMap::new(),
+            iword_info: BTreeMap::new(),
             calls: BTreeSet::new(),
             jumps: BTreeSet::new(),
             mem_xrefs: BTreeSet::new(),
@@ -137,5 +140,9 @@ impl BDAState {
 
     pub fn update_mos(&mut self, mos: MemOpSeq) {
         self.mos.extend(mos);
+    }
+
+    pub fn update_iword_info(&mut self, iword_info: BTreeMap<Address, IWordInfo>) {
+        self.iword_info.extend(iword_info);
     }
 }

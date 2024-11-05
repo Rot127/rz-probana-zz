@@ -42,7 +42,7 @@ use binding::{
 };
 use num_bigint::{BigInt, ToBigUint};
 
-use crate::interpreter::{AbstrVM, AbstrVal, Address, Const, TaintFlag};
+use crate::interpreter::{AbstrVM, AbstrVal, Address, Const, IWordInfo, TaintFlag};
 
 pub const IL_OP_VAR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_VAR;
 pub const IL_OP_ITE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ITE;
@@ -1043,6 +1043,7 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     if norm_k.is_stack() {
         vm.add_stack_xref(norm_k);
     }
+    vm.add_iword_info(IWordInfo::IsMemRead);
     Some(v)
 }
 
@@ -1067,6 +1068,7 @@ fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal
     if norm_k.is_stack() {
         vm.add_stack_xref(norm_k);
     }
+    vm.add_iword_info(IWordInfo::IsMemRead);
     Some(v)
 }
 
@@ -1104,6 +1106,7 @@ fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if norm_k.is_stack() {
         vm.add_stack_xref(norm_k.clone());
     }
+    vm.add_iword_info(IWordInfo::IsMemWrite);
     true
 }
 
@@ -1126,6 +1129,7 @@ fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if norm_k.is_stack() {
         vm.add_stack_xref(norm_k.clone());
     }
+    vm.add_iword_info(IWordInfo::IsMemWrite);
     true
 }
 
@@ -1173,15 +1177,20 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if vm.pc_is_call() {
         vm.add_call_xref(vm.get_cur_entry(), addr);
         vm.call_stack_push(addr);
+        vm.add_iword_info(IWordInfo::IsCall);
     } else if add_jump_ref(vm, addr) {
         vm.add_jump_xref(vm.get_cur_entry(), addr);
+        if vm.peak_next_info().is_some_and(|i| i.is_return_point()) {
+            vm.add_iword_info(IWordInfo::IsReturn);
+        }
     }
     true
 }
 
 fn add_jump_ref(vm: &mut AbstrVM, target_addr: u64) -> bool {
     let insn_is_last_in_path = vm.peak_next_addr().is_none();
-    let jump_target_is_not_next_insn = !insn_is_last_in_path && target_addr != vm.peak_next_addr().unwrap();
+    let jump_target_is_not_next_insn =
+        !insn_is_last_in_path && target_addr != vm.peak_next_addr().unwrap();
     let insn_is_return = vm
         .peak_next()
         .is_some_and(|(next_addr, info)| *next_addr != target_addr && info.is_return_point());

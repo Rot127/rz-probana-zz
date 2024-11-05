@@ -98,6 +98,7 @@ fn get_entry_point_list(core: &GRzCore, icfg: &ICFG) -> Option<Vec<Address>> {
 fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts>) {
     for _ in 0..products.len() {
         let p = products.pop().unwrap();
+        state.update_iword_info(p.iword_info);
         state.update_calls(p.concrete_calls);
         state.update_jumps(p.concrete_jumps);
         state.update_mem_xrefs(p.mem_xrefs);
