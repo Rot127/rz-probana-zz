@@ -327,7 +327,7 @@ pub unsafe extern "C" fn rz_bda_fini_core(
 }
 
 pub const rz_core_plugin_bda: RzCorePlugin = RzCorePlugin {
-    name: "BDA\0".as_ptr().cast(),
+    name: "bda\0".as_ptr().cast(),
     desc: "Dependency detection algorithm by Zhuo Zhang.\0"
         .as_ptr()
         .cast(),

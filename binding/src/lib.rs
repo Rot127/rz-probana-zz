@@ -204,6 +204,43 @@ macro_rules! str_to_c {
     };
 }
 
+macro_rules! get_bda_config {
+    ($self:expr) => {{
+        let bda_name = CString::new("bda").expect("Conversion failed.");
+        let bda_config = ht_sp_find(
+            uderef!($self.ptr).plugins_config,
+            bda_name.as_ptr(),
+            std::ptr::null_mut(),
+        );
+        assert!(
+            bda_config != std::ptr::null_mut(),
+            "Failed to get plugin config."
+        );
+        bda_config as *mut rz_config_t
+    }};
+}
+
+macro_rules! get_bda_config_val_str {
+    ($self:expr, $entry_name:expr) => {{
+        let n = CString::new($entry_name).expect("Conversion failed.");
+        unsafe { rz_config_get(get_bda_config!($self), n.as_ptr()) }
+    }};
+}
+
+macro_rules! get_bda_config_val_b {
+    ($self:expr, $entry_name:expr) => {{
+        let n = CString::new($entry_name).expect("Conversion failed.");
+        unsafe { rz_config_get_b(get_bda_config!($self), n.as_ptr()) }
+    }};
+}
+
+macro_rules! get_bda_config_val_i {
+    ($self:expr, $entry_name:expr) => {{
+        let n = CString::new($entry_name).expect("Conversion failed.");
+        unsafe { rz_config_get_i(get_bda_config!($self), n.as_ptr()) }
+    }};
+}
+
 /// Wrapper struct around a *mut rz_core_t
 /// Clone and Copy should definitely not be implemented for this struct.
 pub struct RzCoreWrapper {
@@ -221,39 +258,33 @@ impl RzCoreWrapper {
     pub fn set_conf_val(&self, key: &str, val: &str) {
         let k = CString::new(key).expect("Conversion failed.");
         let v = CString::new(val).expect("Conversion failed.");
-        unsafe { rz_config_set(uderef!(self.ptr).config, k.as_ptr(), v.as_ptr()) };
+        unsafe { rz_config_set(get_bda_config!(self), k.as_ptr(), v.as_ptr()) };
     }
 
     pub fn get_bda_analysis_range(&self) -> Option<Vec<(u64, u64)>> {
-        let n = CString::new("plugins.bda.range").expect("Conversion failed.");
-        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        let c = get_bda_config_val_str!(self, "plugins.bda.range");
         assert!(c != std::ptr::null_mut(), "Failed to get range.");
         parse_bda_range_conf_val(c_to_str(c))
     }
 
     pub fn get_bda_analysis_entries(&self) -> Option<Vec<u64>> {
-        let n = CString::new("plugins.bda.entries").expect("Conversion failed.");
-        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        let c = get_bda_config_val_str!(self, "plugins.bda.entries");
         assert!(c != std::ptr::null_mut(), "Failed to get entries.");
         parse_bda_entry_list(c_to_str(c))
     }
 
     pub fn get_bda_skip_questions(&self) -> bool {
-        let n = CString::new("plugins.bda.skip_questions").expect("Conversion failed.");
-        let c = unsafe { rz_config_get_b(uderef!(self.ptr).config, n.as_ptr()) };
+        let c = get_bda_config_val_b!(self, "plugins.bda.skip_questions");
         c
     }
 
-    pub fn get_bda_runtime(&self) -> Option<u64> {
-        let n = CString::new("plugins.bda.timeout").expect("Conversion failed.");
-        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
-        assert!(c != std::ptr::null_mut(), "Failed to get timeout.");
+    pub fn get_bda_timout(&self) -> Option<u64> {
+        let c = get_bda_config_val_str!(self, "plugins.bda.timeout");
         parse_bda_timeout(c_to_str(c))
     }
 
     pub fn get_bda_threads(&self) -> Option<usize> {
-        let n = CString::new("plugins.bda.threads").expect("Conversion failed.");
-        let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        let c = get_bda_config_val_str!(self, "plugins.bda.threads");
         assert!(c != std::ptr::null_mut(), "Failed to get threads.");
         match c_to_str(c).parse::<usize>() {
             Ok(tn) => Some(tn),
@@ -265,14 +296,12 @@ impl RzCoreWrapper {
     }
 
     pub fn get_bda_max_iterations(&self) -> u64 {
-        let n = CString::new("plugins.bda.repeat_iterations").expect("Conversion failed.");
-        let c = unsafe { rz_config_get_i(uderef!(self.ptr).config, n.as_ptr()) };
+        let c = get_bda_config_val_i!(self, "plugins.bda.repeat_iterations");
         c
     }
 
     pub fn get_bda_node_duplicates(&self) -> usize {
-        let n = CString::new("plugins.bda.node_duplicates").expect("Conversion failed.");
-        let c = unsafe { rz_config_get_i(uderef!(self.ptr).config, n.as_ptr()) };
+        let c = get_bda_config_val_i!(self, "plugins.bda.node_duplicates");
         c as usize
     }
 

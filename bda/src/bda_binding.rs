@@ -356,7 +356,7 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
     let runtime = core
         .lock()
         .unwrap()
-        .get_bda_runtime()
+        .get_bda_timout()
         .expect("Should have been checked before.");
     let mut state = BDAState::new(nthreads, runtime);
     add_procedures_to_icfg(core.clone(), &mut icfg);
