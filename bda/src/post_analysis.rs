@@ -113,11 +113,10 @@ impl AbstractProgramState {
 
     /// Sets the maps of [a] to `a.DEF = a.DEF ∪  b.DEF`
     fn merge_maps(&mut self, a: &StateIdx, b: &StateIdx) {
-        let b_m2i = self.state.get(b);
-        if b_m2i.is_none() {
+        let Some(b_m2i) = self.state.get(b) else {
             return;
-        }
-        self.state.insert(*a, b_m2i.unwrap().clone());
+        };
+        self.state.insert(*a, b_m2i.clone());
     }
 
     fn push_to_cs(&mut self, cs_idx: usize, addr: Address) {
@@ -212,7 +211,8 @@ impl PostAnalyzer {
                     // Set last address which wrote to aval.
                     DEF.insert(aval.clone(), iaddr);
                 }
-            } else if self.is_mem_read(iaddr) {
+            }
+            if self.is_mem_read(iaddr) {
                 if let Some(def_iaddr) = DEF.get(&aval) {
                     DEP.insert(iaddr, *def_iaddr);
                 }
@@ -233,11 +233,10 @@ impl PostAnalyzer {
             state.add_empty_map(curr_state_idx);
             curr_m2i = state.get_mut(curr_state_idx);
         }
-        let i2m_iter = GI2M.set_iter(&iaddr);
-        if i2m_iter.is_none() {
+        let Some(i2m_iter) = GI2M.set_iter(&iaddr) else {
             return;
-        }
-        for maddr in i2m_iter.unwrap() {
+        };
+        for maddr in i2m_iter {
             if GI2M.len_of(&iaddr) == 1 {
                 curr_m2i
                     .as_mut()
@@ -264,26 +263,24 @@ impl PostAnalyzer {
         GDEP: &SetMap<Address, Address>,
     ) {
         if GDEP.len_of(&iaddr) == 1 {
-            if let Some(iter) = GDEP.set_iter(&iaddr) {
-                for def in iter {
-                    DIP.insert((iaddr, *def));
-                }
+            let Some(iter) = GDEP.set_iter(&iaddr) else {
+                return;
+            };
+            for def in iter {
+                DIP.insert((iaddr, *def));
             }
         } else {
-            let i2m_iter = GI2M.set_iter(&iaddr);
-            if i2m_iter.is_none() {
+            let Some(i2m_iter) = GI2M.set_iter(&iaddr) else {
                 return;
-            }
-            for maddr in i2m_iter.unwrap() {
-                let m2i = state.get(curr_state_idx);
-                if m2i.is_none() {
+            };
+            for maddr in i2m_iter {
+                let Some(m2i) = state.get(curr_state_idx) else {
                     continue;
-                }
-                let m2i_iter = m2i.unwrap().map.set_iter(maddr);
-                if m2i_iter.is_none() {
+                };
+                let Some(m2i_iter) = m2i.map.set_iter(maddr) else {
                     continue;
-                }
-                for def in m2i_iter.unwrap() {
+                };
+                for def in m2i_iter {
                     DIP.insert((iaddr, *def));
                 }
             }
