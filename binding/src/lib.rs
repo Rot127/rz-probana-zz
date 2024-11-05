@@ -227,12 +227,14 @@ impl RzCoreWrapper {
     pub fn get_bda_analysis_range(&self) -> Option<Vec<(u64, u64)>> {
         let n = CString::new("plugins.bda.range").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        assert!(c != std::ptr::null_mut(), "Failed to get range.");
         parse_bda_range_conf_val(c_to_str(c))
     }
 
     pub fn get_bda_analysis_entries(&self) -> Option<Vec<u64>> {
         let n = CString::new("plugins.bda.entries").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        assert!(c != std::ptr::null_mut(), "Failed to get entries.");
         parse_bda_entry_list(c_to_str(c))
     }
 
@@ -245,12 +247,14 @@ impl RzCoreWrapper {
     pub fn get_bda_runtime(&self) -> Option<u64> {
         let n = CString::new("plugins.bda.timeout").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        assert!(c != std::ptr::null_mut(), "Failed to get timeout.");
         parse_bda_timeout(c_to_str(c))
     }
 
     pub fn get_bda_threads(&self) -> Option<usize> {
         let n = CString::new("plugins.bda.threads").expect("Conversion failed.");
         let c = unsafe { rz_config_get(uderef!(self.ptr).config, n.as_ptr()) };
+        assert!(c != std::ptr::null_mut(), "Failed to get threads.");
         match c_to_str(c).parse::<usize>() {
             Ok(tn) => Some(tn),
             Err(_) => {
