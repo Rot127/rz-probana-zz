@@ -206,6 +206,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             return;
         }
     };
+    icfg.set_entries(&entry_points);
 
     if !icfg.has_malloc() {
         log_rz!(

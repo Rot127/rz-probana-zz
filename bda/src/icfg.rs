@@ -12,7 +12,7 @@ use petgraph::Direction::Outgoing;
 
 use crate::{
     cfg::Procedure,
-    flow_graphs::{EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, ProcedureMap},
+    flow_graphs::{Address, EdgeFlow, FlowGraph, FlowGraphOperations, NodeId, ProcedureMap},
     weight::{WeightID, WeightMap},
 };
 
@@ -30,6 +30,8 @@ pub struct ICFG {
     scc_members: HashMap<NodeId, usize>,
     /// The strongly connected compononets of the cyclical graph
     sccs: Vec<Vec<NodeId>>,
+    /// ICFG entry points
+    entry_points: Vec<Address>,
 }
 
 impl ICFG {
@@ -41,6 +43,7 @@ impl ICFG {
             dup_cnt: 3,
             scc_members: HashMap::new(),
             sccs: Vec::new(),
+            entry_points: Vec::new(),
         }
     }
 
@@ -52,6 +55,7 @@ impl ICFG {
             dup_cnt: 3,
             scc_members: HashMap::new(),
             sccs: Vec::new(),
+            entry_points: Vec::new(),
         }
     }
 
@@ -335,6 +339,14 @@ impl ICFG {
             .get_cfg()
             .get_graph()
             .contains_node(*nid)
+    }
+
+    pub(crate) fn set_entries(&mut self, entry_points: &Vec<Address>) {
+        self.entry_points.extend(entry_points);
+    }
+
+    pub(crate) fn get_entry_points(&self) -> &Vec<Address> {
+        &self.entry_points
     }
 }
 

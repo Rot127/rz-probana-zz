@@ -144,6 +144,8 @@ impl AbstractProgramState {
 }
 
 pub struct PostAnalyzer {
+    /// Entry addresses into iCFG.
+    icfg_entries: Vec<Address>,
     /// The complete flow graph of the whole program.
     /// The rows are offsets from the minimal address sampled.
     programm_graph: Matrix<Address, U8Cell>,
@@ -167,6 +169,7 @@ impl PostAnalyzer {
             }
         }
         PostAnalyzer {
+            icfg_entries: icfg.get_entry_points().clone(),
             programm_graph: edge_matrix,
             insn_meta_data: VecMap::new(),
             DIP: BTreeSet::new(),
@@ -287,8 +290,8 @@ impl PostAnalyzer {
         }
     }
 
-    fn next_icfg_entry(&self) -> Option<u64> {
-        todo!()
+    fn next_icfg_entry(&mut self) -> Option<u64> {
+        self.icfg_entries.pop()
     }
 
     fn iter_successors(
@@ -311,6 +314,7 @@ impl PostAnalyzer {
 
 pub fn posterior_dependency_analysis(moses: Vec<MemOpSeq>, icfg: &ICFG) {
     let mut analyzer = PostAnalyzer::new(icfg);
+    // TODO: Handle all entries
     let icfg_entry = analyzer.next_icfg_entry();
     let mut state = AbstractProgramState::new(icfg_entry.expect("No icfg_entry defined."));
 
