@@ -7,7 +7,6 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use helper::matrix::Matrix;
 use helper::set_map::SetMap;
-use helper::vec_map::VecMap;
 use rzil_abstr::interpreter::{AbstrVal, IWordInfo, MemOpSeq};
 
 use crate::{
@@ -149,7 +148,7 @@ pub struct PostAnalyzer {
     /// The rows are offsets from the minimal address sampled.
     programm_graph: Matrix<Address, U8Cell>,
     /// Instruction meta data (instruction type etc.)
-    insn_meta_data: VecMap<Address, IWordInfo>,
+    insn_meta_data: SetMap<Address, IWordInfo>,
     /// Dependent instruction pairs. If set, there is a dependency between the instructions.
     DIP: BTreeSet<(Address, Address)>,
 }
@@ -170,25 +169,45 @@ impl PostAnalyzer {
         PostAnalyzer {
             icfg_entries: icfg.get_entry_points().clone(),
             programm_graph: edge_matrix,
-            insn_meta_data: VecMap::new(),
+            insn_meta_data: SetMap::new(),
             DIP: BTreeSet::new(),
         }
     }
 
-    fn is_mem_write(&self, addr: Address) -> bool {
-        todo!()
+    fn is_mem_write(&self, addr: &Address) -> bool {
+        if let Some(info) = self.insn_meta_data.get(addr) {
+            return info
+                .iter()
+                .any(|i| (*i & IWordInfo::IsMemWrite != IWordInfo::None));
+        }
+        false
     }
 
-    fn is_mem_read(&self, addr: Address) -> bool {
-        todo!()
+    fn is_mem_read(&self, addr: &Address) -> bool {
+        if let Some(info) = self.insn_meta_data.get(addr) {
+            return info
+                .iter()
+                .any(|i| (*i & IWordInfo::IsMemRead != IWordInfo::None));
+        }
+        false
     }
 
-    fn is_call(&self, addr: Address) -> bool {
-        todo!()
+    fn is_call(&self, addr: &Address) -> bool {
+        if let Some(info) = self.insn_meta_data.get(addr) {
+            return info
+                .iter()
+                .any(|i| (*i & IWordInfo::IsCall != IWordInfo::None));
+        }
+        false
     }
 
-    fn is_return(&self, addr: Address) -> bool {
-        todo!()
+    fn is_return(&self, addr: &Address) -> bool {
+        if let Some(info) = self.insn_meta_data.get(addr) {
+            return info
+                .iter()
+                .any(|i| (*i & (IWordInfo::IsTail | IWordInfo::IsReturn)) != IWordInfo::None);
+        }
+        false
     }
 
     fn per_sample_analysis(
@@ -203,7 +222,7 @@ impl PostAnalyzer {
         for mem_op in MOS.into_iter() {
             let iaddr = mem_op.ref_addr;
             let aval = mem_op.aval;
-            if self.is_mem_write(iaddr) {
+            if self.is_mem_write(&iaddr) {
                 if let Some(def_iaddr) = DEF.get(&aval) {
                     // Kills previous definition, because it overwrits it.
                     KILL.insert(iaddr, *def_iaddr);
@@ -212,7 +231,7 @@ impl PostAnalyzer {
                     DEF.insert(aval.clone(), iaddr);
                 }
             }
-            if self.is_mem_read(iaddr) {
+            if self.is_mem_read(&iaddr) {
                 if let Some(def_iaddr) = DEF.get(&aval) {
                     DEP.insert(iaddr, *def_iaddr);
                 }
@@ -327,18 +346,18 @@ pub fn posterior_dependency_analysis(moses: Vec<MemOpSeq>, icfg: &ICFG) {
         let state_idx = work_list.pop_front().unwrap();
         let mut iaddr = state_idx.1;
         let cs_idx = state_idx.0;
-        if analyzer.is_call(iaddr) {
+        if analyzer.is_call(&iaddr) {
             state.push_to_cs(cs_idx, iaddr);
             succ_edge_type = CEDGE;
         } else {
-            if analyzer.is_return(iaddr) {
+            if analyzer.is_return(&iaddr) {
                 iaddr = state.pop_from_cs(cs_idx);
             }
             succ_edge_type = IEDGE;
         }
-        if analyzer.is_mem_write(iaddr) {
+        if analyzer.is_mem_write(&iaddr) {
             PostAnalyzer::handle_memory_write(iaddr, &mut state, &state_idx, &I2M, &KILL);
-        } else if analyzer.is_mem_read(iaddr) {
+        } else if analyzer.is_mem_read(&iaddr) {
             PostAnalyzer::handle_memory_read(
                 analyzer.get_dip_mut(),
                 iaddr,
