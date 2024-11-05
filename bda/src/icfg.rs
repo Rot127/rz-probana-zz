@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     sync::RwLock,
     thread::{self, ScopedJoinHandle},
 };
@@ -27,7 +27,7 @@ pub struct ICFG {
     /// Number of node duplications for loop resolvement
     dup_cnt: usize,
     /// SCC map. Mapping NodeId to it's SCC member.
-    scc_members: HashMap<NodeId, usize>,
+    scc_members: BTreeMap<NodeId, usize>,
     /// The strongly connected compononets of the cyclical graph
     sccs: Vec<Vec<NodeId>>,
     /// ICFG entry points
@@ -41,7 +41,7 @@ impl ICFG {
             procedures: ProcedureMap::new(),
             topograph: Vec::new(),
             dup_cnt: 3,
-            scc_members: HashMap::new(),
+            scc_members: BTreeMap::new(),
             sccs: Vec::new(),
             entry_points: Vec::new(),
         }
@@ -53,7 +53,7 @@ impl ICFG {
             procedures: ProcedureMap::new(),
             topograph: Vec::new(),
             dup_cnt: 3,
-            scc_members: HashMap::new(),
+            scc_members: BTreeMap::new(),
             sccs: Vec::new(),
             entry_points: Vec::new(),
         }
@@ -212,7 +212,7 @@ impl ICFG {
         let num_procedures = self.num_procedures();
 
         thread::scope(|s| {
-            let mut threads: HashMap<usize, ScopedJoinHandle<_>> = HashMap::new();
+            let mut threads: BTreeMap<usize, ScopedJoinHandle<_>> = BTreeMap::new();
             loop {
                 progress.update_print(resolved, None);
                 if resolved == num_procedures {
@@ -266,7 +266,7 @@ impl ICFG {
     /// Check if the call targets are alligned to the actual iCFG.
     /// And if the iCFG only contains edges by calls
     pub(crate) fn icfg_consistency_check(&self) -> bool {
-        let mut seen_call_edges = HashSet::<(NodeId, NodeId)>::new();
+        let mut seen_call_edges = BTreeSet::<(NodeId, NodeId)>::new();
         for (pid, proc) in self.get_procedures().iter() {
             for ct in proc.read().unwrap().get_cfg().nodes_meta.ct_iter() {
                 if !self.get_graph().contains_edge(*pid, *ct) {
@@ -286,7 +286,7 @@ impl ICFG {
             }
         }
         if self.get_graph().edge_count() == seen_call_edges.len() {
-            let mut graph_edges = HashSet::<(NodeId, NodeId)>::new();
+            let mut graph_edges = BTreeSet::<(NodeId, NodeId)>::new();
             self.get_graph().all_edges().for_each(|(f, t, _)| {
                 graph_edges.insert((f, t));
             });
@@ -306,13 +306,13 @@ impl ICFG {
     /// Removes all iCFG edges which have no calls in the CFGs.
     /// See: https://github.com/Rot127/rz-probana-zz/issues/28
     pub(crate) fn make_icfg_consistent(&mut self) {
-        let mut to_keep = HashSet::<(NodeId, NodeId)>::new();
+        let mut to_keep = BTreeSet::<(NodeId, NodeId)>::new();
         for (pid, proc) in self.get_procedures().iter() {
             for ct in proc.read().unwrap().get_cfg().nodes_meta.ct_iter() {
                 to_keep.insert((*pid, *ct));
             }
         }
-        let mut to_remove = HashSet::<(NodeId, NodeId)>::new();
+        let mut to_remove = BTreeSet::<(NodeId, NodeId)>::new();
         for e in self.get_graph().all_edges() {
             if !to_keep.contains(&(e.0, e.1)) {
                 to_remove.insert((e.0, e.1));

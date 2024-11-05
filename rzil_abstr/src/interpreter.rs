@@ -7,7 +7,7 @@ use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{BTreeSet, HashMap, VecDeque},
     fmt::LowerHex,
     hash::{Hash, Hasher},
     io::Read,
@@ -286,11 +286,11 @@ bitflags! {
     pub struct IWordInfo: u64 {
         /// No information provided for this instruction word.
         const None = 0;
-        /// The iword has an jump instruction.
+        /// The iword has a jump instruction.
         const IsJump = 1 << 0;
-        /// The iword has an call instruction.
+        /// The iword has a call instruction.
         const IsCall = 1 << 1;
-        /// The iword is a jump or cal to another procedure, but has no following instruction.
+        /// The iword is a jump or call to another procedure, but has no following instruction.
         const IsTail = 1 << 2;
         /// The iword will exit the program. If the exit happens via a call, jump or due to the iword itself depends on the bits set.
         const IsExit = 1 << 3;
@@ -302,6 +302,12 @@ bitflags! {
         const CallsInput = 1 << 6 | Self::IsCall.bits();
         /// True if the iword calls an unmapped function.
         const CallsUnmapped = 1 << 7 | Self::IsCall.bits();
+        /// IWord contains an unconditional return instruction.
+        const IsReturn = 1 << 8;
+        /// IWord contains a memory read
+        const IsMemRead = 1 << 9;
+        /// IWord contains a memory write
+        const IsMemWrite = 1 << 10;
         /// A tail call to another function.
         const IsTailCall = Self::IsTail.bits() | Self::IsJump.bits();
         /// Exits the program by calling a fucntion (e.g. abort, stack_chk_fail).
@@ -434,7 +440,7 @@ impl IntrpPath {
     }
 }
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy, PartialOrd, Ord, Debug)]
 pub enum CodeXrefType {
     IndirectCall,
     IndirectJump,
@@ -442,7 +448,7 @@ pub enum CodeXrefType {
 
 /// A concretely resolved indirect call or jump.
 /// Those can be discovered, if only constant value were used to define the call target.
-#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, PartialOrd, Ord, Debug)]
 pub struct ConcreteCodeXref {
     xtype: CodeXrefType,
     /// The address of the procedure this call occurs.
@@ -500,7 +506,7 @@ impl std::fmt::Display for ConcreteCodeXref {
 
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
-#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Debug, PartialOrd, Ord)]
 pub struct MemXref {
     /// The load/store instruction address
     from: Address,
@@ -528,7 +534,7 @@ impl std::fmt::Display for MemXref {
 
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
-#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Debug, PartialOrd, Ord)]
 pub struct StackXref {
     /// The instruction address
     at: Address,
@@ -760,7 +766,7 @@ impl AbstrVal {
 type AbstrOp2 = fn(v1: &Const, v2: &Const) -> Const;
 type AbstrOp1 = fn(v1: &Const) -> Const;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemOp {
     /// Address of the memory instruction which references this value.
     pub ref_addr: Address,
@@ -817,20 +823,20 @@ type CallStack = Vec<CallFrame>;
 #[derive(Debug)]
 pub struct IntrpProducts {
     /// Indirect calls resolved during interpretation
-    pub concrete_calls: HashSet<ConcreteCodeXref>,
-    pub concrete_jumps: HashSet<ConcreteCodeXref>,
-    pub mem_xrefs: HashSet<MemXref>,
-    pub stack_xrefs: HashSet<StackXref>,
+    pub concrete_calls: BTreeSet<ConcreteCodeXref>,
+    pub concrete_jumps: BTreeSet<ConcreteCodeXref>,
+    pub mem_xrefs: BTreeSet<MemXref>,
+    pub stack_xrefs: BTreeSet<StackXref>,
     pub mos: MemOpSeq,
 }
 
 impl IntrpProducts {
     pub fn new() -> IntrpProducts {
         IntrpProducts {
-            concrete_calls: HashSet::new(),
-            concrete_jumps: HashSet::new(),
-            mem_xrefs: HashSet::new(),
-            stack_xrefs: HashSet::new(),
+            concrete_calls: BTreeSet::new(),
+            concrete_jumps: BTreeSet::new(),
+            mem_xrefs: BTreeSet::new(),
+            stack_xrefs: BTreeSet::new(),
             mos: MemOpSeq::new(),
         }
     }
@@ -875,13 +881,13 @@ pub struct AbstrVM {
     /// Register sizes in bits, indexed by name
     reg_sizes: HashMap<String, usize>,
     /// Const value call targets
-    calls_xref: HashSet<ConcreteCodeXref>,
+    calls_xref: BTreeSet<ConcreteCodeXref>,
     /// Const value jump targets
-    jumps_xref: HashSet<ConcreteCodeXref>,
+    jumps_xref: BTreeSet<ConcreteCodeXref>,
     /// Const value memory values loaded or stored.
-    mem_xrefs: HashSet<MemXref>,
+    mem_xrefs: BTreeSet<MemXref>,
     /// Stack references
-    stack_xrefs: HashSet<StackXref>,
+    stack_xrefs: BTreeSet<StackXref>,
     /// Rizin Core
     rz_core: GRzCore,
     /// Normal distribution
@@ -924,10 +930,10 @@ impl AbstrVM {
             lpures: HashMap::new(),
             reg_roles: HashMap::new(),
             reg_sizes: HashMap::new(),
-            calls_xref: HashSet::new(),
-            jumps_xref: HashSet::new(),
-            mem_xrefs: HashSet::new(),
-            stack_xrefs: HashSet::new(),
+            calls_xref: BTreeSet::new(),
+            jumps_xref: BTreeSet::new(),
+            mem_xrefs: BTreeSet::new(),
+            stack_xrefs: BTreeSet::new(),
             rz_core: rz_core.clone(),
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
             limit_repeat,

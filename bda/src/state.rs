@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     sync::RwLock,
     time::{Duration, Instant},
 };
@@ -15,7 +15,7 @@ pub fn run_condition_fulfilled(state: &BDAState) -> bool {
     !state.bda_timed_out()
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatisticID {
     /// Data points of the path sampler, time it takes to sample a single path.
     PSSampleTime,
@@ -23,7 +23,7 @@ pub enum StatisticID {
 
 pub struct RuntimeStats {
     /// Measured durations of the PathSampler sampling a single path
-    stats: HashMap<StatisticID, Vec<Duration>>,
+    stats: BTreeMap<StatisticID, Vec<Duration>>,
     /// Maximal path length seen so far.
     max_path_len: usize,
 }
@@ -31,7 +31,7 @@ pub struct RuntimeStats {
 impl RuntimeStats {
     pub fn new() -> RuntimeStats {
         RuntimeStats {
-            stats: HashMap::new(),
+            stats: BTreeMap::new(),
             max_path_len: 0,
         }
     }
@@ -78,13 +78,13 @@ pub struct BDAState {
     /// The weight map for every node in all graphs.
     weight_map: RwLock<WeightMap>,
     /// Discovered indirect calls
-    pub calls: HashSet<ConcreteCodeXref>,
+    pub calls: BTreeSet<ConcreteCodeXref>,
     /// Discovered indirect jumps
-    pub jumps: HashSet<ConcreteCodeXref>,
+    pub jumps: BTreeSet<ConcreteCodeXref>,
     /// Discovered mem_xrefs
-    pub mem_xrefs: HashSet<MemXref>,
+    pub mem_xrefs: BTreeSet<MemXref>,
     /// Discovered stacK_xrefs
-    pub stack_xrefs: HashSet<StackXref>,
+    pub stack_xrefs: BTreeSet<StackXref>,
     /// Memory op sequences
     pub mos: MemOpSeq,
     /// Runtime statistics
@@ -98,10 +98,10 @@ impl BDAState {
             timeout: Duration::new(timeout, 0),
             num_threads,
             weight_map: WeightMap::new(),
-            calls: HashSet::new(),
-            jumps: HashSet::new(),
-            mem_xrefs: HashSet::new(),
-            stack_xrefs: HashSet::new(),
+            calls: BTreeSet::new(),
+            jumps: BTreeSet::new(),
+            mem_xrefs: BTreeSet::new(),
+            stack_xrefs: BTreeSet::new(),
             mos: MemOpSeq::new(),
             runtime_stats: RuntimeStats::new(),
         }
@@ -119,19 +119,19 @@ impl BDAState {
         &self.weight_map
     }
 
-    pub fn update_calls(&mut self, icalls: HashSet<ConcreteCodeXref>) {
+    pub fn update_calls(&mut self, icalls: BTreeSet<ConcreteCodeXref>) {
         self.calls.extend(icalls);
     }
 
-    pub fn update_jumps(&mut self, ijumps: HashSet<ConcreteCodeXref>) {
+    pub fn update_jumps(&mut self, ijumps: BTreeSet<ConcreteCodeXref>) {
         self.jumps.extend(ijumps);
     }
 
-    pub fn update_mem_xrefs(&mut self, xrefs: HashSet<MemXref>) {
+    pub fn update_mem_xrefs(&mut self, xrefs: BTreeSet<MemXref>) {
         self.mem_xrefs.extend(xrefs);
     }
 
-    pub fn update_stack_xrefs(&mut self, xrefs: HashSet<StackXref>) {
+    pub fn update_stack_xrefs(&mut self, xrefs: BTreeSet<StackXref>) {
         self.stack_xrefs.extend(xrefs);
     }
 

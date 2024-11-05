@@ -4,7 +4,7 @@
 use bitflags::bitflags;
 use core::panic;
 use std::{
-    collections::{hash_map, hash_set, HashMap, HashSet, VecDeque},
+    collections::{btree_map, btree_set, BTreeMap, BTreeSet, HashMap, VecDeque},
     sync::RwLock,
 };
 
@@ -30,7 +30,7 @@ use crate::{
 
 bitflags! {
     /// The type of a node which determines the weight calculation of it.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub struct InsnNodeType: u32 {
         /// A node without any special meaning in the graph.
         /// It's weight is:
@@ -446,13 +446,13 @@ impl CFGNodeData {
 
 #[derive(Debug)]
 pub struct CFGNodeDataMap {
-    map: HashMap<NodeId, CFGNodeData>,
+    map: BTreeMap<NodeId, CFGNodeData>,
     /// Tracks the NodeIds of call instructions for faster iteration.
-    call_insns_idx: HashSet<NodeId>,
+    call_insns_idx: BTreeSet<NodeId>,
 }
 
 pub struct InsnNodeDataIterator<'a> {
-    node_data_iter: hash_map::Iter<'a, NodeId, CFGNodeData>,
+    node_data_iter: btree_map::Iter<'a, NodeId, CFGNodeData>,
     cur_node_data: Option<(&'a NodeId, &'a CFGNodeData)>,
     insn_index: usize,
 }
@@ -493,8 +493,8 @@ impl<'a> Iterator for InsnNodeDataIterator<'a> {
 }
 
 pub struct CallInsnIterator<'a> {
-    map: &'a HashMap<NodeId, CFGNodeData>,
-    call_insns_idx: hash_set::Iter<'a, NodeId>,
+    map: &'a BTreeMap<NodeId, CFGNodeData>,
+    call_insns_idx: btree_set::Iter<'a, NodeId>,
     cur_node_data: Option<&'a CFGNodeData>,
     insn_index: usize,
 }
@@ -587,8 +587,8 @@ impl<'a> Iterator for CallTargetIterator<'a> {
 impl CFGNodeDataMap {
     pub fn new() -> CFGNodeDataMap {
         CFGNodeDataMap {
-            map: HashMap::new(),
-            call_insns_idx: HashSet::new(),
+            map: BTreeMap::new(),
+            call_insns_idx: BTreeSet::new(),
         }
     }
 
@@ -685,19 +685,21 @@ impl CFGNodeDataMap {
         }
     }
 
-    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, NodeId, CFGNodeData> {
+    pub fn iter(&self) -> std::collections::btree_map::Iter<'_, NodeId, CFGNodeData> {
         self.map.iter()
     }
 
-    pub fn iter_mut(&mut self) -> std::collections::hash_map::IterMut<'_, NodeId, CFGNodeData> {
+    pub fn iter_mut(&mut self) -> std::collections::btree_map::IterMut<'_, NodeId, CFGNodeData> {
         self.map.iter_mut()
     }
 
-    pub fn values(&self) -> std::collections::hash_map::Values<'_, NodeId, CFGNodeData> {
+    pub fn values(&self) -> std::collections::btree_map::Values<'_, NodeId, CFGNodeData> {
         self.map.values()
     }
 
-    pub fn values_mut(&mut self) -> std::collections::hash_map::ValuesMut<'_, NodeId, CFGNodeData> {
+    pub fn values_mut(
+        &mut self,
+    ) -> std::collections::btree_map::ValuesMut<'_, NodeId, CFGNodeData> {
         self.map.values_mut()
     }
 
@@ -757,7 +759,7 @@ pub struct CFG {
     /// Number of node duplications for loop resolvement
     dup_cnt: usize,
     /// SCC map. Mapping NodeId to it's SCC member.
-    scc_members: HashMap<NodeId, usize>,
+    scc_members: BTreeMap<NodeId, usize>,
     /// The strongly connected compononets of the cyclical graph
     sccs: Vec<Vec<NodeId>>,
 }
@@ -783,7 +785,7 @@ impl CFG {
             discovered_tail_calls: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
-            scc_members: HashMap::new(),
+            scc_members: BTreeMap::new(),
             sccs: Vec::new(),
         }
     }
@@ -797,7 +799,7 @@ impl CFG {
             discovered_tail_calls: NodeIdSet::new(),
             entry: INVALID_NODE_ID,
             dup_cnt: 3,
-            scc_members: HashMap::new(),
+            scc_members: BTreeMap::new(),
             sccs: Vec::new(),
         }
     }
@@ -1148,7 +1150,7 @@ impl FlowGraphOperations for CFG {
         }
         let graph = &mut self.graph;
         let nodes_data = &mut self.nodes_meta;
-        let mut done = HashSet::<NodeId>::new();
+        let mut done = BTreeSet::<NodeId>::new();
         let mut prev_nids = VecDeque::<NodeId>::new();
         let mut curr_nid = *nid;
         loop {
@@ -1343,7 +1345,7 @@ impl Procedure {
                 // Update ct to icfg clone id
                 self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|ci| {
                     // Prevent duplication of call targets.
-                    let mut seen = HashSet::<NodeId>::new();
+                    let mut seen = BTreeSet::<NodeId>::new();
                     ci.call_targets.retain_mut(|ct| {
                         if ct.address != to_nid.address {
                             // Call traget to other CFG. Not relevant for now.

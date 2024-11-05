@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::{HashSet, VecDeque},
+        collections::{BTreeSet, VecDeque},
         sync::{
             mpsc::{channel, Receiver, Sender},
             Arc, Mutex,
@@ -196,7 +196,7 @@ mod tests {
         } else {
             panic!("Received no products.");
         }
-        let mut call_expected = HashSet::new();
+        let mut call_expected = BTreeSet::new();
         call_expected.insert(ConcreteCodeXref::new(
             crate::interpreter::CodeXrefType::IndirectCall,
             0x08000040,
@@ -220,7 +220,7 @@ mod tests {
         for sxref in products.stack_xrefs.iter() {
             println!("{}", sxref);
         }
-        let mut stack_expected = HashSet::new();
+        let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         stack_expected.insert(StackXref::new(0x8000040, Const::new_i64(-0x8, 64), 0x8000040));
@@ -261,7 +261,7 @@ mod tests {
         for sxref in products.mem_xrefs.iter() {
             println!("{}", sxref);
         }
-        let mut mem_expected = HashSet::new();
+        let mut mem_expected = BTreeSet::new();
         mem_expected.insert(MemXref::new(0x0800005d, 0x080000e0, 8));
         mem_expected.insert(MemXref::new(0x0800007a, 0x080000e8, 8));
         mem_expected.insert(MemXref::new(0x08000097, 0x080000f0, 8));
@@ -281,7 +281,7 @@ mod tests {
         } else {
             panic!("Received no products.");
         }
-        let mut call_expected = HashSet::new();
+        let mut call_expected = BTreeSet::new();
         call_expected.insert(ConcreteCodeXref::new(
             crate::interpreter::CodeXrefType::IndirectCall,
             0x08000040,
@@ -309,7 +309,7 @@ mod tests {
         for sxref in products.stack_xrefs.iter() {
             println!("{}", sxref);
         }
-        let mut stack_expected = HashSet::new();
+        let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         stack_expected.insert(StackXref::new(0x8000040, Const::new_i32(-0x8, 32), 0x8000040));
@@ -323,7 +323,7 @@ mod tests {
         for sxref in products.mem_xrefs.iter() {
             println!("{}", sxref);
         }
-        let mut mem_expected = HashSet::new();
+        let mut mem_expected = BTreeSet::new();
         mem_expected.insert(MemXref::new(0x800004c, 0x8000098, 4));
         mem_expected.insert(MemXref::new(0x8000054, 0x800009c, 4));
         mem_expected.insert(MemXref::new(0x800005c, 0x80000a0, 4));
@@ -405,14 +405,14 @@ mod tests {
             println!("{}", call);
         }
 
-        let call_expected = HashSet::new();
+        let call_expected = BTreeSet::new();
         assert!(products.concrete_calls.eq(&call_expected));
 
         println!("Stack xrefs");
         for sxref in products.stack_xrefs.iter() {
             println!("{}", sxref);
         }
-        let mut stack_expected = HashSet::new();
+        let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         stack_expected.insert(StackXref::new(0x8000060, Const::new_i32(-0x8, 64), 0x8000060));
@@ -438,7 +438,7 @@ mod tests {
         for memop in products.mos.iter() {
             println!("{}", memop);
         }
-        let mut expected_heap_mos = HashSet::new();
+        let mut expected_heap_mos = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         expected_heap_mos.insert(MemOp::new(0x8000099, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
@@ -465,14 +465,14 @@ mod tests {
         } else {
             panic!("Received no products.");
         }
-        let call_expected = HashSet::new();
+        let call_expected = BTreeSet::new();
         assert!(products.concrete_calls.eq(&call_expected));
 
         println!("Stack xrefs");
         for sxref in products.stack_xrefs.iter() {
             println!("{}", sxref);
         }
-        let mut stack_expected = HashSet::new();
+        let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         stack_expected.insert(StackXref::new(0x8000060, Const::new_i32(-0x8, 32), 0x8000060));
@@ -491,14 +491,14 @@ mod tests {
         for sxref in products.mem_xrefs.iter() {
             println!("{}", sxref);
         }
-        let mem_expected = HashSet::new();
+        let mem_expected = BTreeSet::new();
         assert!(products.mem_xrefs.eq(&mem_expected));
 
         println!("MOS");
         for memop in products.mos.iter() {
             println!("{}", memop);
         }
-        let mut expected_heap_mos = HashSet::new();
+        let mut expected_heap_mos = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         expected_heap_mos.insert(MemOp::new(0x8000098, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
