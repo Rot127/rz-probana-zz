@@ -278,8 +278,8 @@ impl RzCoreWrapper {
         c
     }
 
-    pub fn get_bda_timout(&self) -> Option<u64> {
-        let c = get_bda_config_val_str!(self, "plugins.bda.timeout");
+    pub fn get_bda_sampling_runtime(&self) -> Option<u64> {
+        let c = get_bda_config_val_str!(self, "plugins.bda.sampling.runtime");
         parse_bda_timeout(c_to_str(c))
     }
 
