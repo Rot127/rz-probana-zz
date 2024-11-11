@@ -7,6 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use helper::timer::Timer;
 use rzil_abstr::interpreter::{ConcreteCodeXref, IWordInfo, MemOpSeq, MemXref, StackXref};
 
 use crate::{flow_graphs::Address, weight::WeightMap};
@@ -69,10 +70,12 @@ impl RuntimeStats {
 }
 
 pub struct BDAState {
-    /// Tiemstamp when the analysis started.
-    pub bda_start: Instant,
-    /// Maximum duration the analysis is allowed to run.
-    pub timeout: Duration,
+    /// Timer for the BDA total runtime.
+    pub bda_timer: Timer,
+    /// Timer for the iCFG update check. A iCFG update is enforced after the timeout.
+    pub icfg_update_timer: Timer,
+    /// Number of new code xrefs which trigger an iCFG update.
+    pub icfg_update_threshold: usize,
     /// Counter how many threads can be dispatched for interpretation.
     pub num_threads: usize,
     /// The weight map for every node in all graphs.
@@ -96,10 +99,16 @@ pub struct BDAState {
 }
 
 impl BDAState {
-    pub fn new(num_threads: usize, timeout: u64) -> BDAState {
+    pub fn new(
+        num_threads: usize,
+        timeout: u64,
+        icfg_update_timeout: u64,
+        icfg_update_threshold: usize,
+    ) -> BDAState {
         BDAState {
-            bda_start: Instant::now(),
-            timeout: Duration::new(timeout, 0),
+            bda_timer: Timer::new(Duration::from_secs(timeout)),
+            icfg_update_timer: Timer::new(Duration::from_secs(icfg_update_timeout)),
+            icfg_update_threshold,
             num_threads,
             weight_map: WeightMap::new(),
             iword_info: BTreeMap::new(),
@@ -114,11 +123,7 @@ impl BDAState {
     }
 
     pub fn bda_timed_out(&self) -> bool {
-        self.bda_start.elapsed() >= self.timeout
-    }
-
-    pub fn reset_bda_timeout(&mut self) {
-        self.bda_start = Instant::now();
+        self.bda_timer.timed_out()
     }
 
     pub fn get_weight_map(&self) -> &RwLock<WeightMap> {
@@ -159,5 +164,10 @@ impl BDAState {
 
     pub fn update_iword_info(&mut self, iword_info: BTreeMap<Address, IWordInfo>) {
         self.iword_info.extend(iword_info);
+    }
+
+    pub(crate) fn update_icfg(&self) -> bool {
+        self.icfg_update_timer.timed_out()
+            || self.unhandled_code_xrefs.len() >= self.icfg_update_threshold
     }
 }

@@ -206,7 +206,7 @@ pub extern "C" fn rz_set_bda_skip_questions(core: *mut c_void, node: *mut c_void
     true
 }
 
-pub extern "C" fn rz_set_bda_timeout(core: *mut c_void, node: *mut c_void) -> bool {
+pub extern "C" fn rz_check_timeout(core: *mut c_void, node: *mut c_void) -> bool {
     let _ = core as *mut RzCore;
     let rz_node = node as *mut RzConfigNode;
     // Just perform a check on the given value.
@@ -246,11 +246,31 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
             config,
             str_to_c!("plugins.bda.sampling.runtime"),
             str_to_c!("10:00:00"),
-            Some(rz_set_bda_timeout),
+            Some(rz_check_timeout),
         ),
         str_to_c!(
             "Maximum runtime for path sampling. Allowed formats: DD:HH:MM:SS, HH:MM:SS, MM:SS, SS"
         ),
+    );
+    rz_config_node_desc(
+        rz_config_set_cb(
+            config,
+            str_to_c!("plugins.bda.sampling.timeout_icfg_update"),
+            str_to_c!("5:00"),
+            Some(rz_check_timeout),
+        ),
+        str_to_c!(
+            "Enforce an iCFG update after this time. Even if less code xrefs than plugins.bda.sampling.unknown_xref_threshold were found. Allowed formats: HH:MM:SS, MM:SS, SS"
+        ),
+    );
+    rz_config_node_desc(
+        rz_config_set_i_cb(
+            config,
+            str_to_c!("plugins.bda.sampling.unknown_xref_threshold"),
+            5,
+            Some(rz_set_bda_threads),
+        ),
+        str_to_c!("Number of code xrefs to discover before an iCFG update is performed."),
     );
     rz_config_node_desc(
         rz_config_set_i_cb(

@@ -358,7 +358,22 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
         .unwrap()
         .get_bda_sampling_runtime()
         .expect("Should have been checked before.");
-    let mut state = BDAState::new(nthreads, runtime);
+    let icfg_enforce_update_timeout: u64 = core
+        .lock()
+        .unwrap()
+        .get_bda_icfg_enforce_update_timeout()
+        .expect("Should been set before.");
+    let unknown_code_xrefs_theshold = core
+        .lock()
+        .unwrap()
+        .get_bda_unknown_code_xrefs_theshold()
+        .expect("Should have been checked before.");
+    let mut state = BDAState::new(
+        nthreads,
+        runtime,
+        icfg_enforce_update_timeout,
+        unknown_code_xrefs_theshold,
+    );
     add_procedures_to_icfg(core.clone(), &mut icfg);
     icfg.make_icfg_consistent();
     debug_assert!(icfg.icfg_consistency_check());

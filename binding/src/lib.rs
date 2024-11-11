@@ -283,6 +283,23 @@ impl RzCoreWrapper {
         parse_bda_timeout(c_to_str(c))
     }
 
+    pub fn get_bda_icfg_enforce_update_timeout(&self) -> Option<u64> {
+        let c = get_bda_config_val_str!(self, "plugins.bda.sampling.timeout_icfg_update");
+        parse_bda_timeout(c_to_str(c))
+    }
+
+    pub fn get_bda_unknown_code_xrefs_theshold(&self) -> Option<usize> {
+        let c = get_bda_config_val_str!(self, "plugins.bda.sampling.unknown_xref_threshold");
+        assert!(c != std::ptr::null_mut(), "Failed to get threads.");
+        match c_to_str(c).parse::<usize>() {
+            Ok(tn) => Some(tn),
+            Err(_) => {
+                println!("{} is not a valid u64 number", c_to_str(c));
+                None
+            }
+        }
+    }
+
     pub fn get_bda_threads(&self) -> Option<usize> {
         let c = get_bda_config_val_str!(self, "plugins.bda.threads");
         assert!(c != std::ptr::null_mut(), "Failed to get threads.");

@@ -23,7 +23,7 @@ use crate::{
 };
 
 fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
-    let mut passed = (Instant::now() - state.bda_start).as_secs();
+    let mut passed = state.bda_timer.passed_seconds();
     let hours = passed / 3600;
     passed -= hours * 3600;
     let minutes = passed / 60;
@@ -287,7 +287,9 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             products.push(prods);
         }
         move_products_to_state(state, &mut products);
-        update_icfg(core.clone(), state, icfg);
+        if state.update_icfg() {
+            update_icfg(core.clone(), state, icfg);
+        }
 
         if !run_condition_fulfilled(&state) {
             // End of run. Collect the rest of all products.
@@ -314,23 +316,23 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         handled_thread,
         nothing_happened as f64 / handled_thread as f64
     );
-    println!("Calls");
-    for ic in state.calls.iter() {
-        println!("{}", ic);
-    }
-    println!("Mem xrefs");
-    for ic in state.mem_xrefs.iter() {
-        println!("{}", ic);
-    }
-    println!("Stack xrefs");
-    for ic in state.stack_xrefs.iter() {
-        println!("{}", ic);
-    }
-    println!("MOS");
-    for ic in state.mos.iter() {
-        println!("{}", ic);
-    }
-    let mut term_reason = "";
+    // println!("Calls");
+    // for ic in state.calls.iter() {
+    //     println!("{}", ic);
+    // }
+    // println!("Mem xrefs");
+    // for ic in state.mem_xrefs.iter() {
+    //     println!("{}", ic);
+    // }
+    // println!("Stack xrefs");
+    // for ic in state.stack_xrefs.iter() {
+    //     println!("{}", ic);
+    // }
+    // println!("MOS");
+    // for ic in state.mos.iter() {
+    //     println!("{}", ic);
+    // }
+    let mut term_reason = "not reason specified";
     if state.bda_timed_out() {
         term_reason = "timeout";
     }

@@ -6,16 +6,14 @@ mod tests {
     use std::collections::HashSet;
 
     use binding::{
-        get_rz_test_bin_path, get_test_bin_path, init_rizin_instance, rz_core_graph_icfg,
-        wait_for_exlusive_core, GRzCore, RzCoreWrapper,
+        get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
+        GRzCore, RzCoreWrapper,
     };
     use rzil_abstr::interpreter::{AbstrVal, Const, MemOp};
 
     use crate::{
         bda::run_bda,
-        bda_binding::{
-            add_procedures_to_icfg, get_graph, rz_analysis_bda_handler, setup_procedure_at_addr,
-        },
+        bda_binding::{add_procedures_to_icfg, get_graph, setup_procedure_at_addr},
         flow_graphs::{FlowGraphOperations, NodeId},
         icfg::ICFG,
         state::BDAState,
@@ -106,7 +104,7 @@ mod tests {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_x86_discover_recurse();
-        let mut state = BDAState::new(1, 2);
+        let mut state = BDAState::new(1, 2, 300, 1);
         assert!(icfg.get_procedures().len() == 2, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
         icfg.dot_graph_to_stdout();
@@ -211,7 +209,7 @@ mod tests {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_hexagon_discover_recurse();
-        let mut state = BDAState::new(1, 2);
+        let mut state = BDAState::new(1, 2, 300, 1);
         assert!(icfg.get_procedures().len() == 2, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
@@ -318,7 +316,7 @@ mod tests {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_x86_icall_malloc();
-        let mut state = BDAState::new(1, 3);
+        let mut state = BDAState::new(1, 3, 300, 1);
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
@@ -362,7 +360,7 @@ mod tests {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_hexagon_icall_malloc();
-        let mut state = BDAState::new(1, 3);
+        let mut state = BDAState::new(1, 3, 300, 1);
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
