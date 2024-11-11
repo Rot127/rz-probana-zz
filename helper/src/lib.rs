@@ -8,5 +8,6 @@ pub mod progress;
 pub mod rz;
 pub mod set_map;
 pub mod spinner;
+pub mod timer;
 pub mod user;
 pub mod vec_map;
