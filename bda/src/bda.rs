@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap, VecDeque},
     sync::mpsc::{channel, Receiver, Sender},
     thread::{self, JoinHandle},
     time::Instant,
@@ -18,7 +18,7 @@ use crate::{
     cfg::Procedure,
     flow_graphs::{Address, FlowGraphOperations, NodeId},
     icfg::ICFG,
-    path_sampler::sample_path,
+    path_sampler::{sample_path, Path},
     state::{run_condition_fulfilled, BDAState, StatisticID},
 };
 
@@ -229,6 +229,12 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     // Run abstract interpretation
     let mut spinner = Spinner::new("".to_string());
     let mut paths_walked = 0;
+    let path_buf_limit = core
+        .lock()
+        .unwrap()
+        .get_bda_path_buf_limit()
+        .expect("Faulty config.");
+    let mut path_buffer = VecDeque::<Path>::new();
     let mut rng = thread_rng();
     let mut products: Vec<IntrpProducts> = Vec::new();
     let mut threads: HashMap<usize, JoinHandle<_>> = HashMap::new();
@@ -237,27 +243,29 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         spinner.update(Some(get_bda_status(state, paths_walked)));
         // Dispatch interpretation into threads
         for tid in 0..state.num_threads {
-            let ts_sampling_start = Instant::now();
-            let path = sample_path(
+            sample_path_into_buffer(
+                &mut path_buffer,
+                path_buf_limit,
                 icfg,
-                // Choose a random entry point.
-                *entry_points
-                    .get(rng.gen_range(0..entry_points.len()))
-                    .unwrap(),
-                state.get_weight_map(),
+                &entry_points,
+                &mut rng,
+                state,
                 &ranges,
             );
-            state.runtime_stats.add_dp(
-                StatisticID::PSSampleTime,
-                Instant::now().duration_since(ts_sampling_start),
-            );
-            state.runtime_stats.add_path_len(path.len());
+
+            if threads.get(&tid).is_some() {
+                // Busy
+                continue;
+            }
+            let next_path = path_buffer
+                .pop_front()
+                .expect("Path generation before failed.");
             if threads.get(&tid).is_none() {
                 let core_ref = core.clone();
                 let thread_tx = tx.clone();
                 threads.insert(
                     tid,
-                    thread::spawn(move || interpret(core_ref, path.to_addr_path(), thread_tx)),
+                    thread::spawn(move || interpret(core_ref, next_path.to_addr_path(), thread_tx)),
                 );
             }
         }
@@ -335,4 +343,33 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         core.clone(),
         format!("Finished BDA analysis ({})", term_reason),
     );
+}
+
+fn sample_path_into_buffer(
+    path_buffer: &mut VecDeque<Path>,
+    path_buf_limit: usize,
+    icfg: &mut ICFG,
+    entry_points: &Vec<u64>,
+    rng: &mut rand::prelude::ThreadRng,
+    state: &mut BDAState,
+    ranges: &Vec<(u64, u64)>,
+) {
+    if path_buffer.len() < path_buf_limit {
+        let ts_sampling_start = Instant::now();
+        let path = sample_path(
+            icfg,
+            // Choose a random entry point.
+            *entry_points
+                .get(rng.gen_range(0..entry_points.len()))
+                .unwrap(),
+            state.get_weight_map(),
+            ranges,
+        );
+        state.runtime_stats.add_dp(
+            StatisticID::PSSampleTime,
+            Instant::now().duration_since(ts_sampling_start),
+        );
+        state.runtime_stats.add_path_len(path.len());
+        path_buffer.push_back(path);
+    }
 }

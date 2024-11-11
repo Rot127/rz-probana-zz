@@ -284,6 +284,15 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
     rz_config_node_desc(
         rz_config_set_i_cb(
             config,
+            str_to_c!("plugins.bda.sampling.path_buf_limit"),
+            16,
+            Some(rz_set_bda_threads),
+        ),
+        str_to_c!("Number of paths to buffer at a maximum."),
+    );
+    rz_config_node_desc(
+        rz_config_set_i_cb(
+            config,
             str_to_c!("plugins.bda.repeat_iterations"),
             32,
             Some(rz_set_bda_iterations),
