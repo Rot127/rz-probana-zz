@@ -23,11 +23,6 @@ use crate::{
 };
 
 fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
-    let mut passed = state.bda_timer.passed_seconds();
-    let hours = passed / 3600;
-    passed -= hours * 3600;
-    let minutes = passed / 60;
-    passed -= minutes * 60;
     // Separated at the thousands mark
     let formatted_path_num = num_bda_products
         .to_string()
@@ -47,16 +42,14 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
         None => -1,
     };
     format!(
-        "Threads: {} - Runtime: {:02}:{:02}:{:02} - Paths interp.: {} - icalls: {} - ijumps: {} - Avg. sampling time: {} - Max path len: {}",
+        "Threads: {} - Runtime: {} - Paths interp.: {} - new code xrefs: {} - Avg. sampling time: {} - Max path len: {} - iCFG update in: {}",
         state.num_threads,
-        hours,
-        minutes,
-        passed,
+        state.bda_timer.time_passed_str(),
         formatted_path_num,
-        state.calls.len(),
-        state.jumps.len(),
+        state.unhandled_code_xrefs.len(),
         if ps_time_ms > 1000 { format!("{}s", ps_time_ms / 1000) } else { format!("{}ms", ps_time_ms) },
-        state.runtime_stats.get_max_path_len()
+        state.runtime_stats.get_max_path_len(),
+        state.icfg_update_timer.time_left_str()
     )
 }
 
@@ -193,6 +186,8 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG) {
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
 pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
+    state.bda_timer.start();
+    state.icfg_update_timer.start();
     let ranges = core
         .lock()
         .expect("Should not be locked")
