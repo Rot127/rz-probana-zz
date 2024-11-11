@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     sync::mpsc::{channel, Receiver, Sender},
     thread::{self, JoinHandle},
     time::Instant,
@@ -11,7 +11,7 @@ use std::{
 use binding::{log_rizin, log_rz, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN};
 use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
-use rzil_abstr::interpreter::{interpret, CodeXrefType, IntrpProducts};
+use rzil_abstr::interpreter::{interpret, CodeXrefType, ConcreteCodeXref, IntrpProducts};
 
 use crate::{
     bda_binding::{get_bin_entries, setup_procedure_at_addr},
@@ -108,77 +108,75 @@ fn move_products_to_state(state: &mut BDAState, products: &mut Vec<IntrpProducts
 }
 
 /// Updates the iCFG with newly discovered calls.
-fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG, products: &[IntrpProducts]) {
+fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG) {
     let mut cxref_added = false;
     let mut edited_procs = Vec::<NodeId>::new();
-    for prod in products {
-        let mut xrefs = Vec::from_iter(prod.concrete_calls.iter());
-        xrefs.extend(prod.concrete_jumps.iter());
-        for code_xref in xrefs {
-            if state.calls.contains(code_xref) || state.jumps.contains(code_xref) {
-                continue;
+    let mut xrefs_to_handle: BTreeSet<ConcreteCodeXref> = BTreeSet::new();
+    // Poor mans drain() for BTreeSet (which doesn't exist in current Rust toolchain).
+    // I just hope the compiler figures the to_owned() doesn't need a clone().
+    state.unhandled_code_xrefs.retain(|xref| {
+        xrefs_to_handle.insert(xref.to_owned());
+        false
+    });
+    for code_xref in xrefs_to_handle.into_iter() {
+        let from_proc_addr = NodeId::from(code_xref.get_proc_addr());
+        let xref_insn_addr = NodeId::from(code_xref.get_from());
+        let xref_to_addr = NodeId::from(code_xref.get_to());
+        let mut from_edited = false;
+        match code_xref.get_xtype() {
+            CodeXrefType::IndirectCall => {
+                if !icfg.has_edge(from_proc_addr, xref_to_addr) {
+                    let procedure_from: Option<Procedure> = if icfg.has_procedure(&from_proc_addr) {
+                        None
+                    } else {
+                        setup_procedure_at_addr(&core.lock().unwrap(), from_proc_addr.address)
+                    };
+                    if procedure_from.is_none() && !icfg.has_procedure(&from_proc_addr) {
+                        panic!("Could not initialize procedure at {}", from_proc_addr);
+                    }
+                    let procedure_to: Option<Procedure> = if icfg.has_procedure(&xref_to_addr) {
+                        None
+                    } else {
+                        setup_procedure_at_addr(&core.lock().unwrap(), xref_to_addr.address)
+                    };
+                    if procedure_to.is_none() && !icfg.has_procedure(&xref_to_addr) {
+                        panic!("Could not initialize procedure at {}", xref_to_addr);
+                    }
+                    from_edited = !icfg.add_edge(
+                        (from_proc_addr, procedure_from),
+                        (xref_to_addr, procedure_to),
+                        Some(xref_insn_addr),
+                    );
+                }
+                state.calls.insert(code_xref);
             }
-            let from_proc_addr = NodeId::from(code_xref.get_proc_addr());
-            let xref_insn_addr = NodeId::from(code_xref.get_from());
-            let xref_to_addr = NodeId::from(code_xref.get_to());
-            let mut from_edited = false;
-            match code_xref.get_xtype() {
-                CodeXrefType::IndirectCall => {
-                    if !icfg.has_edge(from_proc_addr, xref_to_addr) {
-                        let procedure_from: Option<Procedure> = if icfg
-                            .has_procedure(&from_proc_addr)
-                        {
-                            None
-                        } else {
-                            setup_procedure_at_addr(&core.lock().unwrap(), from_proc_addr.address)
-                        };
-                        if procedure_from.is_none() && !icfg.has_procedure(&from_proc_addr) {
-                            panic!("Could not initialize procedure at {}", from_proc_addr);
+            CodeXrefType::IndirectJump => {
+                if icfg.has_procedure(&from_proc_addr)
+                    && !icfg.cfg_contains_edge(&from_proc_addr, &xref_insn_addr, &xref_to_addr)
+                {
+                    if !icfg.cfg_contains_node(&from_proc_addr, &xref_to_addr) {
+                        // A tail call.
+                        if !icfg.has_edge(from_proc_addr, xref_to_addr) {
+                            println!("\n[Unimplemented] Skip adding tail call: {}", code_xref);
                         }
-                        state.calls.insert(code_xref.clone());
-                        let procedure_to: Option<Procedure> = if icfg.has_procedure(&xref_to_addr) {
-                            None
-                        } else {
-                            setup_procedure_at_addr(&core.lock().unwrap(), xref_to_addr.address)
-                        };
-                        if procedure_to.is_none() && !icfg.has_procedure(&xref_to_addr) {
-                            panic!("Could not initialize procedure at {}", xref_to_addr);
-                        }
-                        from_edited = !icfg.add_edge(
-                            (from_proc_addr, procedure_from),
-                            (xref_to_addr, procedure_to),
-                            Some(xref_insn_addr),
+                    } else {
+                        from_edited = !icfg.cfg_contains_edge(
+                            &from_proc_addr,
+                            &xref_insn_addr,
+                            &xref_to_addr,
                         );
+                        icfg.get_procedure(&from_proc_addr)
+                            .write()
+                            .unwrap()
+                            .insert_jump_target(&xref_insn_addr, &xref_to_addr);
                     }
                 }
-                CodeXrefType::IndirectJump => {
-                    if icfg.has_procedure(&from_proc_addr)
-                        && !icfg.cfg_contains_edge(&from_proc_addr, &xref_insn_addr, &xref_to_addr)
-                    {
-                        state.jumps.insert(code_xref.clone());
-                        if !icfg.cfg_contains_node(&from_proc_addr, &xref_to_addr) {
-                            // A tail call.
-                            if !icfg.has_edge(from_proc_addr, xref_to_addr) {
-                                println!("\n[Unimplemented] Skip adding tail call: {}", code_xref);
-                            }
-                        } else {
-                            from_edited = !icfg.cfg_contains_edge(
-                                &from_proc_addr,
-                                &xref_insn_addr,
-                                &xref_to_addr,
-                            );
-                            icfg.get_procedure(&from_proc_addr)
-                                .write()
-                                .unwrap()
-                                .insert_jump_target(&xref_insn_addr, &xref_to_addr);
-                        }
-                    }
-                }
+                state.jumps.insert(code_xref);
             }
-            if from_edited {
-                edited_procs.push(from_proc_addr);
-                cxref_added = true;
-            }
+        }
+        if from_edited {
+            edited_procs.push(from_proc_addr);
+            cxref_added = true;
         }
     }
     if cxref_added {
@@ -288,9 +286,11 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         if let Ok(prods) = rx.try_recv() {
             products.push(prods);
         }
-        update_icfg(core.clone(), state, icfg, &products);
         move_products_to_state(state, &mut products);
+        update_icfg(core.clone(), state, icfg);
+
         if !run_condition_fulfilled(&state) {
+            // End of run. Collect the rest of all products.
             for tid in 0..state.num_threads {
                 if !threads.get(&tid).is_none() {
                     let thread = threads.remove(&tid).unwrap();

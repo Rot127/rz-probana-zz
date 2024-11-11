@@ -77,10 +77,12 @@ pub struct BDAState {
     pub num_threads: usize,
     /// The weight map for every node in all graphs.
     weight_map: RwLock<WeightMap>,
-    /// Discovered indirect calls
+    /// Discovered indirect calls. Already in the iCFG.
     pub calls: BTreeSet<ConcreteCodeXref>,
-    /// Discovered indirect jumps
+    /// Discovered indirect jumps. Already in the iCFG.
     pub jumps: BTreeSet<ConcreteCodeXref>,
+    /// Code xrefs not yet added to the iCFG.
+    pub unhandled_code_xrefs: BTreeSet<ConcreteCodeXref>,
     /// Discovered mem_xrefs
     pub mem_xrefs: BTreeSet<MemXref>,
     /// Discovered stacK_xrefs
@@ -103,6 +105,7 @@ impl BDAState {
             iword_info: BTreeMap::new(),
             calls: BTreeSet::new(),
             jumps: BTreeSet::new(),
+            unhandled_code_xrefs: BTreeSet::new(),
             mem_xrefs: BTreeSet::new(),
             stack_xrefs: BTreeSet::new(),
             mos: MemOpSeq::new(),
@@ -123,11 +126,23 @@ impl BDAState {
     }
 
     pub fn update_calls(&mut self, icalls: BTreeSet<ConcreteCodeXref>) {
-        self.calls.extend(icalls);
+        for xref in icalls.into_iter() {
+            if self.calls.contains(&xref) {
+                // Already added to call set during iCFG update.
+                continue;
+            }
+            self.unhandled_code_xrefs.insert(xref);
+        }
     }
 
     pub fn update_jumps(&mut self, ijumps: BTreeSet<ConcreteCodeXref>) {
-        self.jumps.extend(ijumps);
+        for xref in ijumps.into_iter() {
+            if self.jumps.contains(&xref) {
+                // Already added to jump set during iCFG update.
+                continue;
+            }
+            self.unhandled_code_xrefs.insert(xref);
+        }
     }
 
     pub fn update_mem_xrefs(&mut self, xrefs: BTreeSet<MemXref>) {
