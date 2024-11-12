@@ -180,6 +180,7 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG) {
             .unwrap()
             .propagate_cfg_edits(icfg, edited_procs);
     }
+    state.icfg_update_timer.reset_start();
 }
 
 /// Runs the BDA analysis by sampling paths within the iCFG and performing
@@ -297,7 +298,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             products.push(prods);
         }
         move_products_to_state(state, &mut products);
-        if state.update_icfg() {
+        if state.update_icfg_check() {
             update_icfg(core.clone(), state, icfg);
         }
 

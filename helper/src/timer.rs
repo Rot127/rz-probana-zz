@@ -41,6 +41,11 @@ impl Timer {
         self.start_time = None;
     }
 
+    pub fn reset_start(&mut self) {
+        self.reset();
+        self.start();
+    }
+
     pub fn start(&mut self) {
         self.start_time = Some(Instant::now());
     }

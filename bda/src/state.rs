@@ -181,8 +181,8 @@ impl BDAState {
         self.iword_info.extend(iword_info);
     }
 
-    pub(crate) fn update_icfg(&self) -> bool {
-        self.icfg_update_timer.timed_out()
+    pub(crate) fn update_icfg_check(&self) -> bool {
+        (self.icfg_update_timer.timed_out() && self.unhandled_code_xrefs.len() > 0)
             || self.unhandled_code_xrefs.len() >= self.icfg_update_threshold
     }
 }
