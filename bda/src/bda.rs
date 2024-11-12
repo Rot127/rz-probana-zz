@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use std::{
-    collections::{BTreeSet, HashMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     sync::mpsc::{channel, Receiver, Sender},
     thread::{self, JoinHandle},
     time::Instant,
@@ -34,20 +34,20 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
         .unwrap()
         .join(",");
 
-    let ps_time_ms = match state
+    let sample_time = state
         .runtime_stats
-        .get_avg_duration(StatisticID::PSSampleTime)
-    {
-        Some(dp) => dp.as_millis() as i32,
-        None => -1,
-    };
+        .get_avg_duration_str(StatisticID::SampleTime);
+    let interp_time = state
+        .runtime_stats
+        .get_avg_duration_str(StatisticID::InterpretTime);
     format!(
-        "Threads: {} - Runtime: {} - Paths interp.: {} - new code xrefs: {} - Avg. sampling time: {} - Max path len: {} - iCFG update in: {}",
+        "Threads: {} - Runtime: {} - Paths interp.: {} - new code xrefs: {} - Avg. sampling time: {} - Avg. interp. time: {} - Max path len: {} - iCFG update in: {}",
         state.num_threads,
         state.bda_timer.time_passed_str(),
         formatted_path_num,
         state.unhandled_code_xrefs.len(),
-        if ps_time_ms > 1000 { format!("{}s", ps_time_ms / 1000) } else { format!("{}ms", ps_time_ms) },
+        sample_time,
+        interp_time,
         state.runtime_stats.get_max_path_len(),
         state.icfg_update_timer.time_left_str()
     )
@@ -237,7 +237,8 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     let mut path_buffer = VecDeque::<Path>::new();
     let mut rng = thread_rng();
     let mut products: Vec<IntrpProducts> = Vec::new();
-    let mut threads: HashMap<usize, JoinHandle<_>> = HashMap::new();
+    let mut threads: BTreeMap<usize, JoinHandle<_>> = BTreeMap::new();
+    let mut threads_stats: BTreeMap<usize, Instant> = BTreeMap::new();
     let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
     loop {
         spinner.update(Some(get_bda_status(state, paths_walked)));
@@ -263,6 +264,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             if threads.get(&tid).is_none() {
                 let core_ref = core.clone();
                 let thread_tx = tx.clone();
+                threads_stats.insert(tid, Instant::now());
                 threads.insert(
                     tid,
                     thread::spawn(move || interpret(core_ref, next_path.to_addr_path(), thread_tx)),
@@ -275,6 +277,11 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             if !threads.get(&tid).is_none() && threads.get(&tid).as_ref().unwrap().is_finished() {
                 nothing = false;
                 handled_thread += 1;
+                state.runtime_stats.add_dp(
+                    StatisticID::InterpretTime,
+                    Instant::now()
+                        .duration_since(threads_stats.remove(&tid).expect("Should be set")),
+                );
                 let thread = threads.remove(&tid).unwrap();
                 if let Err(_) = thread.join() {
                     panic!("Thread failed.");
@@ -366,7 +373,7 @@ fn sample_path_into_buffer(
             ranges,
         );
         state.runtime_stats.add_dp(
-            StatisticID::PSSampleTime,
+            StatisticID::SampleTime,
             Instant::now().duration_since(ts_sampling_start),
         );
         state.runtime_stats.add_path_len(path.len());

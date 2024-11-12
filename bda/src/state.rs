@@ -4,7 +4,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::RwLock,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use helper::timer::Timer;
@@ -19,7 +19,9 @@ pub fn run_condition_fulfilled(state: &BDAState) -> bool {
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatisticID {
     /// Data points of the path sampler, time it takes to sample a single path.
-    PSSampleTime,
+    SampleTime,
+    /// Data points of abstract interpreters, time it takes to execute a single path.
+    InterpretTime,
 }
 
 pub struct RuntimeStats {
@@ -56,6 +58,19 @@ impl RuntimeStats {
             return Some(sum / set.len() as u32);
         }
         None
+    }
+
+    /// Returns the average duration of the requested statistic.
+    pub fn get_avg_duration_str(&self, stat_id: StatisticID) -> String {
+        let Some(mean) = self.get_avg_duration(stat_id) else {
+            return "NAN".to_string();
+        };
+        let mean_ms = mean.as_millis();
+        if mean_ms > 1000 {
+            format!("{}s", mean_ms / 1000)
+        } else {
+            format!("{}ms", mean_ms)
+        }
     }
 
     pub fn add_path_len(&mut self, path_len: usize) {
