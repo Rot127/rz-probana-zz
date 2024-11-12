@@ -34,6 +34,7 @@ use binding::{
     RzGraphNodeType_RZ_GRAPH_NODE_TYPE_CFG_IWORD, RzGraphNodeType_RZ_GRAPH_NODE_TYPE_ICFG,
     LOG_DEBUG, LOG_ERROR, LOG_INFO, LOG_WARN,
 };
+use flexi_logger::{Duplicate, FileSpec, Logger};
 use helper::progress::ProgressBar;
 use helper::spinner::Spinner;
 
@@ -337,6 +338,12 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
 }
 
 pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
+    Logger::try_with_str("info")
+        .expect("Logger init failed")
+        .log_to_file(FileSpec::default())
+        .duplicate_to_stderr(Duplicate::Warn)
+        .start()
+        .expect("Logger start failed");
     let core: GRzCore = RzCoreWrapper::new(rz_core);
     let rz_icfg = guarded_rz_core_graph_icfg(core.clone());
     if rz_icfg.is_null() {

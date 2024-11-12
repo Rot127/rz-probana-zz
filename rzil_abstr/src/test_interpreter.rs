@@ -189,7 +189,7 @@ mod tests {
 
         let (core, path) = get_x86_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
-        interpret(core, path, tx);
+        interpret(0, core, path, tx);
         let products: IntrpProducts;
         if let Ok(prods) = rx.try_recv() {
             products = prods;
@@ -274,7 +274,7 @@ mod tests {
 
         let (core, path) = get_hexagon_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
-        interpret(core, path, tx);
+        interpret(0, core, path, tx);
         let products: IntrpProducts;
         if let Ok(prods) = rx.try_recv() {
             products = prods;
@@ -393,7 +393,7 @@ mod tests {
 
         let (core, path) = get_x86_malloc_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
-        interpret(core, path, tx);
+        interpret(0, core, path, tx);
         let products: IntrpProducts;
         if let Ok(prods) = rx.try_recv() {
             products = prods;
@@ -458,7 +458,7 @@ mod tests {
 
         let (core, path) = get_hexagon_malloc_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
-        interpret(core, path, tx);
+        interpret(0, core, path, tx);
         let products: IntrpProducts;
         if let Ok(prods) = rx.try_recv() {
             products = prods;

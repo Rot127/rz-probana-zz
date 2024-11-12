@@ -268,7 +268,9 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
                 threads_stats.insert(tid, Instant::now());
                 threads.insert(
                     tid,
-                    thread::spawn(move || interpret(core_ref, next_path.to_addr_path(), thread_tx)),
+                    thread::spawn(move || {
+                        interpret(tid, core_ref, next_path.to_addr_path(), thread_tx)
+                    }),
                 );
             }
         }

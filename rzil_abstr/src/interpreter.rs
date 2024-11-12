@@ -3,6 +3,7 @@
 
 use bitflags::bitflags;
 use helper::num::subscript;
+use log::info;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
@@ -859,6 +860,8 @@ impl IntrpProducts {
 
 /// An abstract interpreter VM. It will perform the abstract execution.
 pub struct AbstrVM {
+    /// ID of the thread this VM is executed in.
+    pub thread_id: usize,
     /// Program counter
     pc: PC,
     /// Information about the instruction at the current PC
@@ -930,6 +933,7 @@ impl AbstrVM {
     pub fn new(rz_core: GRzCore, entry: PC, path: IntrpPath) -> AbstrVM {
         let limit_repeat = rz_core.lock().unwrap().get_bda_max_iterations() as usize;
         let mut vm = AbstrVM {
+            thread_id: usize::MAX,
             pc: entry,
             insn_info: NO_ADDR_INFO,
             pc_bit_width: 0,
@@ -1407,6 +1411,7 @@ impl AbstrVM {
 
     /// Pushes a functions call frame on the call stack, before it jumps to [proc_addr].
     pub fn call_stack_push(&mut self, proc_addr: Address) {
+        info!(target: "AbstrInterpreter", "TID: {} - Push CS - at {:#x}", self.thread_id, self.get_pc());
         // For now we just assume that the SP was _not_ updated before the actual jump to the procedure.
         let cf = CallFrame {
             in_site: self.pc,
@@ -1423,6 +1428,7 @@ impl AbstrVM {
 
     /// Pops a call frame from the call stack.
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
+        info!(target: "AbstrInterpreter", "TID: {} - Pop CS - at {:#x}", self.thread_id, self.get_pc());
         let cf = self.cs.pop();
         // println!("POP: {}", cf.as_ref().unwrap());
         self.proc_entry.pop();
@@ -1431,7 +1437,8 @@ impl AbstrVM {
             cf.as_ref()
                 .expect(
                     format!(
-                        "There should be a call frame. PC = {:#x} ic = {}",
+                        "TID: {} - There should be a call frame. PC = {:#x} ic = {}",
+                        self.thread_id,
                         self.pc,
                         self.ic.get(&self.pc).unwrap()
                     )
@@ -1639,6 +1646,7 @@ impl AbstrVM {
                 if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
                     self.move_heap_val_into_ret_reg();
                 }
+                info!(target: "AbstrInterpreter", "TID: {} - Skip call - at {:#x}", self.thread_id, self.get_pc());
                 result = true;
             } else if effect != std::ptr::null_mut() {
                 result = eval_effect(self, effect);
@@ -1664,8 +1672,9 @@ impl AbstrVM {
         }
         if self.pc_is_tail_call() {
             // Pop CallFrame from stack before jumping to the next one.
-            self.call_stack_pop();
+            info!(target: "AbstrInterpreter", "TID: {} - Tail call - at {:#x}", self.thread_id, self.get_pc());
             if let Some(target) = self.peak_next_addr() {
+                self.call_stack_pop();
                 self.call_stack_push(target);
             }
         }
@@ -1694,9 +1703,10 @@ enum StepResult {
 }
 
 /// Interprets the given path with the given interpreter VM.
-pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
-    // println!("\n{}\n", path);
+pub fn interpret(thread_id: usize, rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
+    info!(target: "AbstrInterpreter", "TID: {thread_id}: {}", path);
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
+    vm.thread_id = thread_id;
 
     let mut step = StepResult::Ok;
     while step == StepResult::Ok {
@@ -1709,7 +1719,8 @@ pub fn interpret(rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
 
     assert!(
         vm.cs.len() == 1 || step == StepResult::Exit,
-        "Call stack invalid. Should only hold the initial frame only or be an exit: {:?}",
+        "TID: {} - Call stack invalid. Should only hold the initial frame only or be an exit: {:?}",
+        thread_id,
         vm.cs
     );
     vm.free_buffers();
