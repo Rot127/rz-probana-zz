@@ -1020,7 +1020,11 @@ impl CFG {
             ),
         );
         if !jump_set {
-            panic!("jump target was not updated, either because no jump exist or the instruction index is off.");
+            println!(
+                "jump target was not updated, either because \
+            no jump exists for valid reasons (Hexagon: endloop), \
+            the algorithm is faulty or the instruction index is off."
+            );
         }
     }
 }
