@@ -41,15 +41,16 @@ fn get_bda_status(state: &BDAState, num_bda_products: usize) -> String {
         .runtime_stats
         .get_avg_duration_str(StatisticID::InterpretTime);
     format!(
-        "Threads: {} - Runtime: {} - Paths interp.: {} - new code xrefs: {} - Avg. sampling time: {} - Avg. interp. time: {} - Max path len: {} - iCFG update in: {}",
+        "Threads: {} - Runtime: {} - Paths interp.: {} - Avg. sampling time: {} - Avg. interp. time: {} - Max path len: {} - iCFG update in: {} / {}/{} xrefs",
         state.num_threads,
         state.bda_timer.time_passed_str(),
         formatted_path_num,
-        state.unhandled_code_xrefs.len(),
         sample_time,
         interp_time,
         state.runtime_stats.get_max_path_len(),
-        state.icfg_update_timer.time_left_str()
+        state.icfg_update_timer.time_left_str(),
+        state.unhandled_code_xrefs.len(),
+        state.icfg_update_threshold
     )
 }
 
