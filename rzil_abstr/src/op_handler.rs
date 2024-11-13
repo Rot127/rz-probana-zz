@@ -5,17 +5,16 @@
 #![allow(non_upper_case_globals)]
 
 use binding::{
-    bv_to_int, c_to_str, log_rizin, log_rz, null_check, pderef, rz_il_vm_find_label_by_name,
-    RzILOpEffect, RzILOpEffectCode, RzILOpEffectCode_RZ_IL_OP_BLK,
-    RzILOpEffectCode_RZ_IL_OP_BRANCH, RzILOpEffectCode_RZ_IL_OP_EFFECT_MAX,
-    RzILOpEffectCode_RZ_IL_OP_EMPTY, RzILOpEffectCode_RZ_IL_OP_GOTO, RzILOpEffectCode_RZ_IL_OP_JMP,
-    RzILOpEffectCode_RZ_IL_OP_NOP, RzILOpEffectCode_RZ_IL_OP_REPEAT, RzILOpEffectCode_RZ_IL_OP_SEQ,
-    RzILOpEffectCode_RZ_IL_OP_SET, RzILOpEffectCode_RZ_IL_OP_STORE,
-    RzILOpEffectCode_RZ_IL_OP_STOREW, RzILOpPure, RzILOpPureCode, RzILOpPureCode_RZ_IL_OP_ADD,
-    RzILOpPureCode_RZ_IL_OP_AND, RzILOpPureCode_RZ_IL_OP_APPEND, RzILOpPureCode_RZ_IL_OP_B0,
-    RzILOpPureCode_RZ_IL_OP_B1, RzILOpPureCode_RZ_IL_OP_BITV, RzILOpPureCode_RZ_IL_OP_CAST,
-    RzILOpPureCode_RZ_IL_OP_DIV, RzILOpPureCode_RZ_IL_OP_EQ, RzILOpPureCode_RZ_IL_OP_FABS,
-    RzILOpPureCode_RZ_IL_OP_FADD, RzILOpPureCode_RZ_IL_OP_FBITS,
+    c_to_str, log_rizin, log_rz, null_check, pderef, rz_il_vm_find_label_by_name, RzILOpEffect,
+    RzILOpEffectCode, RzILOpEffectCode_RZ_IL_OP_BLK, RzILOpEffectCode_RZ_IL_OP_BRANCH,
+    RzILOpEffectCode_RZ_IL_OP_EFFECT_MAX, RzILOpEffectCode_RZ_IL_OP_EMPTY,
+    RzILOpEffectCode_RZ_IL_OP_GOTO, RzILOpEffectCode_RZ_IL_OP_JMP, RzILOpEffectCode_RZ_IL_OP_NOP,
+    RzILOpEffectCode_RZ_IL_OP_REPEAT, RzILOpEffectCode_RZ_IL_OP_SEQ, RzILOpEffectCode_RZ_IL_OP_SET,
+    RzILOpEffectCode_RZ_IL_OP_STORE, RzILOpEffectCode_RZ_IL_OP_STOREW, RzILOpPure, RzILOpPureCode,
+    RzILOpPureCode_RZ_IL_OP_ADD, RzILOpPureCode_RZ_IL_OP_AND, RzILOpPureCode_RZ_IL_OP_APPEND,
+    RzILOpPureCode_RZ_IL_OP_B0, RzILOpPureCode_RZ_IL_OP_B1, RzILOpPureCode_RZ_IL_OP_BITV,
+    RzILOpPureCode_RZ_IL_OP_CAST, RzILOpPureCode_RZ_IL_OP_DIV, RzILOpPureCode_RZ_IL_OP_EQ,
+    RzILOpPureCode_RZ_IL_OP_FABS, RzILOpPureCode_RZ_IL_OP_FADD, RzILOpPureCode_RZ_IL_OP_FBITS,
     RzILOpPureCode_RZ_IL_OP_FCAST_FLOAT, RzILOpPureCode_RZ_IL_OP_FCAST_INT,
     RzILOpPureCode_RZ_IL_OP_FCAST_SFLOAT, RzILOpPureCode_RZ_IL_OP_FCAST_SINT,
     RzILOpPureCode_RZ_IL_OP_FCOMPOUND, RzILOpPureCode_RZ_IL_OP_FCONVERT,
@@ -40,9 +39,12 @@ use binding::{
     RzILVarKind_RZ_IL_VAR_KIND_GLOBAL, RzILVarKind_RZ_IL_VAR_KIND_LOCAL,
     RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE, LOG_ERROR, LOG_WARN,
 };
-use num_bigint::{BigInt, ToBigUint};
+use rand::Rng;
 
-use crate::interpreter::{AbstrVM, AbstrVal, Address, Const, IWordInfo, TaintFlag};
+use crate::{
+    bitvector::BitVector,
+    interpreter::{AbstrVM, AbstrVal, Address, IWordInfo, TaintFlag},
+};
 
 pub const IL_OP_VAR: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_VAR;
 pub const IL_OP_ITE: RzILOpPureCode = RzILOpPureCode_RZ_IL_OP_ITE;
@@ -144,13 +146,13 @@ macro_rules! check_effect_success {
 }
 
 fn rz_il_handler_bool_false(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    let v = AbstrVal::new_global(vm.get_pc_ic(), Const::get_false(), None, vm.get_pc());
+    let v = AbstrVal::new_global(vm.get_pc_ic(), BitVector::new_false(), None, vm.get_pc());
     vm.set_taint_flag(&v, TaintFlag::Unset);
     Some(v)
 }
 
 fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<AbstrVal> {
-    let v = AbstrVal::new_global(vm.get_pc_ic(), Const::get_true(), None, vm.get_pc());
+    let v = AbstrVal::new_global(vm.get_pc_ic(), BitVector::new_true(), None, vm.get_pc());
     vm.set_taint_flag(&v, TaintFlag::Unset);
     Some(v)
 }
@@ -158,8 +160,12 @@ fn rz_il_handler_bool_true(vm: &mut AbstrVM, _: *mut RzILOpPure) -> Option<Abstr
 fn rz_il_handler_bitv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     null_check!(op);
     let bv = unsafe { pderef!(op).op.bitv.value };
-    let (num, bits) = bv_to_int(bv);
-    let v = AbstrVal::new_global(vm.get_pc_ic(), Const::new(num, bits), None, vm.get_pc());
+    let v = AbstrVal::new_global(
+        vm.get_pc_ic(),
+        BitVector::new_from_raw_bv(bv),
+        None,
+        vm.get_pc(),
+    );
     vm.set_taint_flag(&v, TaintFlag::Unset);
     Some(v)
 }
@@ -230,14 +236,14 @@ fn rz_il_handler_msb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.msb.bv });
     check_pure_validity!(v1, None);
-    // Biased, because we don't know the width of the bitvector, but it is very unlikely 128bit (as our Const here).
+    // Biased, because we don't know the width of the bitvector, but it is very unlikely 128bit (as our BitVec here).
     // In cases when MSB is not used with negative values, we sample too often 0.
     let (v3, tainted) = vm.calc_value_1(
         |c1| {
             (if c1.msb() {
-                Const::get_true()
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             })
         },
         v1.unwrap(),
@@ -254,9 +260,9 @@ fn rz_il_handler_lsb(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     let (v3, tainted) = vm.calc_value_1(
         |c1| {
             (if c1.lsb() {
-                Const::get_true()
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             })
         },
         v1.unwrap(),
@@ -273,9 +279,9 @@ fn rz_il_handler_is_zero(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     let (v3, tainted) = vm.calc_value_1(
         |c1| {
             (if c1.is_zero() {
-                Const::get_true()
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             })
         },
         v1.unwrap(),
@@ -293,10 +299,10 @@ fn rz_il_handler_eq(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
     check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value_2(
         |c1, c2| {
-            (if c1.vu() == c2.vu() {
-                Const::get_true()
+            (if c1 == c2 {
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             })
         },
         v1.unwrap(),
@@ -315,10 +321,10 @@ fn rz_il_handler_ule(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value_2(
         |c1, c2| {
-            (if c1.vu() <= c2.vu() {
-                Const::get_true()
+            (if c1.ule(c2) {
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             })
         },
         v1.unwrap(),
@@ -337,10 +343,10 @@ fn rz_il_handler_sle(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value_2(
         |c1, c2| {
-            (if c1.v() <= c2.v() {
-                Const::get_true()
+            (if c1.sle(c2) {
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             })
         },
         v1.unwrap(),
@@ -360,9 +366,9 @@ fn rz_il_handler_bool_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     let (v3, tainted) = vm.calc_value_2(
         |c1, c2| {
             (if !c1.is_zero() && !c2.is_zero() {
-                Const::get_true()
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             })
         },
         v1.unwrap(),
@@ -382,9 +388,9 @@ fn rz_il_handler_bool_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrV
     let (v3, tainted) = vm.calc_value_2(
         |c1, c2| {
             if !c1.is_zero() || !c2.is_zero() {
-                Const::get_true()
+                BitVector::new_true()
             } else {
-                Const::get_false()
+                BitVector::new_false()
             }
         },
         v1.unwrap(),
@@ -404,9 +410,9 @@ fn rz_il_handler_bool_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     let (v3, tainted) = vm.calc_value_2(
         |c1, c2| {
             if ((c1.is_zero() && c2.is_zero()) || (!c1.is_zero() && !c2.is_zero())) {
-                Const::get_false()
+                BitVector::new_false()
             } else {
-                Const::get_true()
+                BitVector::new_true()
             }
         },
         v1.unwrap(),
@@ -422,7 +428,7 @@ fn rz_il_handler_bool_inv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abstr
     let v1 = eval_pure(vm, unsafe { (*op).op.boolinv.x });
     check_pure_validity!(v1, None);
     let (v3, tainted) = vm.calc_value_1(
-        |c1| (Const::new(c1.vu() ^ Const::get_masku(c1.width()), c1.width())),
+        |c1| (c1 ^ &BitVector::get_mask(c1.width())),
         v1.unwrap(),
         true,
     );
@@ -434,8 +440,7 @@ fn rz_il_handler_neg(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     null_check!(op);
     let v1 = eval_pure(vm, unsafe { (*op).op.neg.bv });
     check_pure_validity!(v1, None);
-    let (v3, tainted) =
-        vm.calc_value_1(|c1| (Const::newi(-c1.v(), c1.width())), v1.unwrap(), false);
+    let (v3, tainted) = vm.calc_value_1(|c1| -c1, v1.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -445,7 +450,7 @@ fn rz_il_handler_logical_not(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     let v1 = eval_pure(vm, unsafe { (*op).op.lognot.bv });
     check_pure_validity!(v1, None);
     let (v3, tainted) = vm.calc_value_1(
-        |c1| (Const::new(c1.vu() ^ Const::get_masku(c1.width()), c1.width())),
+        |c1| (c1 ^ &BitVector::get_mask(c1.width())),
         v1.unwrap(),
         false,
     );
@@ -459,12 +464,7 @@ fn rz_il_handler_add(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.add.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::newi(c1.v() + c2.v(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 + c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -475,12 +475,7 @@ fn rz_il_handler_sub(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.sub.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::newi(c1.v() - c2.v(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 - c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -491,12 +486,7 @@ fn rz_il_handler_mul(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.mul.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::newi(c1.v() * c2.v(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 * c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -507,12 +497,7 @@ fn rz_il_handler_div(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.div.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new(c1.vu() / c2.vu(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1.div(c2)), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -523,12 +508,7 @@ fn rz_il_handler_sdiv(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.sdiv.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::newi(c1.v() / c2.v(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1.sdiv(c2)), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -539,17 +519,7 @@ fn rz_il_handler_mod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> 
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.mod_.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| {
-            (Const::new(
-                c1.vu().modpow(&1i32.to_biguint().unwrap(), &c2.vu()),
-                c1.width(),
-            ))
-        },
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1.umod(c2)), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -560,12 +530,7 @@ fn rz_il_handler_smod(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.smod.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::newi(c1.v() % c2.v(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1.smod(c2)), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -578,12 +543,7 @@ fn rz_il_handler_shiftl(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
     check_pure_validity!(v2, None);
     let fill_bit = eval_pure(vm, unsafe { (*op).op.shiftl.fill_bit });
     check_pure_validity!(fill_bit, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new(c1.vu() << c2.as_u64(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 << c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -597,12 +557,7 @@ fn rz_il_handler_shiftr(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
     let fill_bit = eval_pure(vm, unsafe { (*op).op.shiftr.fill_bit });
     check_pure_validity!(fill_bit, None);
     // TODO fill_bit
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new(c1.vu() >> c2.as_u64(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 >> c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -613,12 +568,7 @@ fn rz_il_handler_logical_and(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.logand.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new(c1.vu() & c2.vu(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 & c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -629,12 +579,7 @@ fn rz_il_handler_logical_or(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Abs
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.logor.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new(c1.vu() | c2.vu(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 | c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
 }
@@ -645,14 +590,28 @@ fn rz_il_handler_logical_xor(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<Ab
     check_pure_validity!(v1, None);
     let v2 = eval_pure(vm, unsafe { (*op).op.logxor.y });
     check_pure_validity!(v2, None);
-    let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new(c1.vu() ^ c2.vu(), c1.width())),
-        v1.unwrap(),
-        v2.unwrap(),
-        false,
-    );
+    let (v3, tainted) = vm.calc_value_2(|c1, c2| (c1 ^ c2), v1.unwrap(), v2.unwrap(), false);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
+}
+
+/// Returns the a casted value according to [len] and [fill].
+/// Additionally, it returns the taint bit. The taint bit is set, if:
+/// - The [fill] bit was used
+/// AND
+/// - [fill] is not a global true or false value, and has been sampled.
+pub fn cast(bv: &BitVector, len: u32, fill: AbstrVal) -> (BitVector, TaintFlag) {
+    if len <= bv.width() {
+        return (bv.cast(len, false), TaintFlag::Unset);
+    }
+    let (fill_bit, tainted) = if fill.is_true() {
+        (true, TaintFlag::Unset)
+    } else if fill.is_false() {
+        (false, TaintFlag::Unset)
+    } else {
+        (rand::thread_rng().gen_bool(0.5), TaintFlag::Set)
+    };
+    (bv.cast(len, fill_bit), tainted)
 }
 
 fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal> {
@@ -662,14 +621,10 @@ fn rz_il_handler_cast(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     let fill = eval_pure(vm, unsafe { (*op).op.cast.fill });
     check_pure_validity!(v1, None);
     check_pure_validity!(fill, None);
-    let mut v3_const: Const;
+    let mut v3_const: BitVector;
     let v3: AbstrVal;
     let mut tainted = TaintFlag::Unset;
-    (v3_const, tainted) = v1
-        .as_ref()
-        .unwrap()
-        .get_const()
-        .cast(len as u64, fill.unwrap());
+    (v3_const, tainted) = cast(v1.as_ref().unwrap().get_const(), len, fill.unwrap());
     v3 = AbstrVal::new_from(v1.unwrap(), v3_const);
     vm.set_taint_flag(&v3, tainted);
     Some(v3)
@@ -682,7 +637,7 @@ fn rz_il_handler_append(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVa
     let v2 = eval_pure(vm, unsafe { (*op).op.append.low });
     check_pure_validity!(v2, None);
     let (v3, tainted) = vm.calc_value_2(
-        |c1, c2| (Const::new((c1.vu() << c2.width()) | c2.vu(), c1.width() + c2.width())),
+        |c1, c2| (&(c1 << c2.width()) | c2),
         v1.unwrap(),
         v2.unwrap(),
         false,

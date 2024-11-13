@@ -9,7 +9,8 @@ mod tests {
         get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
         GRzCore, RzCoreWrapper,
     };
-    use rzil_abstr::interpreter::{AbstrVal, Const, MemOp};
+    use rzil_abstr::bitvector::BitVector;
+    use rzil_abstr::interpreter::{AbstrVal, MemOp};
 
     use crate::{
         bda::run_bda,
@@ -323,9 +324,9 @@ mod tests {
         let mos = &state.mos;
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        let heap_val_0 = MemOp::new(0x08000078, AbstrVal::new_heap(1, Const::get_zero(64), 0x080000ac));
-        let heap_val_1 = MemOp::new(0x08000078, AbstrVal::new_heap(1, Const::get_zero(64), 0x080000c9));
-        let heap_val_2 = MemOp::new(0x08000078, AbstrVal::new_heap(1, Const::get_zero(64), 0x080000dd));
+        let heap_val_0 = MemOp::new(0x08000078, AbstrVal::new_heap(1, BitVector::new_zero(64), 0x080000ac));
+        let heap_val_1 = MemOp::new(0x08000078, AbstrVal::new_heap(1, BitVector::new_zero(64), 0x080000c9));
+        let heap_val_2 = MemOp::new(0x08000078, AbstrVal::new_heap(1, BitVector::new_zero(64), 0x080000dd));
         assert!(mos.contains(&heap_val_0), "HeapVal {} not in MOS", heap_val_0);
         assert!(mos.contains(&heap_val_1), "HeapVal {} not in MOS", heap_val_1);
         assert!(mos.contains(&heap_val_2), "HeapVal {} not in MOS", heap_val_2);
@@ -367,15 +368,15 @@ mod tests {
         let mos = &state.mos;
         let heap_val_0 = MemOp::new(
             0x08000084,
-            AbstrVal::new_heap(1, Const::get_zero(32), 0x080000bc),
+            AbstrVal::new_heap(1, BitVector::new_zero(32), 0x080000bc),
         );
         let heap_val_1 = MemOp::new(
             0x08000084,
-            AbstrVal::new_heap(1, Const::get_zero(32), 0x080000d8),
+            AbstrVal::new_heap(1, BitVector::new_zero(32), 0x080000d8),
         );
         let heap_val_2 = MemOp::new(
             0x08000084,
-            AbstrVal::new_heap(1, Const::get_zero(32), 0x080000ec),
+            AbstrVal::new_heap(1, BitVector::new_zero(32), 0x080000ec),
         );
         assert!(
             mos.contains(&heap_val_0),

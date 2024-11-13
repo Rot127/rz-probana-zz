@@ -4,13 +4,10 @@
 use bitflags::bitflags;
 use helper::num::subscript;
 use log::info;
-use num_bigint::{BigInt, BigUint, Sign, ToBigInt, ToBigUint};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
-    fmt::LowerHex,
-    hash::{Hash, Hasher},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     io::Read,
     sync::mpsc::Sender,
 };
@@ -21,7 +18,7 @@ use binding::{
     RzRegisterId_RZ_REG_NAME_R0, RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
 };
 
-use crate::op_handler::eval_effect;
+use crate::{bitvector::BitVector, op_handler::eval_effect};
 
 /// If this plugin is still used, when 128bit address space is a thing, do grep "64".
 pub type Address = u64;
@@ -68,213 +65,6 @@ impl std::ops::BitOr for TaintFlag {
         } else {
             TaintFlag::Unset
         }
-    }
-}
-
-#[derive(Clone, Debug, Hash, PartialOrd, Ord)]
-pub struct Const {
-    v: BigUint,
-    /// Width of constant in bits
-    width: u64,
-}
-
-impl LowerHex for Const {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#x}{}", self.vu(), subscript(self.width))
-    }
-}
-
-impl Eq for Const {}
-impl PartialEq for Const {
-    fn eq(&self, other: &Self) -> bool {
-        self.v == other.v && self.width() == other.width()
-    }
-}
-
-impl Const {
-    pub fn as_signed_num_str(&self) -> String {
-        format!("{:#x}{}", self.v(), subscript(self.width))
-    }
-
-    /// Returns a bit mask with all bits set.
-    /// The bitmask has a length is always aligned to the next byte.
-    pub fn get_maski(width: u64) -> BigInt {
-        let v = vec![0xffu8; ((width + 7) >> 3) as usize];
-        BigInt::from_bytes_be(Sign::Plus, v.as_slice())
-    }
-
-    /// Returns a bit mask with all bits set.
-    /// The bitmask has a length is always aligned to the next byte.
-    pub fn get_masku(width: u64) -> BigUint {
-        let v = vec![0xffu8; ((width + 7) >> 3) as usize];
-        BigUint::from_bytes_be(v.as_slice())
-    }
-
-    pub fn bigint_to_biguint(v: BigInt, width: u64) -> BigUint {
-        if v.sign() == Sign::Minus {
-            return (v.into_parts().1 ^ Const::get_masku(width)) + 1.to_biguint().unwrap();
-        }
-        v.to_biguint().unwrap()
-    }
-
-    /// Creates a new Const from an BigInt with a bit width of [width]
-    /// Any bits of [v] at [width] onwards are dropped.
-    pub fn new(v: BigUint, width: u64) -> Const {
-        Const {
-            v: v & Const::get_masku(width),
-            width,
-        }
-    }
-
-    pub fn newi(v: BigInt, width: u64) -> Const {
-        Const {
-            v: Const::bigint_to_biguint(v, width) & Const::get_masku(width),
-            width,
-        }
-    }
-
-    /// Creates a new Const from an BigInt with a bit width of [width]
-    /// Any bits of [v] at [width] onwards are dropped.
-    pub fn new_i64(v: i64, width: u64) -> Const {
-        Const {
-            v: Const::bigint_to_biguint(v.to_bigint().expect("to_bigint() failed"), width),
-            width,
-        }
-    }
-
-    pub fn new_i32(v: i32, width: u64) -> Const {
-        Const {
-            v: Const::bigint_to_biguint(v.to_bigint().expect("to_bigint() failed"), width),
-            width,
-        }
-    }
-
-    /// Returns the BigInt of this constant
-    pub fn v(&self) -> BigInt {
-        let target_byte_w: usize = ((self.width() + 7) >> 3) as usize;
-        if target_byte_w == 0 {
-            return BigInt::ZERO;
-        }
-
-        let v = self.v.to_bytes_le();
-        let mut le_bytes = vec![
-            if self.v.bit(self.width() - 1) {
-                0xffu8
-            } else {
-                0x00u8
-            };
-            target_byte_w
-        ];
-        for (i, vbyte) in v.iter().enumerate() {
-            if let Some(byte) = le_bytes.get_mut(i) {
-                *byte = if *byte == 0xffu8 {
-                    *byte & *vbyte
-                } else {
-                    *byte | *vbyte
-                }
-            }
-        }
-        let result = BigInt::from_signed_bytes_le(le_bytes.as_slice());
-        result
-    }
-
-    /// Returns the BigUint representation of this constant
-    pub fn vu(&self) -> BigUint {
-        self.v.clone()
-    }
-
-    pub fn seti(&mut self, v: BigInt) {
-        self.v = Const::bigint_to_biguint(v, self.width());
-    }
-
-    pub fn msb(&self) -> bool {
-        self.v.bit(self.width - 1)
-    }
-
-    pub fn lsb(&self) -> bool {
-        self.v.bit(0)
-    }
-
-    pub fn get_true() -> Const {
-        Const {
-            v: 1.to_biguint().unwrap(),
-            width: 1,
-        }
-    }
-
-    pub fn get_false() -> Const {
-        Const {
-            v: 0.to_biguint().unwrap(),
-            width: 1,
-        }
-    }
-
-    pub fn get_zero(width: u64) -> Const {
-        Const {
-            v: 0.to_biguint().unwrap(),
-            width,
-        }
-    }
-
-    pub fn is_zero(&self) -> bool {
-        self.v == BigUint::ZERO
-    }
-
-    /// Returns a constant of [width] bits with all bits set to true.
-    pub fn get_umax(width: u64) -> Const {
-        let mut v = 0.to_biguint().unwrap();
-        for i in 0..width {
-            v.set_bit(i as u64, true);
-        }
-        Const { v, width }
-    }
-
-    pub fn new_u64(v: u64, width: u64) -> Const {
-        Const {
-            v: v.to_biguint().unwrap(),
-            width,
-        }
-    }
-
-    pub fn as_u64(&self) -> u64 {
-        if self.is_zero() {
-            return 0;
-        }
-        *self.v.to_u64_digits().get(0).expect("Invalid value")
-    }
-
-    pub fn width(&self) -> u64 {
-        self.width
-    }
-
-    /// Returns the a casted value according to [len] and [fill].
-    /// Additionally, it returns the taint bit. The taint bit is set, if:
-    /// - The [fill] bit was used
-    /// AND
-    /// - [fill] is not a global true or false value, and has been sampled.
-    pub(crate) fn cast(&self, len: u64, fill: AbstrVal) -> (Const, TaintFlag) {
-        if len <= self.width() {
-            return (Const::new(self.v.clone(), len), TaintFlag::Unset);
-        }
-        let (fill_bit, tainted) = if fill.is_true() {
-            (true, TaintFlag::Unset)
-        } else if fill.is_false() {
-            (false, TaintFlag::Unset)
-        } else {
-            (rand::thread_rng().gen_bool(0.5), TaintFlag::Set)
-        };
-        let mut v = self.v.clone();
-        if len <= self.width() {
-            return (Const::new(v, len), tainted);
-        }
-        for i in self.width()..len {
-            v.set_bit(i, fill_bit);
-        }
-        (Const::new(v, len), tainted)
-    }
-
-    fn _is_neg(&self) -> bool {
-        self.v < BigUint::ZERO
     }
 }
 
@@ -547,7 +337,7 @@ impl std::fmt::Display for MemXref {
 
 /// A concretely resolved indirect call.
 /// Those can be discovered, if only constant value were used to define the call target.
-#[derive(Eq, PartialEq, Hash, Clone, Debug, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StackXref {
     /// The instruction address
     at: Address,
@@ -557,7 +347,7 @@ pub struct StackXref {
 
 impl StackXref {
     /// This functions sets the IC always to 1
-    pub fn new(at: Address, offset: Const, base: Address) -> StackXref {
+    pub fn new(at: Address, offset: BitVector, base: Address) -> StackXref {
         StackXref {
             at,
             var: AbstrVal::new_stack(1, offset, base),
@@ -572,7 +362,7 @@ impl std::fmt::Display for StackXref {
 }
 
 /// Memory region classes: Global, Stack, Heap
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum MemRegionClass {
     /// Global memory region. E.g. .data, .rodata, .bss
     Global,
@@ -583,7 +373,7 @@ enum MemRegionClass {
 }
 
 /// A memory region. Either of Global, Stack or Heap.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
@@ -599,7 +389,7 @@ pub struct MemRegion {
     /// function invocation. So it always counts the c'th invocation of an instruction.
     /// This might change though in the future, if someone
     /// invents "multiple-entry" functions or something.
-    c: u64,
+    c: u32,
 }
 
 impl std::fmt::Display for MemRegion {
@@ -622,7 +412,7 @@ pub struct AbstrVal {
     m: MemRegion,
     /// The offset of this variable from the base of the region.
     /// Or, if this is a global value, the constant.
-    c: Const,
+    c: BitVector,
     /// Name of the global IL variable this abstract value was read from.
     /// If None, it is a memory value.
     /// This is used to decide which taint map to use.
@@ -636,16 +426,6 @@ impl PartialEq for AbstrVal {
     }
 }
 
-impl Hash for AbstrVal {
-    fn hash<H>(&self, state: &mut H)
-    where
-        H: Hasher,
-    {
-        self.m.hash(state);
-        self.c.hash(state);
-    }
-}
-
 impl std::fmt::Display for AbstrVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -653,7 +433,7 @@ impl std::fmt::Display for AbstrVal {
             "〈{}, {}〉",
             self.m,
             if self.m.class == MemRegionClass::Stack {
-                self.c.as_signed_num_str()
+                self.c.as_signed_str()
             } else {
                 format!("{:#x}", self.c)
             }
@@ -662,7 +442,7 @@ impl std::fmt::Display for AbstrVal {
 }
 
 impl AbstrVal {
-    pub fn new_global(ic: u64, c: Const, il_gvar: Option<String>, base: Address) -> AbstrVal {
+    pub fn new_global(ic: u32, c: BitVector, il_gvar: Option<String>, base: Address) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
             base,
@@ -671,7 +451,7 @@ impl AbstrVal {
         AbstrVal { m, c, il_gvar }
     }
 
-    pub fn new_stack(ic: u64, offset: Const, base: Address) -> AbstrVal {
+    pub fn new_stack(ic: u32, offset: BitVector, base: Address) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Stack,
             base,
@@ -684,7 +464,7 @@ impl AbstrVal {
         }
     }
 
-    pub fn new_heap(ic: u64, offset: Const, base: Address) -> AbstrVal {
+    pub fn new_heap(ic: u32, offset: BitVector, base: Address) -> AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Heap,
             base,
@@ -697,19 +477,19 @@ impl AbstrVal {
         }
     }
 
-    pub fn get_width(&self) -> u64 {
+    pub fn get_width(&self) -> u32 {
         self.c.width()
     }
 
     pub fn new_true() -> AbstrVal {
-        AbstrVal::new_global(1, Const::get_true(), None, 0)
+        AbstrVal::new_global(1, BitVector::new_true(), None, 0)
     }
 
     pub fn new_false() -> AbstrVal {
-        AbstrVal::new_global(1, Const::get_false(), None, 0)
+        AbstrVal::new_global(1, BitVector::new_false(), None, 0)
     }
 
-    pub fn new(m: MemRegion, c: Const, il_gvar: Option<String>) -> AbstrVal {
+    pub fn new(m: MemRegion, c: BitVector, il_gvar: Option<String>) -> AbstrVal {
         AbstrVal { m, c, il_gvar }
     }
 
@@ -755,13 +535,13 @@ impl AbstrVal {
         self.c.as_u64()
     }
 
-    pub fn get_const(&self) -> &Const {
+    pub fn get_const(&self) -> &BitVector {
         &self.c
     }
 
     /// Consumes the given abstract value [av] and returns a new one of the same type,
     /// but with the constant set to [c].
-    pub fn new_from(av: AbstrVal, c: Const) -> AbstrVal {
+    pub fn new_from(av: AbstrVal, c: BitVector) -> AbstrVal {
         AbstrVal {
             m: av.m.clone(),
             c,
@@ -776,8 +556,8 @@ impl AbstrVal {
 }
 
 /// An operation on the constant share of abstract values
-type AbstrOp2 = fn(v1: &Const, v2: &Const) -> Const;
-type AbstrOp1 = fn(v1: &Const) -> Const;
+type AbstrOp2 = fn(v1: &BitVector, v2: &BitVector) -> BitVector;
+type AbstrOp1 = fn(v1: &BitVector) -> BitVector;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemOp {
@@ -810,7 +590,7 @@ pub struct CallFrame {
     /// The invocation site
     in_site: Address,
     /// The instance count.
-    instance: u64,
+    instance: u32,
     /// The return address
     return_addr: Address,
     /// The abstract value of the SP register. It can point behind the base pointer, if
@@ -869,15 +649,15 @@ pub struct AbstrVM {
     /// PC size in bits
     pc_bit_width: usize,
     /// Instruction sizes map
-    is: HashMap<Address, u64>,
+    is: BTreeMap<Address, u64>,
     /// Invocation count map
-    ic: HashMap<Address, u64>,
+    ic: BTreeMap<Address, u32>,
     /// MemStore map
-    ms: HashMap<AbstrVal, AbstrVal>,
+    ms: BTreeMap<AbstrVal, AbstrVal>,
     /// MemTaint map
-    mt: HashMap<AbstrVal, TaintFlag>,
+    mt: BTreeMap<AbstrVal, TaintFlag>,
     /// RegTaint map. Techincally this stores all global variables.
-    rt: HashMap<String, TaintFlag>,
+    rt: BTreeMap<String, TaintFlag>,
     /// Path
     pa: IntrpPath,
     /// Entry point of the currerntly executed procedure.
@@ -888,16 +668,16 @@ pub struct AbstrVM {
     mos: MemOpSeq,
     /// Global variables (mostly registers)
     /// This is equivalent to the RS map described in the paper.
-    gvars: HashMap<String, AbstrVal>,
+    gvars: BTreeMap<String, AbstrVal>,
     /// Local pure variables. Defined via LET()
-    lpures: HashMap<String, AbstrVal>,
+    lpures: BTreeMap<String, AbstrVal>,
     /// Local variables, defined via SETL
-    lvars: HashMap<String, AbstrVal>,
+    lvars: BTreeMap<String, AbstrVal>,
     /// Register roles (SP, PC, LR, ARG 1, ARG 2 etc)
     /// Role to register name nap.
-    reg_roles: HashMap<RzRegisterId, String>,
+    reg_roles: BTreeMap<RzRegisterId, String>,
     /// Register sizes in bits, indexed by name
-    reg_sizes: HashMap<String, usize>,
+    reg_sizes: BTreeMap<String, usize>,
     /// Meta information collected about each instruction word executed.
     iword_info: BTreeMap<Address, IWordInfo>,
     /// Const value call targets
@@ -915,9 +695,9 @@ pub struct AbstrVM {
     /// Maximum number of REPEAT iteraitions, if they are not static
     limit_repeat: usize,
     /// Buffer for iwords. Indexed by address.
-    iword_buffer: HashMap<Address, *mut RzAnalysisInsnWord>,
+    iword_buffer: BTreeMap<Address, *mut RzAnalysisInsnWord>,
     /// Buffer for iwords. Indexed by address.
-    aop_buffer: HashMap<Address, *mut RzAnalysisOp>,
+    aop_buffer: BTreeMap<Address, *mut RzAnalysisOp>,
 }
 
 macro_rules! unlocked_core {
@@ -937,20 +717,20 @@ impl AbstrVM {
             pc: entry,
             insn_info: NO_ADDR_INFO,
             pc_bit_width: 0,
-            is: HashMap::new(),
-            ic: HashMap::new(),
-            ms: HashMap::new(),
-            mt: HashMap::new(),
-            rt: HashMap::new(),
+            is: BTreeMap::new(),
+            ic: BTreeMap::new(),
+            ms: BTreeMap::new(),
+            mt: BTreeMap::new(),
+            rt: BTreeMap::new(),
             pa: path,
             proc_entry: Vec::new(),
             cs: CallStack::new(),
             mos: MemOpSeq::new(),
-            gvars: HashMap::new(),
-            lvars: HashMap::new(),
-            lpures: HashMap::new(),
-            reg_roles: HashMap::new(),
-            reg_sizes: HashMap::new(),
+            gvars: BTreeMap::new(),
+            lvars: BTreeMap::new(),
+            lpures: BTreeMap::new(),
+            reg_roles: BTreeMap::new(),
+            reg_sizes: BTreeMap::new(),
             iword_info: BTreeMap::new(),
             calls_xref: BTreeSet::new(),
             jumps_xref: BTreeSet::new(),
@@ -959,8 +739,8 @@ impl AbstrVM {
             rz_core: rz_core.clone(),
             dist: Normal::new(0.0, 32768.0_f64.powi(2)).unwrap(),
             limit_repeat,
-            iword_buffer: HashMap::new(),
-            aop_buffer: HashMap::new(),
+            iword_buffer: BTreeMap::new(),
+            aop_buffer: BTreeMap::new(),
         };
         vm.proc_entry.push(entry);
         vm.init_register_file(rz_core);
@@ -1110,32 +890,27 @@ impl AbstrVM {
     /// simulate input for the program.
     /// It takes the address of an input-functions at [address] and the current
     /// [invocation] of the function.
-    pub fn rv(&self, width: u64) -> Const {
+    pub fn rv(&self, width: u32) -> BitVector {
         if width <= 64 {
-            return Const {
-                v: (self.dist.sample(&mut rand::thread_rng()) as u64)
-                    .to_biguint()
-                    .unwrap(),
+            return BitVector::new_from_u64(
                 width,
-            };
+                self.dist.sample(&mut rand::thread_rng()) as u64,
+            );
         }
         let samples_cnt = width + 7 >> 3;
         let mut v_buf = Vec::<u8>::new();
         for _ in 0..samples_cnt {
             v_buf.push(self.dist.sample(&mut rand::thread_rng()) as u8);
         }
-        Const {
-            v: BigUint::from_bytes_be(v_buf.as_slice()),
-            width,
-        }
+        BitVector::from_bytes_be(width, v_buf)
     }
 
     /// Samples with a 0.5 chance a true (1) or false (0) value.
-    pub fn rvb(&self) -> Const {
+    pub fn rvb(&self) -> BitVector {
         if rand::thread_rng().gen_bool(0.5) {
-            Const::get_true()
+            BitVector::new_true()
         } else {
-            Const::get_false()
+            BitVector::new_false()
         }
     }
 
@@ -1200,23 +975,21 @@ impl AbstrVM {
             {
                 true => {
                     stack_access_size = rsize;
-                    let svar = AbstrVal::new_stack(1, Const::get_zero(rsize as u64), self.get_pc());
+                    let svar = AbstrVal::new_stack(1, BitVector::new_zero(rsize), self.get_pc());
                     self.set_taint_flag(&svar, TaintFlag::Unset);
                     svar
                 }
-                false => {
-                    AbstrVal::new_global(1, Const::get_zero(rsize as u64), Some(name.clone()), 0)
-                }
+                false => AbstrVal::new_global(1, BitVector::new_zero(rsize), Some(name.clone()), 0),
             };
             self.reg_sizes.insert(name.clone(), rsize as usize);
             self.gvars.insert(name.clone(), init_val);
             self.rt.insert(name.to_owned(), TaintFlag::Unset);
         }
-        self.setup_initial_stack(stack_access_size as u64);
+        self.setup_initial_stack(stack_access_size);
     }
 
     /// Gives the invocation count for a given instruction address.
-    pub fn get_ic(&mut self, iaddr: Address) -> u64 {
+    pub fn get_ic(&mut self, iaddr: Address) -> u32 {
         self.ic.entry(iaddr).or_default().clone()
     }
 
@@ -1298,12 +1071,11 @@ impl AbstrVM {
             return v;
         }
         for vt in self.cs.iter().rev() {
-            if v.c.v() < BigInt::ZERO {
+            if v.c.is_neg() {
                 break;
             }
             v.m = vt.sp.m.clone();
-            let r = v.c.v() + vt.sp.c.v();
-            v.c.seti(r);
+            v.c += &vt.sp.c;
         }
         v
     }
@@ -1361,9 +1133,9 @@ impl AbstrVM {
         if !key.is_global() {
             is_sampled = TaintFlag::Set;
         }
-        let gmem_val = Const::new_u64(
+        let gmem_val = BitVector::new_from_u64(
+            (n_bytes * 8) as u32,
             self.read_io_at_u64(key.get_as_addr(), n_bytes),
-            (n_bytes * 8) as u64,
         );
         (
             AbstrVal::new_global(self.get_pc_ic(), gmem_val, None, self.get_pc()),
@@ -1510,14 +1282,14 @@ impl AbstrVM {
         let ic = self.get_pc_ic();
         self.set_sp(AbstrVal::new_stack(
             ic,
-            Const::get_zero(sp.get_width()),
+            BitVector::new_zero(sp.get_width()),
             base,
         ));
     }
 
     /// Initializes the stack for the first two cells of size [stack_cell_size].
-    fn setup_initial_stack(&mut self, stack_cell_size: u64) {
-        let zero = Const::get_zero(stack_cell_size);
+    fn setup_initial_stack(&mut self, stack_cell_size: u32) {
+        let zero = BitVector::new_zero(stack_cell_size);
         // Save dummy values where first stack pointers point to
         self.set_mem_val(
             &AbstrVal::new_stack(1, zero.clone(), self.get_pc()),
@@ -1543,7 +1315,7 @@ impl AbstrVM {
         let rr_size = self.get_reg_size(&rr_name);
         let hval = AbstrVal::new_heap(
             self.get_ic(self.get_pc()),
-            Const::get_zero(rr_size as u64),
+            BitVector::new_zero(rr_size as u32),
             self.get_pc(),
         );
         self.set_varg(&rr_name, hval);
@@ -1560,7 +1332,7 @@ impl AbstrVM {
         *self.reg_sizes.get(name).expect("Register has no size set.")
     }
 
-    pub fn get_pc_ic(&mut self) -> u64 {
+    pub fn get_pc_ic(&mut self) -> u32 {
         self.get_ic(self.get_pc())
     }
 

@@ -12,11 +12,14 @@ mod tests {
     };
 
     use binding::{get_test_bin_path, init_rizin_instance, wait_for_exlusive_core, RzCoreWrapper};
-    use num_bigint::{ToBigInt, ToBigUint};
 
-    use crate::interpreter::{
-        interpret, AbstrVal, ConcreteCodeXref, Const, IWordInfo, IntrpPath, IntrpProducts, MemOp,
-        MemXref, StackXref, NO_ADDR_INFO,
+    use crate::{
+        bitvector::BitVector,
+        interpreter::{
+            interpret, AbstrVal, ConcreteCodeXref, IWordInfo, IntrpPath, IntrpProducts, MemOp,
+            MemXref, StackXref, NO_ADDR_INFO,
+        },
+        op_handler::cast,
     };
 
     fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
@@ -223,37 +226,37 @@ mod tests {
         let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        stack_expected.insert(StackXref::new(0x8000040, Const::new_i64(-0x8, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000048, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800004f, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000056, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800005d, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000064, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000067, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800006a, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000070, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000073, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800007a, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000081, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000084, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000087, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800008d, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000090, Const::new_i64(-0x10, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000097, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x800009e, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000a1, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000a4, Const::new_i64(-0xc, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000ab, Const::new_i64(-0x8, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000ac, Const::new_i64(0x0, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000b0, Const::new_i64(-0x8, 64), 0x80000b0));
-        stack_expected.insert(StackXref::new(0x80000b6, Const::new_i64(-0x8, 64), 0x80000b0));
-        stack_expected.insert(StackXref::new(0x80000b7, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000c0, Const::new_i64(-0x8, 64), 0x80000c0));
-        stack_expected.insert(StackXref::new(0x80000c9, Const::new_i64(-0x8, 64), 0x80000c0));
-        stack_expected.insert(StackXref::new(0x80000ca, Const::new_i64(-0x20, 64), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000d0, Const::new_i64(-0x8, 64), 0x80000d0));
-        stack_expected.insert(StackXref::new(0x80000d9, Const::new_i64(-0x8, 64), 0x80000d0));
-        stack_expected.insert(StackXref::new(0x80000da, Const::new_i64(-0x20, 64), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000040, BitVector::new_from_i64(64, -0x8), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000048, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800004f, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000056, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800005d, BitVector::new_from_i64(64, -0x20), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000067, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800006a, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000070, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000073, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800007a, BitVector::new_from_i64(64, -0x20), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000081, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000084, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000087, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800008d, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000090, BitVector::new_from_i64(64, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000097, BitVector::new_from_i64(64, -0x20), 0x8000040));
+        stack_expected.insert(StackXref::new(0x800009e, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000a1, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000a4, BitVector::new_from_i64(64, -0xc), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000ab, BitVector::new_from_i64(64, -0x8), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000ac, BitVector::new_from_i64(64, 0x0), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000b0, BitVector::new_from_i64(64, -0x8), 0x80000b0));
+        stack_expected.insert(StackXref::new(0x80000b6, BitVector::new_from_i64(64, -0x8), 0x80000b0));
+        stack_expected.insert(StackXref::new(0x80000b7, BitVector::new_from_i64(64, -0x20), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000c0, BitVector::new_from_i64(64, -0x8), 0x80000c0));
+        stack_expected.insert(StackXref::new(0x80000c9, BitVector::new_from_i64(64, -0x8), 0x80000c0));
+        stack_expected.insert(StackXref::new(0x80000ca, BitVector::new_from_i64(64, -0x20), 0x8000040));
+        stack_expected.insert(StackXref::new(0x80000d0, BitVector::new_from_i64(64, -0x8), 0x80000d0));
+        stack_expected.insert(StackXref::new(0x80000d9, BitVector::new_from_i64(64, -0x8), 0x80000d0));
+        stack_expected.insert(StackXref::new(0x80000da, BitVector::new_from_i64(64, -0x20), 0x8000040));
         }
         assert!(products.stack_xrefs.eq(&stack_expected));
 
@@ -312,10 +315,10 @@ mod tests {
         let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        stack_expected.insert(StackXref::new(0x8000040, Const::new_i32(-0x8, 32), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000040, Const::new_i32(-0x10, 32), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000064, Const::new_i32(-0x8, 32), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000064, Const::new_i32(0, 32), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000040, BitVector::new_from_i32(32, -0x8), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000040, BitVector::new_from_i32(32, -0x10), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, BitVector::new_from_i32(32, -0x8), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, BitVector::new_from_i32(32, 0), 0x8000040));
         }
         assert!(products.stack_xrefs.eq(&stack_expected));
 
@@ -334,55 +337,53 @@ mod tests {
     fn test_constant() {
         wait_for_exlusive_core!();
 
-        let u_32_max = Const::new_u64(0xffffffff, 32);
+        let u_32_max = BitVector::new_from_u64(32, 0xffffffff);
         // Comparison tests. Due to our bit width limitation, we need to check
         // how the converted values are interpreted.
         // This should be independent of the underlying BigInt or BigUint struct.
-        assert_eq!(u_32_max.vu(), 0xffffffffu32.to_biguint().unwrap());
-        assert_eq!(u_32_max.v(), -1.to_bigint().unwrap());
-        assert_ne!(u_32_max.v(), 0xffffffffu64.to_bigint().unwrap());
+        assert_eq!(u_32_max, 0xffffffffu32);
+        assert_eq!(u_32_max, -1);
+        assert_ne!(u_32_max, 0xffffffffu64);
 
-        let (mut casted, mut tainted) = u_32_max.cast(64, AbstrVal::new_false());
+        let (mut casted, mut tainted) = cast(&u_32_max, 64, AbstrVal::new_false());
         assert!(tainted.is_unset());
-        assert_eq!(casted.vu(), 0xffffffffu32.to_biguint().unwrap());
-        assert_eq!(casted.v(), 0xffffffffu64.to_bigint().unwrap());
+        assert_eq!(casted, 0xffffffffu32);
+        assert_eq!(casted, 0xffffffffu64);
 
-        (casted, tainted) = u_32_max.cast(64, AbstrVal::new_true());
+        (casted, tainted) = cast(&u_32_max, 64, AbstrVal::new_true());
         assert!(tainted.is_unset());
-        assert_eq!(casted.vu(), 0xffffffffffffffffu64.to_biguint().unwrap());
-        assert_eq!(casted.v(), -1.to_bigint().unwrap());
+        assert_eq!(casted, 0xffffffffffffffffu64);
+        assert_eq!(casted, -1);
 
-        (casted, tainted) = u_32_max.cast(0, AbstrVal::new_false());
+        (casted, tainted) = cast(&u_32_max, 0, AbstrVal::new_false());
         assert!(tainted.is_unset());
-        assert_eq!(casted.vu(), 0x0u64.to_biguint().unwrap());
-        assert_eq!(casted.v(), 0.to_bigint().unwrap());
+        assert_eq!(casted, 0x0u64);
+        assert_eq!(casted, 0);
 
-        let u_16_half = Const::new_u64(0xffff, 16);
-        assert_eq!(u_16_half.vu(), 0xffffu16.to_biguint().unwrap());
-        assert_eq!(u_16_half.v(), -1.to_bigint().unwrap());
-        assert_ne!(u_16_half.v(), 0xffffu64.to_bigint().unwrap());
+        let u_16_half = BitVector::new_from_u64(16, 0xffff);
+        assert_eq!(u_16_half, 0xffffu16);
+        assert_eq!(u_16_half, -1);
+        assert_ne!(u_16_half, 0xffffu64);
 
-        (casted, tainted) = u_16_half.cast(64, AbstrVal::new_true());
+        (casted, tainted) = cast(&u_16_half, 64, AbstrVal::new_true());
         assert!(tainted.is_unset());
-        assert_eq!(casted.vu(), 0xffffffffffffffffu64.to_biguint().unwrap());
-        assert_eq!(casted.v(), -1.to_bigint().unwrap());
+        assert_eq!(casted, 0xffffffffffffffffu64);
+        assert_eq!(casted, -1);
 
-        let u_16_pat = Const::new_u64(0x1010, 16);
-        assert_eq!(u_16_pat.vu(), 0x1010u64.to_biguint().unwrap());
-        assert_eq!(u_16_pat.v(), 0x1010u64.to_bigint().unwrap());
-        (casted, tainted) = u_16_pat.cast(64, AbstrVal::new_true());
+        let u_16_pat = BitVector::new_from_u64(16, 0x1010);
+        assert_eq!(u_16_pat, 0x1010u64);
+        assert_eq!(u_16_pat, 0x1010u64);
+        (casted, tainted) = cast(&u_16_pat, 64, AbstrVal::new_true());
         assert!(tainted.is_unset());
-        assert_eq!(casted.vu(), 0xffffffffffff1010u64.to_biguint().unwrap());
-        assert_eq!(
-            casted.v(),
-            (0xffffffffffff1010u64 as i64).to_bigint().unwrap()
-        );
+        assert_eq!(casted, 0xffffffffffff1010u64);
+        assert_eq!(casted, (0xffffffffffff1010u64 as i64));
 
         // Not a true/false value for the bit set.
         // This is tainted.
-        (_, tainted) = u_16_pat.cast(
+        (_, tainted) = cast(
+            &u_16_pat,
             64,
-            AbstrVal::new_global(1, Const::new_u64(0xffff, 16), None, 0),
+            AbstrVal::new_global(1, BitVector::new_from_u64(16, 0xffff), None, 0),
         );
         assert!(tainted.is_set());
     }
@@ -415,16 +416,16 @@ mod tests {
         let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        stack_expected.insert(StackXref::new(0x8000060, Const::new_i32(-0x8, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x8000068, Const::new_i32(-0xc, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x8000079, Const::new_i32(-0x18, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x8000087, Const::new_i32(-0x20, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x800008b, Const::new_i32(-0x18, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x800009c, Const::new_i32(-0x18, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x80000a7, Const::new_i32(-0x20, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x80000b1, Const::new_i32(-0x20, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x80000c1, Const::new_i32(-0x8, 64), 0x8000060));
-        stack_expected.insert(StackXref::new(0x80000c2, Const::new_i32(0x0, 64), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000060, BitVector::new_from_i32(64, -0x8), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000068, BitVector::new_from_i32(64, -0xc), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000079, BitVector::new_from_i32(64, -0x18), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000087, BitVector::new_from_i32(64, -0x20), 0x8000060));
+        stack_expected.insert(StackXref::new(0x800008b, BitVector::new_from_i32(64, -0x18), 0x8000060));
+        stack_expected.insert(StackXref::new(0x800009c, BitVector::new_from_i32(64, -0x18), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000a7, BitVector::new_from_i32(64, -0x20), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000b1, BitVector::new_from_i32(64, -0x20), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000c1, BitVector::new_from_i32(64, -0x8), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000c2, BitVector::new_from_i32(64, 0x0), 0x8000060));
         }
         assert!(products.stack_xrefs.eq(&stack_expected));
 
@@ -441,10 +442,10 @@ mod tests {
         let mut expected_heap_mos = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        expected_heap_mos.insert(MemOp::new(0x8000099, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000074)));
-        expected_heap_mos.insert(MemOp::new(0x80000ab, AbstrVal::new_heap(1, Const::new_u64(0x0, 64), 0x8000082)));
-        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, Const::new_u64(0x8, 64), 0x8000074)));
-        expected_heap_mos.insert(MemOp::new(0x80000b5, AbstrVal::new_heap(1, Const::new_u64(0x4, 64), 0x8000082)));
+        expected_heap_mos.insert(MemOp::new(0x8000099, AbstrVal::new_heap(1, BitVector::new_from_u64(64, 0x0), 0x8000074)));
+        expected_heap_mos.insert(MemOp::new(0x80000ab, AbstrVal::new_heap(1, BitVector::new_from_u64(64, 0x0), 0x8000082)));
+        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, BitVector::new_from_u64(64, 0x8), 0x8000074)));
+        expected_heap_mos.insert(MemOp::new(0x80000b5, AbstrVal::new_heap(1, BitVector::new_from_u64(64, 0x4), 0x8000082)));
         }
         assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 4);
         for op in expected_heap_mos.iter() {
@@ -475,15 +476,15 @@ mod tests {
         let mut stack_expected = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        stack_expected.insert(StackXref::new(0x8000060, Const::new_i32(-0x8, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x8000068, Const::new_i32(-0xc, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x8000074, Const::new_i32(-0x10, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x8000080, Const::new_i32(-0x14, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x8000084, Const::new_i32(-0x10, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x800009c, Const::new_i32(-0x10, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x80000a8, Const::new_i32(-0x14, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x80000b4, Const::new_i32(-0x14, 32), 0x8000060));
-        stack_expected.insert(StackXref::new(0x80000c4, Const::new_i32(-0x8, 32), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000060, BitVector::new_from_i32(32, -0x8), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000068, BitVector::new_from_i32(32, -0xc), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000074, BitVector::new_from_i32(32, -0x10), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000080, BitVector::new_from_i32(32, -0x14), 0x8000060));
+        stack_expected.insert(StackXref::new(0x8000084, BitVector::new_from_i32(32, -0x10), 0x8000060));
+        stack_expected.insert(StackXref::new(0x800009c, BitVector::new_from_i32(32, -0x10), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000a8, BitVector::new_from_i32(32, -0x14), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000b4, BitVector::new_from_i32(32, -0x14), 0x8000060));
+        stack_expected.insert(StackXref::new(0x80000c4, BitVector::new_from_i32(32, -0x8), 0x8000060));
         }
         assert!(products.stack_xrefs.eq(&stack_expected));
 
@@ -501,10 +502,10 @@ mod tests {
         let mut expected_heap_mos = BTreeSet::new();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        expected_heap_mos.insert(MemOp::new(0x8000098, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x8000070)));
-        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, Const::new_u64(0x8, 32), 0x8000070)));
-        expected_heap_mos.insert(MemOp::new(0x80000ac, AbstrVal::new_heap(1, Const::new_u64(0x0, 32), 0x800007c)));
-        expected_heap_mos.insert(MemOp::new(0x80000b8, AbstrVal::new_heap(1, Const::new_u64(0x4, 32), 0x800007c)));
+        expected_heap_mos.insert(MemOp::new(0x8000098, AbstrVal::new_heap(1, BitVector::new_from_u64(32, 0x0), 0x8000070)));
+        expected_heap_mos.insert(MemOp::new(0x80000a0, AbstrVal::new_heap(1, BitVector::new_from_u64(32, 0x8), 0x8000070)));
+        expected_heap_mos.insert(MemOp::new(0x80000ac, AbstrVal::new_heap(1, BitVector::new_from_u64(32, 0x0), 0x800007c)));
+        expected_heap_mos.insert(MemOp::new(0x80000b8, AbstrVal::new_heap(1, BitVector::new_from_u64(32, 0x4), 0x800007c)));
         }
         assert_eq!(products.mos.iter().filter(|x| x.is_heap()).count(), 4);
         for op in expected_heap_mos.iter() {
