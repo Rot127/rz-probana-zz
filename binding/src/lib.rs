@@ -497,6 +497,14 @@ impl RzCoreWrapper {
     }
 }
 
+pub fn effect_to_str(effect: *mut rz_il_op_effect_t) -> String {
+    unsafe {
+        let sb = rz_strbuf_new(std::ptr::null_mut());
+        rz_il_op_effect_stringify(effect, sb, false);
+        c_to_str(rz_strbuf_drain(sb))
+    }
+}
+
 /// This allows us to pass the *mut GRzCore between threads.
 /// This is inherintly unsafe. So rz_core should never be used without Mutex.
 unsafe impl Send for RzCoreWrapper {}

@@ -338,9 +338,9 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
 }
 
 pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
-    Logger::try_with_str("info")
+    Logger::try_with_env_or_str("info")
         .expect("Logger init failed")
-        .log_to_file(FileSpec::default())
+        .log_to_file(FileSpec::try_from("probana_logs/bda.log").unwrap())
         .duplicate_to_stderr(Duplicate::Warn)
         .start()
         .expect("Logger start failed");

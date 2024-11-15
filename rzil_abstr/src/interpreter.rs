@@ -374,7 +374,7 @@ enum MemRegionClass {
 }
 
 /// A memory region. Either of Global, Stack or Heap.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MemRegion {
     /// Memory region class
     class: MemRegionClass,
@@ -860,10 +860,11 @@ impl AbstrVM {
 
     pub fn get_varg(&self, name: &str) -> Option<AbstrVal> {
         if self.gvars.get(name).is_none() {
-            log_rz!(
-                LOG_WARN,
-                None,
-                format!("Global var '{}' not defined.", name)
+            warn!(
+                target: "AbstrInterpreter",
+                    "TID: {} - Global var '{}' not defined.",
+                    self.thread_id,
+                    name
             );
             return None;
         }
@@ -872,7 +873,10 @@ impl AbstrVM {
 
     pub fn get_varl(&self, name: &str) -> Option<AbstrVal> {
         if self.lvars.get(name).is_none() {
-            log_rz!(LOG_WARN, None, format!("Local var '{}' not defined.", name));
+            warn!(
+                target: "AbstrInterpreter",
+                "TID: {} - Local var '{}' not defined.", self.thread_id, name
+            );
             return None;
         }
         Some(self.lvars.get(name).unwrap().clone())
@@ -880,7 +884,10 @@ impl AbstrVM {
 
     pub fn get_lpure(&self, name: &str) -> Option<AbstrVal> {
         if self.lpures.get(name).is_none() {
-            log_rz!(LOG_WARN, None, format!("LET var '{}' not defined.", name));
+            warn!(
+                target: "AbstrInterpreter",
+                "TID: {} - LET var '{}' not defined.", self.thread_id, name
+            );
             return None;
         }
         Some(self.lpures.get(name).unwrap().clone())
@@ -888,10 +895,11 @@ impl AbstrVM {
 
     pub fn set_lpure(&mut self, name: String, av: AbstrVal) {
         if self.lpures.get(&name).is_some() {
-            log_rz!(
-                LOG_WARN,
-                None,
-                format!("LET var '{}' already defined.", name)
+            warn!(
+                target: "AbstrInterpreter",
+                    "TID: {} - LET var '{}' already defined.",
+                    self.thread_id,
+                    name
             );
             return;
         }
@@ -901,23 +909,21 @@ impl AbstrVM {
     pub fn set_varg(&mut self, name: &str, mut av: AbstrVal) {
         let global = self.gvars.get(name);
         if global.is_none() {
-            log_rz!(
-                LOG_ERROR,
-                None,
-                format!("The global {} was not initialized. Cannot be set.", name)
-            );
+            error!(target: "AbstrInterpreter", "TID: {} - The global {} was not initialized. Cannot be set.", self.thread_id, name);
             return;
         }
         av.il_gvar = Some(name.to_string());
-        // println!("SET: {} -> {}", name, av);
+        debug!(target: "AbstrInterpreter", "TID: {} - SET GLOBAL: {} -> {}", self.thread_id, name, av);
         self.gvars.insert(name.to_owned(), av);
     }
 
     pub fn set_varl(&mut self, name: &str, av: AbstrVal) {
+        debug!(target: "AbstrInterpreter", "TID: {} - SET LOCAL: {} -> {}", self.thread_id, name, av);
         self.lvars.insert(name.to_owned(), av);
     }
 
     pub fn rm_lpure(&mut self, let_name: &str) {
+        debug!(target: "AbstrInterpreter", "TID: {} - REMOVE LOCAL: {}", self.thread_id, let_name);
         self.lpures.remove(let_name);
     }
 
@@ -953,10 +959,10 @@ impl AbstrVM {
     /// abstract values.
     /// Returns false if it fails.
     fn init_register_file(&mut self, rz_core: GRzCore) {
-        log_rz!(
-            LOG_DEBUG,
-            None,
-            "Init register file for abstract interpreter.".to_string()
+        debug!(
+            target: "AbstrInterpreter",
+            "TID: {} - register file for abstract interpreter.",
+            self.thread_id
         );
 
         if rz_core.is_poisoned() {
@@ -971,13 +977,11 @@ impl AbstrVM {
         for ralias in alias {
             let ra = pderef!(ralias);
             if let Some(_) = self.reg_roles.insert(ra.role, c_to_str(ra.reg_name)) {
-                log_rz!(
-                    LOG_WARN,
-                    None,
-                    format!(
-                        "Duplicate role of register {} detected",
+                warn!(
+                    target: "AbstrInterpreter",
+                        "TID: {} - Duplicate role of register {} detected",
+                        self.thread_id,
                         c_to_str(ra.reg_name)
-                    )
                 );
             }
         }
@@ -1001,7 +1005,10 @@ impl AbstrVM {
             let rsize = pderef!(reg).size;
             let rname = pderef!(reg).name;
             let name = c_to_str(rname);
-            log_rz!(LOG_DEBUG, None, format!("\t-> {}", name));
+            debug!(
+                target: "AbstrInterpreter",
+                "TID: {} - \t-> {}", self.thread_id, name
+            );
 
             let init_val = match name == *bp_name
                 || name == *sp_name
@@ -1141,10 +1148,10 @@ impl AbstrVM {
                 self.rt.insert(il_gvar, tainted);
                 return;
             }
-            log_rz!(
-                LOG_ERROR,
-                None,
-                "Global variable is not defined.".to_string()
+            error!(
+                target: "AbstrInterpreter",
+                "TID: {} - variable is not defined.",
+                self.thread_id
             );
             return;
         }
@@ -1158,7 +1165,7 @@ impl AbstrVM {
     /// Returns the new Abstract value and if it was sampled.
     pub(crate) fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, TaintFlag) {
         if let Some(v) = self.ms.get(key) {
-            // println!("LOAD: AT: {} -> {}", key, v);
+            debug!(target: "AbstrInterpreter", "TID: {} - LOAD: AT: {} -> {}", self.thread_id, key, v);
             return (v.clone(), TaintFlag::Unset);
         }
         if n_bytes == 0 {
@@ -1172,14 +1179,16 @@ impl AbstrVM {
             (n_bytes * 8) as u32,
             self.read_io_at_u64(key.get_as_addr(), n_bytes),
         );
-        (
+        let v = (
             AbstrVal::new_global(self.get_pc_ic(), gmem_val, None, self.get_pc()),
             is_sampled,
-        )
+        );
+        debug!(target: "AbstrInterpreter", "TID: {} - LOAD: AT: {} -> {}", self.thread_id, key, v.0);
+        v
     }
 
     pub fn set_mem_val(&mut self, key: &AbstrVal, val: AbstrVal) {
-        // println!("STORE: AT {} => {} ", key, val);
+        debug!(target: "AbstrInterpreter", "TID: {} - STORE: AT: {} => {}", self.thread_id, key, val);
         self.ms.insert(key.clone(), val);
     }
 
@@ -1192,16 +1201,12 @@ impl AbstrVM {
         panic!("Abstract value doesn't belong to a global var.");
     }
 
-    pub fn set_reg_val(&mut self, key: &AbstrVal, val: AbstrVal) {
-        self.ms.insert(key.clone(), val);
-    }
-
     pub fn enqueue_mos(&mut self, v: &AbstrVal) {
         let mem_op = MemOp {
             ref_addr: self.get_pc(),
             aval: v.clone(),
         };
-        // println!("ENQUEUE MOS: {}", &mem_op);
+        debug!(target: "AbstrInterpreter", "TID: {} - ENQUEUE MOS: {}", self.thread_id, &mem_op);
         self.mos.push(mem_op);
     }
 
@@ -1218,7 +1223,7 @@ impl AbstrVM {
 
     /// Pushes a functions call frame on the call stack, before it jumps to [proc_addr].
     pub fn call_stack_push(&mut self, proc_addr: Address) {
-        info!(target: "AbstrInterpreter", "TID: {} - Push CS - at {:#x}", self.thread_id, self.get_pc());
+        debug!(target: "AbstrInterpreter", "TID: {} - Push CS", self.thread_id);
         // For now we just assume that the SP was _not_ updated before the actual jump to the procedure.
         let cf = CallFrame {
             in_site: self.pc,
@@ -1227,19 +1232,18 @@ impl AbstrVM {
             sp: self.get_sp(),
         };
         self.rebase_sp(proc_addr);
-        // println!("PUSH: {}", cf);
+        debug!(target: "AbstrInterpreter", "TID: {} - PUSH: {}", self.thread_id, cf);
         self.proc_entry.push(proc_addr);
-        // println!("{:?}", self.proc_entry);
+        debug!(target: "AbstrInterpreter", "TID: {} - Stack: {:?}", self.thread_id, self.proc_entry);
         self.cs.push(cf);
     }
 
     /// Pops a call frame from the call stack.
     pub fn call_stack_pop(&mut self) -> Option<CallFrame> {
-        info!(target: "AbstrInterpreter", "TID: {} - Pop CS - at {:#x}", self.thread_id, self.get_pc());
         let cf = self.cs.pop();
-        // println!("POP: {}", cf.as_ref().unwrap());
+        debug!(target: "AbstrInterpreter", "TID: {} - POP: {}", self.thread_id, cf.as_ref().unwrap());
         self.proc_entry.pop();
-        // println!("{:?}", self.proc_entry);
+        debug!(target: "AbstrInterpreter", "TID: {} - Stack: {:?}", self.thread_id, self.proc_entry);
         self.set_sp(
             cf.as_ref()
                 .expect(
@@ -1337,9 +1341,9 @@ impl AbstrVM {
             return_addr: MAX_U64_ADDRESS,
             sp: self.get_sp(),
         };
-        // println!("PUSH: {}", cf);
+        debug!(target: "AbstrInterpreter", "TID: {} - PUSH: {}", self.thread_id, cf);
         self.proc_entry.push(self.pc);
-        // println!("{:?}", self.proc_entry);
+        debug!(target: "AbstrInterpreter", "TID: {} - Stack: {:?}", self.thread_id, self.proc_entry);
         self.cs.push(cf);
     }
 
@@ -1418,7 +1422,7 @@ impl AbstrVM {
         } else {
             return StepResult::Done;
         }
-        // println!("pc = {:#x}", self.pc);
+        debug!(target: "AbstrInterpreter", "TID: {} - pc = {:#x}", self.thread_id, self.pc);
 
         *self.ic.entry(self.pc).or_default() += 1;
 
@@ -1433,14 +1437,16 @@ impl AbstrVM {
             return StepResult::Exit;
         }
 
-        let mut dont_execute = false;
-        // Not yet done for iwords. iwords must only skip the call part.
-        if self.insn_info.calls_malloc()
-            || self.insn_info.calls_unmapped()
-            || self.insn_info.calls_input()
-        {
-            dont_execute = true;
-        }
+        let (reason, dont_execute) = if self.insn_info.calls_malloc() {
+            // Not yet done for iwords. iwords must only skip the call part.
+            ("is malloc", true)
+        } else if self.insn_info.calls_unmapped() {
+            ("is unmapped", true)
+        } else if self.insn_info.calls_input() {
+            ("is input", true)
+        } else {
+            ("none", false)
+        };
 
         let iword_decoder = unlocked_core!(self).get_iword_decoder();
         let effect;
@@ -1453,9 +1459,10 @@ impl AbstrVM {
                 if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
                     self.move_heap_val_into_ret_reg();
                 }
-                info!(target: "AbstrInterpreter", "TID: {} - Skip call - at {:#x}", self.thread_id, self.get_pc());
+                debug!(target: "AbstrInterpreter", "TID: {} - Skip call: {}", self.thread_id, reason);
                 result = true;
             } else if effect != std::ptr::null_mut() {
+                debug!(target: "AbstrInterpreter", "TID: {} - rzil_op: {}", self.thread_id, effect_to_str(effect));
                 result = eval_effect(self, effect);
             } else {
                 // Otherwise not implemented
@@ -1469,8 +1476,10 @@ impl AbstrVM {
                 if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
                     self.move_heap_val_into_ret_reg();
                 }
+                debug!(target: "AbstrInterpreter", "TID: {} - Skip call: {}", self.thread_id, reason);
                 result = true;
             } else if effect != std::ptr::null_mut() {
+                debug!(target: "AbstrInterpreter", "TID: {} - rzil_op: {}", self.thread_id, effect_to_str(effect));
                 result = eval_effect(self, effect);
             } else {
                 // Otherwise not implemented
@@ -1479,7 +1488,7 @@ impl AbstrVM {
         }
         if self.pc_is_tail_call() {
             // Pop CallFrame from stack before jumping to the next one.
-            info!(target: "AbstrInterpreter", "TID: {} - Tail call - at {:#x}", self.thread_id, self.get_pc());
+            debug!(target: "AbstrInterpreter", "TID: {} - Tail call", self.thread_id);
             if let Some(target) = self.peak_next_addr() {
                 self.call_stack_pop();
                 self.call_stack_push(target);
@@ -1494,6 +1503,26 @@ impl AbstrVM {
 
     pub(crate) fn add_iword_info(&mut self, info: IWordInfo) {
         self.iword_info.insert(self.get_pc(), info);
+    }
+
+    #[allow(dead_code)]
+    fn print_machine_state(&self) {
+        println!("--------------------------------------------------");
+        for (i, reg) in self.rt.iter().enumerate() {
+            if reg.0.starts_with(&['S', 'V', 'G', 'C']) {
+                continue;
+            }
+            if i % 3 == 0 {
+                println!();
+            }
+            print!(
+                "{} = {}      ",
+                reg.0,
+                self.get_varg(reg.0).as_ref().unwrap()
+            );
+        }
+        println!();
+        println!("--------------------------------------------------");
     }
 }
 
@@ -1511,13 +1540,14 @@ enum StepResult {
 
 /// Interprets the given path with the given interpreter VM.
 pub fn interpret(thread_id: usize, rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
-    info!(target: "AbstrInterpreter", "TID: {thread_id}: {}", path);
+    debug!(target: "AbstrInterpreter", "TID: {thread_id}: {}", path);
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
     vm.thread_id = thread_id;
 
     let mut step = StepResult::Ok;
     while step == StepResult::Ok {
         step = vm.step();
+        // vm.print_machine_state();
     }
     assert!(
         step == StepResult::Done || step == StepResult::Exit,
@@ -1532,7 +1562,7 @@ pub fn interpret(thread_id: usize, rz_core: GRzCore, path: IntrpPath, tx: Sender
     );
     vm.free_buffers();
 
-    // println!("EXIT\n");
+    debug!(target: "AbstrInterpreter", "TID: {} - EXIT\n", vm.thread_id);
     // Replace with Channel and send/rcv
     let products = IntrpProducts {
         iword_info: vm.iword_info.into(),
@@ -1544,10 +1574,9 @@ pub fn interpret(thread_id: usize, rz_core: GRzCore, path: IntrpPath, tx: Sender
     };
 
     if let Err(_) = tx.send(products) {
-        log_rz!(
-            LOG_ERROR,
-            None,
-            "Interpreter could not send data. Main thread hangs"
+        error!(
+            target: "AbstrInterpreter",
+            "TID: {} - could not send data. Main thread hangs", vm.thread_id
         );
     }
 }
