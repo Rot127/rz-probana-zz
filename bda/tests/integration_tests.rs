@@ -25,7 +25,7 @@ mod test {
         rz_core
             .lock()
             .unwrap()
-            .set_conf_val("plugins.bda.timeout", "5");
+            .set_conf_val("plugins.bda.sampling.runtime", "5");
         rz_core
             .lock()
             .unwrap()
@@ -50,7 +50,7 @@ mod test {
         rz_core
             .lock()
             .unwrap()
-            .set_conf_val("plugins.bda.timeout", "5");
+            .set_conf_val("plugins.bda.sampling.runtime", "5");
         rz_core
             .lock()
             .unwrap()
@@ -71,7 +71,7 @@ mod test {
         rz_core
             .lock()
             .unwrap()
-            .set_conf_val("plugins.bda.timeout", "5");
+            .set_conf_val("plugins.bda.sampling.runtime", "5");
         rz_core
             .lock()
             .unwrap()
@@ -93,7 +93,7 @@ mod test {
         rz_core
             .lock()
             .unwrap()
-            .set_conf_val("plugins.bda.timeout", "5");
+            .set_conf_val("plugins.bda.sampling.runtime", "5");
         rz_core
             .lock()
             .unwrap()
@@ -114,7 +114,7 @@ mod test {
         rz_core
             .lock()
             .unwrap()
-            .set_conf_val("plugins.bda.timeout", "10");
+            .set_conf_val("plugins.bda.sampling.runtime", "10");
         rz_core
             .lock()
             .unwrap()
