@@ -5,6 +5,7 @@
 mod tests {
     use std::{
         collections::{BTreeSet, VecDeque},
+        hash::{Hash, Hasher},
         sync::{
             mpsc::{channel, Receiver, Sender},
             Arc, Mutex,
@@ -21,6 +22,91 @@ mod tests {
         },
         op_handler::cast,
     };
+
+    #[test]
+    fn test_abstr_vals() {
+        // Basic comparison
+        let mut hash_state1 = std::hash::DefaultHasher::new();
+        let mut hash_state2 = std::hash::DefaultHasher::new();
+        let t1 = AbstrVal::new_true();
+        let t2 = AbstrVal::new_true();
+        assert_eq!(t1, t2);
+
+        // Heap values
+        // Signed equal
+        let mut h1 = AbstrVal::new_heap(1, BitVector::new_from_i64(32, -8), 0x800000);
+        let mut h2 = AbstrVal::new_heap(1, BitVector::new_from_i64(32, -8), 0x800000);
+        assert_eq!(h1, h2);
+
+        // Hashes equal
+        h1.hash(&mut hash_state1);
+        h2.hash(&mut hash_state2);
+        assert_eq!(hash_state1.finish(), hash_state2.finish());
+        hash_state1 = std::hash::DefaultHasher::new();
+        hash_state2 = std::hash::DefaultHasher::new();
+
+        // Unsigned equal
+        h1 = AbstrVal::new_heap(1, BitVector::new_from_u64(32, 8), 0x800000);
+        h2 = AbstrVal::new_heap(1, BitVector::new_from_u64(32, 8), 0x800000);
+        assert_eq!(h1, h2);
+
+        // Not equal
+        h2 = AbstrVal::new_heap(1, BitVector::new_from_u64(32, 9), 0x800000);
+        assert_ne!(h1, h2);
+        assert!(h1 < h2);
+        assert!(h2 > h1);
+
+        // Hash not equal
+        h1.hash(&mut hash_state1);
+        h2.hash(&mut hash_state2);
+        assert_ne!(hash_state1.finish(), hash_state2.finish());
+        hash_state1 = std::hash::DefaultHasher::new();
+        hash_state2 = std::hash::DefaultHasher::new();
+
+        // Width unequal
+        h2 = AbstrVal::new_heap(1, BitVector::new_from_u64(64, 8), 0x800000);
+        assert_ne!(h1, h2); // Width differs
+        h2 = AbstrVal::new_heap(1, BitVector::new_from_i64(32, 8), 0x800000);
+        assert_eq!(h1, h2);
+
+        // Signed equal
+        let mut s1 = AbstrVal::new_stack(1, BitVector::new_from_i64(32, -8), 0x800000);
+        let mut s2 = AbstrVal::new_stack(1, BitVector::new_from_i64(32, -8), 0x800000);
+        assert_eq!(s1, s2);
+
+        // Hashes equal
+        s1.hash(&mut hash_state1);
+        s2.hash(&mut hash_state2);
+        assert_eq!(hash_state1.finish(), hash_state2.finish());
+        hash_state1 = std::hash::DefaultHasher::new();
+        hash_state2 = std::hash::DefaultHasher::new();
+
+        // Unsigned equal
+        s1 = AbstrVal::new_stack(1, BitVector::new_from_u64(32, 8), 0x800000);
+        s2 = AbstrVal::new_stack(1, BitVector::new_from_u64(32, 8), 0x800000);
+        assert_eq!(s1, s2);
+
+        // Not equal
+        s2 = AbstrVal::new_stack(1, BitVector::new_from_u64(32, 9), 0x800000);
+        assert_ne!(s1, s2);
+        assert!(s1 < s2);
+        assert!(s2 > s1);
+
+        // Hash not equal
+        s1.hash(&mut hash_state1);
+        s2.hash(&mut hash_state2);
+        assert_ne!(hash_state1.finish(), hash_state2.finish());
+
+        // Width unequal
+        s2 = AbstrVal::new_stack(1, BitVector::new_from_u64(64, 8), 0x800000);
+        assert_ne!(s1, s2); // Width differs
+        s2 = AbstrVal::new_stack(1, BitVector::new_from_i64(32, 8), 0x800000);
+
+        // IC unequal
+        assert_eq!(s1, s2);
+        s2 = AbstrVal::new_stack(2, BitVector::new_from_u64(32, 8), 0x800000);
+        assert_ne!(s1, s2); // IC differs
+    }
 
     fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {
         let icall_o = get_test_bin_path().join("x86_icall.o");
