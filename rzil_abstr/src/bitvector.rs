@@ -247,12 +247,13 @@ impl Neg for &BitVector {
 }
 
 macro_rules! i_str {
-    ($get_n:expr) => {{
+    ($get_n:expr, $width:expr) => {{
         let n = $get_n;
         format!(
-            "{}{:#x}",
+            "{}{:#x}{}",
             if n < 0 { "-" } else { "" },
-            if n < 0 { ((!n) + 1) } else { n }
+            if n < 0 { ((!n) + 1) } else { n },
+            subscript($width)
         )
     }};
 }
@@ -340,10 +341,10 @@ impl BitVector {
 
     pub fn as_signed_str(&self) -> String {
         match (self.width(), self.msb()) {
-            (8, true) => i_str!(self.as_i8()),
-            (16, true) => i_str!(self.as_i16()),
-            (32, true) => i_str!(self.as_i32()),
-            (64, true) => i_str!(self.as_i64()),
+            (8, true) => i_str!(self.as_i8(), 8),
+            (16, true) => i_str!(self.as_i16(), 16),
+            (32, true) => i_str!(self.as_i32(), 32),
+            (64, true) => i_str!(self.as_i64(), 64),
             (8, false) => format!("{:#x}", self.as_u8()),
             (16, false) => format!("{:#x}", self.as_u16()),
             (32, false) => format!("{:#x}", self.as_u32()),
