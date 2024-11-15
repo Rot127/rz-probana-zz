@@ -69,6 +69,7 @@ mod tests {
         h2 = AbstrVal::new_heap(1, BitVector::new_from_i64(32, 8), 0x800000);
         assert_eq!(h1, h2);
 
+        // Stack caraibles
         // Signed equal
         let mut s1 = AbstrVal::new_stack(1, BitVector::new_from_i64(32, -8), 0x800000);
         let mut s2 = AbstrVal::new_stack(1, BitVector::new_from_i64(32, -8), 0x800000);
@@ -96,6 +97,8 @@ mod tests {
         s1.hash(&mut hash_state1);
         s2.hash(&mut hash_state2);
         assert_ne!(hash_state1.finish(), hash_state2.finish());
+        hash_state1 = std::hash::DefaultHasher::new();
+        hash_state2 = std::hash::DefaultHasher::new();
 
         // Width unequal
         s2 = AbstrVal::new_stack(1, BitVector::new_from_u64(64, 8), 0x800000);
@@ -106,6 +109,22 @@ mod tests {
         assert_eq!(s1, s2);
         s2 = AbstrVal::new_stack(2, BitVector::new_from_u64(32, 8), 0x800000);
         assert_ne!(s1, s2); // IC differs
+
+        // Ignore il_gvar member for comparison and hashing
+        h1 = AbstrVal::new_heap(1, BitVector::new_from_i64(32, -8), 0x800000);
+        h2 = AbstrVal::new_heap(1, BitVector::new_from_i64(32, -8), 0x800000);
+        h2.set_il_gvar(Some("test".to_string()));
+        assert_eq!(h1, h2);
+
+        // Hashes equal
+        h1.hash(&mut hash_state1);
+        h2.hash(&mut hash_state2);
+        assert_eq!(hash_state1.finish(), hash_state2.finish());
+
+        // Stack and Hash values differ
+        h1 = AbstrVal::new_heap(1, BitVector::new_from_i64(32, -8), 0x800000);
+        s1 = AbstrVal::new_stack(1, BitVector::new_from_i64(32, -8), 0x800000);
+        assert_ne!(s1, h1);
     }
 
     fn get_x86_icall_test() -> (Arc<Mutex<RzCoreWrapper>>, IntrpPath) {

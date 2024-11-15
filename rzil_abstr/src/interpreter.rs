@@ -3,19 +3,20 @@
 
 use bitflags::bitflags;
 use helper::num::subscript;
-use log::info;
+use log::{debug, error, warn};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
+    hash::Hash,
     io::Read,
     sync::mpsc::Sender,
 };
 
 use binding::{
-    c_to_str, log_rizin, log_rz, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
+    c_to_str, effect_to_str, pderef, rz_analysis_insn_word_free, rz_analysis_op_free, GRzCore,
     RzAnalysisInsnWord, RzAnalysisOp, RzRegisterId, RzRegisterId_RZ_REG_NAME_BP,
-    RzRegisterId_RZ_REG_NAME_R0, RzRegisterId_RZ_REG_NAME_SP, LOG_DEBUG, LOG_ERROR, LOG_WARN,
+    RzRegisterId_RZ_REG_NAME_R0, RzRegisterId_RZ_REG_NAME_SP,
 };
 
 use crate::{bitvector::BitVector, op_handler::eval_effect};
@@ -362,7 +363,7 @@ impl std::fmt::Display for StackXref {
 }
 
 /// Memory region classes: Global, Stack, Heap
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum MemRegionClass {
     /// Global memory region. E.g. .data, .rodata, .bss
     Global,
@@ -406,7 +407,7 @@ impl std::fmt::Display for MemRegion {
 /// An abstract value.
 /// Constant values are represented a value of the Global memory region
 /// and the constant value set in [offset].
-#[derive(Clone, Debug, PartialOrd, Ord)]
+#[derive(Clone, Debug)]
 pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
@@ -416,7 +417,37 @@ pub struct AbstrVal {
     /// Name of the global IL variable this abstract value was read from.
     /// If None, it is a memory value.
     /// This is used to decide which taint map to use.
+    ///
+    /// This value is not compared or used for hashing!
     il_gvar: Option<String>,
+}
+
+impl Hash for AbstrVal {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.m.hash(state);
+        self.c.hash(state);
+    }
+}
+
+impl Ord for AbstrVal {
+    /// The order of abstract values depends on their Memory region and the constant value.
+    /// The Memory region is compared (default implementation for enum comparison): self::MemRegion.cmp(other::MemRegion).
+    /// If equal, the numerical value is compared.
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.eq(other) {
+            return std::cmp::Ordering::Equal;
+        }
+        if self.m != other.m {
+            return self.m.cmp(&other.m);
+        }
+        self.c.cmp(&other.c)
+    }
+}
+
+impl PartialOrd for AbstrVal {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Eq for AbstrVal {}
@@ -475,6 +506,10 @@ impl AbstrVal {
             c: offset,
             il_gvar: None,
         }
+    }
+
+    pub fn set_il_gvar(&mut self, gvar: Option<String>) {
+        self.il_gvar = gvar;
     }
 
     pub fn get_width(&self) -> u32 {
