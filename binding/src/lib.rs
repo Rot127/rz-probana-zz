@@ -525,7 +525,7 @@ pub fn get_rz_test_bin_path() -> PathBuf {
 }
 
 pub fn get_test_bin_path() -> PathBuf {
-    get_pkg_path().join("tests").join("test_bins")
+    get_pkg_path().join("tests").join("bins")
 }
 
 pub fn get_probana_lib() -> PathBuf {
