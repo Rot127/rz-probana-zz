@@ -266,6 +266,18 @@ impl RzCoreWrapper {
         parse_bda_range_conf_val(c_to_str(c))
     }
 
+    pub fn get_bda_analysis_malloc_pattern(&self) -> String {
+        let c = get_bda_config_val_str!(self, "plugins.bda.alloc_name_pattern");
+        assert!(c != std::ptr::null_mut(), "Failed to get the regex.");
+        c_to_str(c)
+    }
+
+    pub fn get_bda_analysis_input_pattern(&self) -> String {
+        let c = get_bda_config_val_str!(self, "plugins.bda.input_name_pattern");
+        assert!(c != std::ptr::null_mut(), "Failed to get the regex.");
+        c_to_str(c)
+    }
+
     pub fn get_bda_analysis_entries(&self) -> Option<Vec<u64>> {
         let c = get_bda_config_val_str!(self, "plugins.bda.entries");
         assert!(c != std::ptr::null_mut(), "Failed to get entries.");

@@ -37,6 +37,7 @@ use binding::{
 use flexi_logger::{Duplicate, FileSpec, Logger};
 use helper::progress::ProgressBar;
 use helper::spinner::Spinner;
+use regex::Regex;
 
 pub struct BDAPrivateData {
     _dummy_val: u64,
@@ -326,10 +327,12 @@ pub fn setup_procedure_at_addr(core: &RzCoreWrapper, address: Address) -> Option
         }
         let mut cfg = CFG::new_graph(get_graph(rz_cfg));
         set_cfg_node_data(&mut cfg, rz_cfg);
+        let malloc_pattern = Regex::new(&core.get_bda_analysis_malloc_pattern()).unwrap();
+        let input_pattern = Regex::new(&core.get_bda_analysis_input_pattern()).unwrap();
         let proc = Procedure::new(
             Some(cfg),
-            rz_analysis_function_is_malloc(fcn_ptr),
-            rz_analysis_function_is_input(fcn_ptr),
+            malloc_pattern.is_match(&c_to_str(pderef!(fcn_ptr).name)),
+            input_pattern.is_match(&c_to_str(pderef!(fcn_ptr).name)),
             is_unmapped,
         );
         rz_graph_free(rz_cfg);

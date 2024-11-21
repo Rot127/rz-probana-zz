@@ -140,6 +140,10 @@ pub extern "C" fn rz_set_bda_range(core: *mut c_void, node: *mut c_void) -> bool
     true
 }
 
+pub extern "C" fn rz_set_regex_pattern(_core: *mut c_void, _node: *mut c_void) -> bool {
+    true
+}
+
 pub extern "C" fn rz_set_bda_entry(core: *mut c_void, node: *mut c_void) -> bool {
     let _ = core as *mut RzCore;
     let rz_node = node as *mut RzConfigNode;
@@ -230,6 +234,24 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
             ),
             str_to_c!("Comma separated list of address ranges to analyse. Any instruction outside of the ranges, will be ignored by the path sampler."),
         );
+    rz_config_node_desc(
+        rz_config_set_cb(
+            config,
+            str_to_c!("plugins.bda.alloc_name_pattern"),
+            str_to_c!(".*([mc]|(re))?alloc.*"),
+            Some(rz_set_regex_pattern),
+        ),
+        str_to_c!("The regex pattern to identify memory allocating functions."),
+    );
+    rz_config_node_desc(
+        rz_config_set_cb(
+            config,
+            str_to_c!("plugins.bda.input_name_pattern"),
+            str_to_c!(".*(fread|rand|input).*"),
+            Some(rz_set_regex_pattern),
+        ),
+        str_to_c!("The regex pattern to identify input functions."),
+    );
     rz_config_node_desc(
             rz_config_set_cb(
                 config,

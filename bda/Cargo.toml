@@ -22,6 +22,7 @@ rug = "1.24"
 bitflags = "2.6.0"
 flexi_logger = { version = "0.29", features = ["async", "specfile", "compress"] }
 log = "0.4"
+regex = "1.11"
 
 [lib]
 crate-type = ["rlib", "cdylib"]
