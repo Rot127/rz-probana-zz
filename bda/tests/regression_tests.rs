@@ -34,7 +34,7 @@ mod test {
         rz_core
             .lock()
             .unwrap()
-            .set_conf_val("plugins.bda.range", "0x6000-0x7000");
+            .set_conf_val("plugins.bda.sampling.range", "0x6000-0x7000");
         rz_core
             .lock()
             .unwrap()

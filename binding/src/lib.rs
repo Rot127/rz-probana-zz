@@ -261,7 +261,7 @@ impl RzCoreWrapper {
     }
 
     pub fn get_bda_analysis_range(&self) -> Option<Vec<(u64, u64)>> {
-        let c = get_bda_config_val_str!(self, "plugins.bda.range");
+        let c = get_bda_config_val_str!(self, "plugins.bda.sampling.range");
         assert!(c != std::ptr::null_mut(), "Failed to get range.");
         parse_bda_range_conf_val(c_to_str(c))
     }

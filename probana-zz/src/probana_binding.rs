@@ -224,7 +224,7 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
     rz_config_node_desc(
             rz_config_set_cb(
                 config,
-                str_to_c!("plugins.bda.range"),
+                str_to_c!("plugins.bda.sampling.range"),
                 str_to_c!("0x0-0xffffffffffffffff"),
                 Some(rz_set_bda_range),
             ),
