@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+};
 
 /// KeyType -> { CellType } data structure
 #[derive(Clone)]
@@ -10,6 +13,27 @@ where
     KeyType: Ord,
 {
     map: BTreeMap<KeyType, BTreeSet<CellType>>,
+}
+
+impl<KeyType, CellType> Display for SetMap<KeyType, CellType>
+where
+    KeyType: Ord,
+    KeyType: Display,
+    CellType: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (k, set) in self.map.iter() {
+            let Ok(_) = write!(f, "{}\n", k) else {
+                return std::fmt::Result::Err(std::fmt::Error);
+            };
+            for v in set.iter() {
+                let Ok(_) = write!(f, "\t->{}\n", v) else {
+                    return std::fmt::Result::Err(std::fmt::Error);
+                };
+            }
+        }
+        write!(f, "\n")
+    }
 }
 
 impl<KeyType, CellType> SetMap<KeyType, CellType>
