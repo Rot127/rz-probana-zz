@@ -472,6 +472,12 @@ impl std::fmt::Display for AbstrVal {
     }
 }
 
+impl std::fmt::LowerHex for AbstrVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl AbstrVal {
     pub fn new_global(ic: u32, c: BitVector, il_gvar: Option<String>, base: Address) -> AbstrVal {
         let m = MemRegion {
