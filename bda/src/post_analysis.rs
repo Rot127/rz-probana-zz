@@ -216,17 +216,14 @@ impl PostAnalyzer {
             let iaddr = mem_op.ref_addr;
             let aval = mem_op.aval;
             if self.is_mem_write(&iaddr) {
-                if let Some(def_iaddr) = DEF.get(&aval) {
-                    // Kills previous definition, because it overwrits it.
-                    KILL.insert(iaddr, *def_iaddr);
-                } else {
-                    // Set last address which wrote to aval.
-                    DEF.insert(aval.clone(), iaddr);
+                if let Some(def_addr) = DEF.get(&aval) {
+                    KILL.insert(iaddr, *def_addr);
                 }
+                DEF.insert(aval.clone(), iaddr);
             }
             if self.is_mem_read(&iaddr) {
-                if let Some(def_iaddr) = DEF.get(&aval) {
-                    DEP.insert(iaddr, *def_iaddr);
+                if let Some(def_addr) = DEF.get(&aval) {
+                    DEP.insert(iaddr, *def_addr);
                 }
             }
             I2M.insert(iaddr, aval);
