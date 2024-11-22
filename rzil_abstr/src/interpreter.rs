@@ -8,6 +8,7 @@ use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
+    fmt::Display,
     hash::Hash,
     io::Read,
     sync::mpsc::Sender,
@@ -159,6 +160,81 @@ impl IWordInfo {
     }
 }
 
+impl Display for IWordInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_none() {
+            return write!(f, "");
+        }
+
+        if self.is_jump() {
+            if let Err(e) = write!(f, "j") {
+                return Err(e);
+            }
+        }
+
+        if self.is_call() {
+            if let Err(e) = write!(f, "c") {
+                return Err(e);
+            }
+        }
+
+        if self.is_exit() {
+            if let Err(e) = write!(f, "e") {
+                return Err(e);
+            }
+        }
+
+        if self.is_tail_call() {
+            if let Err(e) = write!(f, "t") {
+                return Err(e);
+            }
+        }
+
+        if self.is_return_point() {
+            if let Err(e) = write!(f, "(rp)") {
+                return Err(e);
+            }
+        }
+
+        if self.is_return() {
+            if let Err(e) = write!(f, "r") {
+                return Err(e);
+            }
+        }
+
+        if self.is_mem_read() {
+            if let Err(e) = write!(f, "(mr)") {
+                return Err(e);
+            }
+        }
+
+        if self.is_mem_write() {
+            if let Err(e) = write!(f, "(mw)") {
+                return Err(e);
+            }
+        }
+
+        if self.calls_malloc() {
+            if let Err(e) = write!(f, "m") {
+                return Err(e);
+            }
+        }
+
+        if self.calls_input() {
+            if let Err(e) = write!(f, "i") {
+                return Err(e);
+            }
+        }
+
+        if self.calls_unmapped() {
+            if let Err(e) = write!(f, "u") {
+                return Err(e);
+            }
+        }
+        write!(f, "")
+    }
+}
+
 pub struct IntrpPath {
     /// Execution path of instructions.
     path: VecDeque<(Address, IWordInfo)>,
@@ -178,35 +254,8 @@ impl std::fmt::Display for IntrpPath {
             if let Err(e) = write!(f, "{:#x}|", n.0) {
                 return Err(e);
             }
-            if n.1.is_call() {
-                if let Err(e) = write!(f, "c") {
-                    return Err(e);
-                }
-            }
-            if n.1.is_return_point() {
-                if let Err(e) = write!(f, "r") {
-                    return Err(e);
-                }
-            }
-            if n.1.calls_malloc() {
-                if let Err(e) = write!(f, "m") {
-                    return Err(e);
-                }
-            }
-            if n.1.calls_input() {
-                if let Err(e) = write!(f, "i") {
-                    return Err(e);
-                }
-            }
-            if n.1.calls_unmapped() {
-                if let Err(e) = write!(f, "u") {
-                    return Err(e);
-                }
-            }
-            if n.1.is_exit() {
-                if let Err(e) = write!(f, "e") {
-                    return Err(e);
-                }
+            if let Err(e) = write!(f, "{}", n.1) {
+                return Err(e);
             }
         }
         write!(f, "]")
@@ -1508,7 +1557,12 @@ impl AbstrVM {
     }
 
     pub(crate) fn add_iword_info(&mut self, info: IWordInfo) {
-        self.iword_info.insert(self.get_pc(), info);
+        let pc = self.get_pc();
+        if let Some(prev) = self.iword_info.get(&pc) {
+            self.iword_info.insert(pc, prev.clone() | info);
+            return;
+        }
+        self.iword_info.insert(pc, info);
     }
 
     #[allow(dead_code)]

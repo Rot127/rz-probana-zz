@@ -101,18 +101,6 @@ where
         self.map.insert(id, set);
     }
 
-    pub fn extend_map(&mut self, map: BTreeMap<KeyType, CellType>) {
-        for (id, val) in map.into_iter() {
-            if let Some(id_set) = self.map.get_mut(&id) {
-                id_set.insert(val);
-                return;
-            }
-            let mut set = BTreeSet::<CellType>::new();
-            set.insert(val);
-            self.map.insert(id, set);
-        }
-    }
-
     pub fn assign_difference(&mut self, id: &KeyType, exclude: &BTreeSet<CellType>) {
         if let Some(id_set) = self.map.get_mut(id) {
             id_set.retain(|v| !exclude.contains(v));

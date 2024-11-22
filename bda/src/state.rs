@@ -108,7 +108,7 @@ pub struct BDAState {
     /// Memory op sequences
     pub mos: Option<MemOpSeq>,
     /// Meta information collected about each instruction word executed.
-    pub iword_info: Option<SetMap<Address, IWordInfo>>,
+    pub iword_info: Option<BTreeMap<Address, IWordInfo>>,
     /// Runtime statistics
     pub runtime_stats: RuntimeStats,
 }
@@ -126,7 +126,7 @@ impl BDAState {
             icfg_update_threshold,
             num_threads,
             weight_map: WeightMap::new(),
-            iword_info: Some(SetMap::new()),
+            iword_info: Some(BTreeMap::new()),
             calls: BTreeSet::new(),
             jumps: BTreeSet::new(),
             unhandled_code_xrefs: BTreeSet::new(),
@@ -141,7 +141,7 @@ impl BDAState {
         self.mos.take().unwrap()
     }
 
-    pub fn take_iword_info(&mut self) -> SetMap<Address, IWordInfo> {
+    pub fn take_iword_info(&mut self) -> BTreeMap<Address, IWordInfo> {
         self.iword_info.take().unwrap()
     }
 
@@ -186,7 +186,7 @@ impl BDAState {
     }
 
     pub fn update_iword_info(&mut self, iword_info: BTreeMap<Address, IWordInfo>) {
-        self.iword_info.as_mut().unwrap().extend_map(iword_info);
+        self.iword_info.as_mut().unwrap().extend(iword_info);
     }
 
     pub(crate) fn update_icfg_check(&self) -> bool {

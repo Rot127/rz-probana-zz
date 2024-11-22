@@ -149,13 +149,13 @@ pub struct PostAnalyzer {
     /// The rows are offsets from the minimal address sampled.
     programm_graph: Matrix<Address, U8Cell>,
     /// Instruction meta data (instruction type etc.)
-    insn_meta_data: SetMap<Address, IWordInfo>,
+    insn_meta_data: BTreeMap<Address, IWordInfo>,
     /// Dependent instruction pairs. If set, there is a dependency between the instructions.
     DIP: BTreeSet<(Address, Address)>,
 }
 
 impl PostAnalyzer {
-    pub fn new(icfg: &ICFG, iword_info: SetMap<Address, IWordInfo>) -> PostAnalyzer {
+    pub fn new(icfg: &ICFG, iword_info: BTreeMap<Address, IWordInfo>) -> PostAnalyzer {
         let mut edge_matrix = Matrix::new();
         for cfg in icfg.get_procedures().iter() {
             for (x_insn, y_insn, _) in cfg.1.read().unwrap().get_cfg().get_graph().all_edges() {
