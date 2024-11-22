@@ -210,6 +210,12 @@ impl PostAnalyzer {
         DEP: &mut SetMap<Address, Address>,
         KILL: &mut SetMap<Address, Address>,
     ) {
+        println!("MOS: {:?}", self.insn_meta_data);
+        debug_assert!(
+            MOS.iter()
+                .all(|mop| { self.insn_meta_data.get(&mop.ref_addr).is_some() }),
+            "Some MemOps have no iword meta data."
+        );
         let mut DEF = BTreeMap::<AbstrVal, Address>::new();
 
         for mem_op in MOS.into_iter() {
@@ -227,6 +233,10 @@ impl PostAnalyzer {
                 }
             }
             I2M.insert(iaddr, aval);
+        }
+        println!("DEF:");
+        for (k, v) in DEF.iter() {
+            println!("{} -> {:#x}", k, v);
         }
     }
 
