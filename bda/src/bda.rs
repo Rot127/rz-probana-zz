@@ -11,8 +11,7 @@ use std::{
 use binding::{
     log_rizin, log_rz, rz_notify_begin, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN,
 };
-use helper::{spinner::Spinner, user::ask_yes_no};
-use log::info;
+use helper::{set_map::SetMap, spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, CodeXrefType, ConcreteCodeXref, IntrpProducts};
 
@@ -191,7 +190,11 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG) {
 /// Runs the BDA analysis by sampling paths within the iCFG and performing
 /// abstract execution on them.
 /// Memory references get directly added to Rizin via Rizin's API.
-pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
+pub fn run_bda(
+    core: GRzCore,
+    icfg: &mut ICFG,
+    state: &mut BDAState,
+) -> Option<SetMap<Address, Address>> {
     state.bda_timer.start();
     state.icfg_update_timer.start();
     let ranges = core
@@ -203,7 +206,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
         Some(ep) => ep,
         None => {
             rz_notify_error(core.clone(), "BDA analysis failed with an error".to_owned());
-            return;
+            return None;
         }
     };
     icfg.set_entries(&entry_points);
@@ -224,7 +227,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
             .get_bda_skip_questions()
             && ask_yes_no("Abort?")
         {
-            return;
+            return None;
         }
     }
 
@@ -362,6 +365,7 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     let dep = posterior_dependency_analysis(state, icfg);
     rz_notify_done(core.clone(), format!("Finished BDA post-analysis"));
     println!("{:x}", dep);
+    Some(dep)
 }
 
 fn sample_path_into_buffer(

@@ -673,7 +673,7 @@ impl std::fmt::Display for MemOp {
     }
 }
 
-pub type MemOpSeq = BTreeSet<MemOp>;
+pub type MemOpSeq = Vec<MemOp>;
 
 #[derive(Debug)]
 pub struct CallFrame {
@@ -1262,7 +1262,7 @@ impl AbstrVM {
             aval: v.clone(),
         };
         debug!(target: "AbstrInterpreter", "TID: {} - ENQUEUE MOS: {}", self.thread_id, &mem_op);
-        self.mos.insert(mem_op);
+        self.mos.push(mem_op);
     }
 
     fn get_sp(&self) -> AbstrVal {

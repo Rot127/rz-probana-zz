@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use helper::{set_map::SetMap, timer::Timer};
+use helper::timer::Timer;
 use rzil_abstr::interpreter::{ConcreteCodeXref, IWordInfo, MemOpSeq, MemXref, StackXref};
 
 use crate::{flow_graphs::Address, weight::WeightMap};
@@ -106,7 +106,7 @@ pub struct BDAState {
     /// Discovered stacK_xrefs
     pub stack_xrefs: BTreeSet<StackXref>,
     /// Memory op sequences
-    pub mos: Option<MemOpSeq>,
+    pub mos: Option<BTreeSet<MemOpSeq>>,
     /// Meta information collected about each instruction word executed.
     pub iword_info: Option<BTreeMap<Address, IWordInfo>>,
     /// Runtime statistics
@@ -132,12 +132,12 @@ impl BDAState {
             unhandled_code_xrefs: BTreeSet::new(),
             mem_xrefs: BTreeSet::new(),
             stack_xrefs: BTreeSet::new(),
-            mos: Some(MemOpSeq::new()),
+            mos: Some(BTreeSet::new()),
             runtime_stats: RuntimeStats::new(),
         }
     }
 
-    pub fn take_mos(&mut self) -> MemOpSeq {
+    pub fn take_moses(&mut self) -> BTreeSet<MemOpSeq> {
         self.mos.take().unwrap()
     }
 
@@ -182,7 +182,7 @@ impl BDAState {
     }
 
     pub fn update_mos(&mut self, mos: MemOpSeq) {
-        self.mos.as_mut().unwrap().extend(mos);
+        self.mos.as_mut().unwrap().insert(mos);
     }
 
     pub fn update_iword_info(&mut self, iword_info: BTreeMap<Address, IWordInfo>) {

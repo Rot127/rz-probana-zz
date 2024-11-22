@@ -321,15 +321,15 @@ mod tests {
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
-        let mos = &state.take_mos();
+        let moses = &state.take_moses();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         let heap_val_0 = MemOp::new(0x08000078, AbstrVal::new_heap(1, BitVector::new_zero(64), 0x080000ac));
         let heap_val_1 = MemOp::new(0x08000078, AbstrVal::new_heap(1, BitVector::new_zero(64), 0x080000c9));
         let heap_val_2 = MemOp::new(0x08000078, AbstrVal::new_heap(1, BitVector::new_zero(64), 0x080000dd));
-        assert!(mos.contains(&heap_val_0), "HeapVal {} not in MOS", heap_val_0);
-        assert!(mos.contains(&heap_val_1), "HeapVal {} not in MOS", heap_val_1);
-        assert!(mos.contains(&heap_val_2), "HeapVal {} not in MOS", heap_val_2);
+        assert!(moses.iter().any(|mos| mos.contains(&heap_val_0)), "HeapVal {} not in MOS", heap_val_0);
+        assert!(moses.iter().any(|mos| mos.contains(&heap_val_1)), "HeapVal {} not in MOS", heap_val_1);
+        assert!(moses.iter().any(|mos| mos.contains(&heap_val_2)), "HeapVal {} not in MOS", heap_val_2);
         }
     }
 
@@ -365,7 +365,7 @@ mod tests {
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
-        let mos = &state.take_mos();
+        let moses = &state.take_moses();
         let heap_val_0 = MemOp::new(
             0x08000084,
             AbstrVal::new_heap(1, BitVector::new_zero(32), 0x080000bc),
@@ -379,17 +379,17 @@ mod tests {
             AbstrVal::new_heap(1, BitVector::new_zero(32), 0x080000ec),
         );
         assert!(
-            mos.contains(&heap_val_0),
+            moses.iter().any(|mos| mos.contains(&heap_val_0)),
             "HeapVal {} not in MOS",
             heap_val_0
         );
         assert!(
-            mos.contains(&heap_val_1),
+            moses.iter().any(|mos| mos.contains(&heap_val_1)),
             "HeapVal {} not in MOS",
             heap_val_1
         );
         assert!(
-            mos.contains(&heap_val_2),
+            moses.iter().any(|mos| mos.contains(&heap_val_2)),
             "HeapVal {} not in MOS",
             heap_val_2
         );

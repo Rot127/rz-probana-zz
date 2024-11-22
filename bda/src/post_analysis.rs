@@ -331,7 +331,12 @@ pub fn posterior_dependency_analysis(
     let mut I2M = SetMap::<Address, AbstrVal>::new();
     let mut DEP = SetMap::<Address, Address>::new();
     let mut KILL = SetMap::<Address, Address>::new();
-    analyzer.per_sample_analysis(state.take_mos(), &mut I2M, &mut DEP, &mut KILL);
+    for mos in state.take_moses() {
+        analyzer.per_sample_analysis(mos, &mut I2M, &mut DEP, &mut KILL);
+    }
+    println!("I2M:\n{:x}", I2M);
+    println!("DEP:\n{:x}", DEP);
+    println!("KILL:\n{:x}", KILL);
 
     let mut work_list: VecDeque<StateIdx> = VecDeque::new();
     work_list.push_back((0, icfg_entry.unwrap()));
