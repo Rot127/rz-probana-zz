@@ -8,8 +8,11 @@ use std::{
     time::Instant,
 };
 
-use binding::{log_rizin, log_rz, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN};
+use binding::{
+    log_rizin, log_rz, rz_notify_begin, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN,
+};
 use helper::{spinner::Spinner, user::ask_yes_no};
+use log::info;
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, CodeXrefType, ConcreteCodeXref, IntrpProducts};
 
@@ -19,6 +22,7 @@ use crate::{
     flow_graphs::{Address, FlowGraphOperations, NodeId},
     icfg::ICFG,
     path_sampler::{sample_path, Path},
+    post_analysis::posterior_dependency_analysis,
     state::{run_condition_fulfilled, BDAState, StatisticID},
 };
 
@@ -352,8 +356,12 @@ pub fn run_bda(core: GRzCore, icfg: &mut ICFG, state: &mut BDAState) {
     }
     rz_notify_done(
         core.clone(),
-        format!("Finished BDA analysis ({})", term_reason),
+        format!("Finished BDA sampling ({})", term_reason),
     );
+    rz_notify_begin(core.clone(), format!("BDA post-analysis"));
+    let dep = posterior_dependency_analysis(state, icfg);
+    rz_notify_done(core.clone(), format!("Finished BDA post-analysis"));
+    println!("{:x}", dep);
 }
 
 fn sample_path_into_buffer(

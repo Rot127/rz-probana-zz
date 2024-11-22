@@ -12,6 +12,7 @@ use rzil_abstr::interpreter::{AbstrVal, IWordInfo, MemOpSeq};
 use crate::{
     flow_graphs::{Address, FlowGraphOperations},
     icfg::ICFG,
+    state::BDAState,
 };
 
 type U8Cell = u8;
@@ -154,7 +155,7 @@ pub struct PostAnalyzer {
 }
 
 impl PostAnalyzer {
-    pub fn new(icfg: &ICFG) -> PostAnalyzer {
+    pub fn new(icfg: &ICFG, iword_info: SetMap<Address, IWordInfo>) -> PostAnalyzer {
         let mut edge_matrix = Matrix::new();
         for cfg in icfg.get_procedures().iter() {
             for (x_insn, y_insn, _) in cfg.1.read().unwrap().get_cfg().get_graph().all_edges() {
@@ -169,7 +170,7 @@ impl PostAnalyzer {
         PostAnalyzer {
             icfg_entries: icfg.get_entry_points().clone(),
             programm_graph: edge_matrix,
-            insn_meta_data: SetMap::new(),
+            insn_meta_data: iword_info,
             DIP: BTreeSet::new(),
         }
     }
@@ -320,40 +321,50 @@ impl PostAnalyzer {
     }
 }
 
-pub fn posterior_dependency_analysis(moses: Vec<MemOpSeq>, icfg: &ICFG) {
-    let mut analyzer = PostAnalyzer::new(icfg);
+pub fn posterior_dependency_analysis(
+    state: &mut BDAState,
+    icfg: &ICFG,
+) -> SetMap<Address, Address> {
+    let mut analyzer = PostAnalyzer::new(icfg, state.take_iword_info());
     // TODO: Handle all entries
     let icfg_entry = analyzer.next_icfg_entry();
-    let mut state = AbstractProgramState::new(icfg_entry.expect("No icfg_entry defined."));
+    let mut abstr_prog_state =
+        AbstractProgramState::new(icfg_entry.expect("No icfg_entry defined."));
 
     let mut I2M = SetMap::<Address, AbstrVal>::new();
     let mut DEP = SetMap::<Address, Address>::new();
     let mut KILL = SetMap::<Address, Address>::new();
-    for mos in moses.into_iter() {
-        analyzer.per_sample_analysis(mos, &mut I2M, &mut DEP, &mut KILL);
-    }
+    analyzer.per_sample_analysis(state.take_mos(), &mut I2M, &mut DEP, &mut KILL);
+
     let mut work_list: VecDeque<StateIdx> = VecDeque::new();
+    work_list.push_back((0, icfg_entry.unwrap()));
     let mut succ_edge_type;
     while !work_list.is_empty() {
         let state_idx = work_list.pop_front().unwrap();
         let mut iaddr = state_idx.1;
         let cs_idx = state_idx.0;
         if analyzer.is_call(&iaddr) {
-            state.push_to_cs(cs_idx, iaddr);
+            abstr_prog_state.push_to_cs(cs_idx, iaddr);
             succ_edge_type = CEDGE;
         } else {
             if analyzer.is_return(&iaddr) {
-                iaddr = state.pop_from_cs(cs_idx);
+                iaddr = abstr_prog_state.pop_from_cs(cs_idx);
             }
             succ_edge_type = IEDGE;
         }
         if analyzer.is_mem_write(&iaddr) {
-            PostAnalyzer::handle_memory_write(iaddr, &mut state, &state_idx, &I2M, &KILL);
+            PostAnalyzer::handle_memory_write(
+                iaddr,
+                &mut abstr_prog_state,
+                &state_idx,
+                &I2M,
+                &KILL,
+            );
         } else if analyzer.is_mem_read(&iaddr) {
             PostAnalyzer::handle_memory_read(
                 analyzer.get_dip_mut(),
                 iaddr,
-                &state,
+                &abstr_prog_state,
                 &state_idx,
                 &I2M,
                 &DEP,
@@ -361,10 +372,11 @@ pub fn posterior_dependency_analysis(moses: Vec<MemOpSeq>, icfg: &ICFG) {
         }
         for succ in analyzer.iter_successors(iaddr, succ_edge_type) {
             let succ_state_id = (cs_idx, *succ);
-            if !state.def_maps_equal(&succ_state_id, &state_idx) {
-                state.merge_maps(&succ_state_id, &state_idx);
+            if !abstr_prog_state.def_maps_equal(&succ_state_id, &state_idx) {
+                abstr_prog_state.merge_maps(&succ_state_id, &state_idx);
                 work_list.push_back(succ_state_id);
             }
         }
     }
+    DEP
 }

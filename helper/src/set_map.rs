@@ -3,7 +3,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt::Display,
+    fmt::{Display, LowerHex},
 };
 
 /// KeyType -> { CellType } data structure
@@ -27,7 +27,28 @@ where
                 return std::fmt::Result::Err(std::fmt::Error);
             };
             for v in set.iter() {
-                let Ok(_) = write!(f, "\t->{}\n", v) else {
+                let Ok(_) = write!(f, "\t-> {}\n", v) else {
+                    return std::fmt::Result::Err(std::fmt::Error);
+                };
+            }
+        }
+        write!(f, "\n")
+    }
+}
+
+impl<KeyType, CellType> LowerHex for SetMap<KeyType, CellType>
+where
+    KeyType: Ord,
+    KeyType: LowerHex,
+    CellType: LowerHex,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (k, set) in self.map.iter() {
+            let Ok(_) = write!(f, "{:#x}\n", k) else {
+                return std::fmt::Result::Err(std::fmt::Error);
+            };
+            for v in set.iter() {
+                let Ok(_) = write!(f, "\t-> {:#x}\n", v) else {
                     return std::fmt::Result::Err(std::fmt::Error);
                 };
             }
@@ -78,6 +99,18 @@ where
             return;
         }
         self.map.insert(id, set);
+    }
+
+    pub fn extend_map(&mut self, map: BTreeMap<KeyType, CellType>) {
+        for (id, val) in map.into_iter() {
+            if let Some(id_set) = self.map.get_mut(&id) {
+                id_set.insert(val);
+                return;
+            }
+            let mut set = BTreeSet::<CellType>::new();
+            set.insert(val);
+            self.map.insert(id, set);
+        }
     }
 
     pub fn assign_difference(&mut self, id: &KeyType, exclude: &BTreeSet<CellType>) {

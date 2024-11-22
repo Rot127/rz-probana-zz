@@ -12,12 +12,13 @@ use crate::icfg::ICFG;
 use crate::state::BDAState;
 
 use binding::{
-    cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef, rz_analysis_create_block,
-    rz_analysis_create_function, rz_analysis_function_add_block, rz_analysis_function_is_input,
-    rz_analysis_function_is_malloc, rz_analysis_get_block_at, rz_analysis_get_function_at,
-    rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR, rz_core_graph_icfg, rz_core_t,
-    rz_graph_free, rz_notify_error, str_to_c, GRzCore, RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC,
-    RzBinAddr, RzBinFile, RzCmdStatus, RzCore, RzCoreWrapper, RzGraph, RzGraphNode,
+    c_to_str, cpvec_to_vec, list_to_vec, log_rizin, log_rz, mpvec_to_vec, pderef,
+    rz_analysis_create_block, rz_analysis_create_function, rz_analysis_function_add_block,
+    rz_analysis_function_is_input, rz_analysis_function_is_malloc, rz_analysis_get_block_at,
+    rz_analysis_get_function_at, rz_bin_object_get_entries, rz_cmd_status_t_RZ_CMD_STATUS_ERROR,
+    rz_core_graph_icfg, rz_core_t, rz_graph_free, rz_notify_error, str_to_c, GRzCore,
+    RzAnalysisFcnType_RZ_ANALYSIS_FCN_TYPE_LOC, RzBinAddr, RzBinFile, RzCmdStatus, RzCore,
+    RzCoreWrapper, RzGraph, RzGraphNode,
     RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_COND,
     RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_ENTRY,
     RzGraphNodeCFGIWordSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_IWORD_EXIT,

@@ -321,7 +321,7 @@ mod tests {
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
-        let mos = &state.mos;
+        let mos = &state.take_mos();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
         let heap_val_0 = MemOp::new(0x08000078, AbstrVal::new_heap(1, BitVector::new_zero(64), 0x080000ac));
@@ -365,7 +365,7 @@ mod tests {
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
         run_bda(core, &mut icfg, &mut state);
 
-        let mos = &state.mos;
+        let mos = &state.take_mos();
         let heap_val_0 = MemOp::new(
             0x08000084,
             AbstrVal::new_heap(1, BitVector::new_zero(32), 0x080000bc),
