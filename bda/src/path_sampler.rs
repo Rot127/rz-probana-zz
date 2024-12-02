@@ -188,22 +188,20 @@ fn node_in_ranges(nid: &NodeId, addr_ranges: &Vec<(Address, Address)>) -> bool {
 fn filter_call_targets(
     cfg: &mut CFG,
     cur: NodeId,
-    addr_ranges: &Vec<(Address, Address)>,
-) -> (NodeIdSet, NodeIdSet) {
+    addr_ranges: Option<&Vec<(Address, Address)>>,
+) -> NodeIdSet {
     let mut call_targets = NodeIdSet::new();
-    let mut unfiltered_call_targets = NodeIdSet::new();
     for i in cfg.nodes_meta.get(&cur).unwrap().insns.iter() {
         if i.call_targets.is_empty() {
             continue;
         }
         i.call_targets.iter().for_each(|ct| {
-            unfiltered_call_targets.insert(ct.clone());
-            if node_in_ranges(ct, addr_ranges) {
+            if addr_ranges.is_some_and(|ar| node_in_ranges(ct, ar)) {
                 call_targets.insert(ct.clone());
             }
         });
     }
-    (unfiltered_call_targets, call_targets)
+    call_targets
 }
 
 fn filter_jump_targets(
@@ -254,19 +252,8 @@ fn sample_cfg_path(
         if !node_in_ranges(&cur, addr_ranges) {
             return SamplingState::Continue;
         }
-        let mut ninfo = IWordInfo::None;
-        if node_follows_call {
-            ninfo |= IWordInfo::IsReturnPoint;
-            node_follows_call = false;
-        }
-        if is_jump(cfg, cur) {
-            ninfo |= IWordInfo::IsJump;
-        }
-        if is_tail_call(cfg, cur) {
-            ninfo |= IWordInfo::IsTailCall;
-        }
-        if is_exit(cfg, cur) {
-            ninfo |= IWordInfo::IsExit;
+        let ninfo = get_node_info(cur, &mut node_follows_call, icfg, cfg);
+        if ninfo.is_exit() {
             // Last node in path
             path.push(cur, ninfo);
             return SamplingState::Exit;
@@ -274,24 +261,8 @@ fn sample_cfg_path(
 
         let mut res = SamplingState::Continue;
         // println!("{}", format!("{}-> {}", " ".repeat(i), cur));
-        if is_call(cfg, cur) {
-            // Put we set the meta information for the path node (marking it as call).
-            ninfo |= IWordInfo::IsCall;
-
-            let (unfiltered_call_targets, call_targets) =
-                filter_call_targets(cfg, cur, addr_ranges);
-            if unfiltered_call_targets.iter().any(|ct| icfg.is_malloc(ct)) {
-                ninfo |= IWordInfo::CallsMalloc;
-            }
-            if unfiltered_call_targets.iter().any(|ct| icfg.is_input(ct)) {
-                ninfo |= IWordInfo::CallsInput;
-            }
-            if unfiltered_call_targets
-                .iter()
-                .any(|ct| icfg.is_unmapped(ct))
-            {
-                ninfo |= IWordInfo::CallsUnmapped;
-            }
+        if ninfo.is_call() {
+            let call_targets = filter_call_targets(cfg, cur, Some(addr_ranges));
 
             if ninfo.calls_unmapped() || ninfo.calls_malloc() || ninfo.calls_input() {
                 // Either a dynamically linked procedure (without CFG)
@@ -373,6 +344,47 @@ fn sample_cfg_path(
         }
         cur = picked_neighbor;
     }
+}
+
+fn get_node_info(
+    nid: NodeId,
+    node_follows_call: &mut bool,
+    icfg: &ICFG,
+    cfg: &mut CFG,
+) -> IWordInfo {
+    let mut ninfo = IWordInfo::None;
+    if *node_follows_call {
+        ninfo |= IWordInfo::IsReturnPoint;
+        *node_follows_call = false;
+    }
+    if is_jump(cfg, nid) {
+        ninfo |= IWordInfo::IsJump;
+    }
+    if is_tail_call(cfg, nid) {
+        ninfo |= IWordInfo::IsTailCall;
+    }
+    if is_exit(cfg, nid) {
+        ninfo |= IWordInfo::IsExit;
+    }
+    if is_call(cfg, nid) {
+        // Put we set the meta information for the path node (marking it as call).
+        ninfo |= IWordInfo::IsCall;
+
+        let unfiltered_call_targets = filter_call_targets(cfg, nid, None);
+        if unfiltered_call_targets.iter().any(|ct| icfg.is_malloc(ct)) {
+            ninfo |= IWordInfo::CallsMalloc;
+        }
+        if unfiltered_call_targets.iter().any(|ct| icfg.is_input(ct)) {
+            ninfo |= IWordInfo::CallsInput;
+        }
+        if unfiltered_call_targets
+            .iter()
+            .any(|ct| icfg.is_unmapped(ct))
+        {
+            ninfo |= IWordInfo::CallsUnmapped;
+        }
+    }
+    ninfo
 }
 
 fn is_call(cfg: &mut CFG, cur: NodeId) -> bool {
