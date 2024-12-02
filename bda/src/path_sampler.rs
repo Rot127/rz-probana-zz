@@ -189,19 +189,21 @@ fn filter_call_targets(
     cfg: &mut CFG,
     cur: NodeId,
     addr_ranges: &Vec<(Address, Address)>,
-) -> NodeIdSet {
+) -> (NodeIdSet, NodeIdSet) {
     let mut call_targets = NodeIdSet::new();
+    let mut unfiltered_call_targets = NodeIdSet::new();
     for i in cfg.nodes_meta.get(&cur).unwrap().insns.iter() {
         if i.call_targets.is_empty() {
             continue;
         }
         i.call_targets.iter().for_each(|ct| {
+            unfiltered_call_targets.insert(ct.clone());
             if node_in_ranges(ct, addr_ranges) {
                 call_targets.insert(ct.clone());
             }
         });
     }
-    call_targets
+    (unfiltered_call_targets, call_targets)
 }
 
 fn filter_jump_targets(
@@ -276,14 +278,18 @@ fn sample_cfg_path(
             // Put we set the meta information for the path node (marking it as call).
             ninfo |= IWordInfo::IsCall;
 
-            let call_targets = filter_call_targets(cfg, cur, addr_ranges);
-            if call_targets.iter().any(|ct| icfg.is_malloc(ct)) {
+            let (unfiltered_call_targets, call_targets) =
+                filter_call_targets(cfg, cur, addr_ranges);
+            if unfiltered_call_targets.iter().any(|ct| icfg.is_malloc(ct)) {
                 ninfo |= IWordInfo::CallsMalloc;
             }
-            if call_targets.iter().any(|ct| icfg.is_input(ct)) {
+            if unfiltered_call_targets.iter().any(|ct| icfg.is_input(ct)) {
                 ninfo |= IWordInfo::CallsInput;
             }
-            if call_targets.iter().any(|ct| icfg.is_unmapped(ct)) {
+            if unfiltered_call_targets
+                .iter()
+                .any(|ct| icfg.is_unmapped(ct))
+            {
                 ninfo |= IWordInfo::CallsUnmapped;
             }
 
