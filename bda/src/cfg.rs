@@ -1383,6 +1383,12 @@ impl Procedure {
         self.is_malloc
     }
 
+    /// True if this procedure is a function returning an unknown value.
+    /// False otherwise.
+    pub fn is_input(&self) -> bool {
+        self.is_input
+    }
+
     /// True if this procedure is not mapped in memory.
     /// False otherwise.
     pub fn is_unmapped(&self) -> bool {

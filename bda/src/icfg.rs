@@ -66,13 +66,13 @@ impl ICFG {
     pub fn is_malloc(&self, node_id: &NodeId) -> bool {
         self.procedures
             .get(node_id)
-            .is_some_and(|p| p.read().expect("").is_malloc())
+            .is_some_and(|p| p.read().unwrap().is_malloc())
     }
 
     pub fn is_unmapped(&self, node_id: &NodeId) -> bool {
         self.procedures
             .get(node_id)
-            .is_some_and(|p| p.read().expect("").is_unmapped())
+            .is_some_and(|p| p.read().unwrap().is_unmapped())
             || !self.has_procedure(node_id)
     }
 
@@ -80,7 +80,9 @@ impl ICFG {
         if !self.is_procedure(node_id) {
             return false;
         }
-        false
+        self.procedures
+            .get(node_id)
+            .is_some_and(|p| p.read().unwrap().is_input())
     }
 
     pub fn print_stats(&self) {
