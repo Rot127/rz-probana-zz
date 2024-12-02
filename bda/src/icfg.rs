@@ -64,6 +64,7 @@ impl ICFG {
     }
 
     pub fn is_malloc(&self, node_id: &NodeId) -> bool {
+        debug_assert!(self.is_procedure(node_id));
         self.procedures
             .get(node_id)
             .is_some_and(|p| p.read().unwrap().is_malloc())
@@ -77,9 +78,7 @@ impl ICFG {
     }
 
     pub fn is_input(&self, node_id: &NodeId) -> bool {
-        if !self.is_procedure(node_id) {
-            return false;
-        }
+        debug_assert!(self.is_procedure(node_id));
         self.procedures
             .get(node_id)
             .is_some_and(|p| p.read().unwrap().is_input())
