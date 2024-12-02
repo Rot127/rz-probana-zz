@@ -72,6 +72,10 @@ where
         self.map.get(id)
     }
 
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
     pub fn insert(&mut self, id: KeyType, val: CellType) {
         if let Some(id_set) = self.map.get_mut(&id) {
             id_set.insert(val);

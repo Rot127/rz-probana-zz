@@ -76,11 +76,39 @@ mod tests {
     }
 
     #[test]
-    pub fn test_x86_dep_search_on_input() {
+    pub fn test_x86_dep_paper_example() {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_x86_paper_dep_example();
-        let mut state = BDAState::new(3, 5, 1, 1);
-        run_bda(core, &mut icfg, &mut state);
+        let mut state = BDAState::new(3, 2, 1, 1);
+        let result = run_bda(core, &mut icfg, &mut state);
+        let Some(dep) = result else {
+            panic!("Is none");
+        };
+        println!("{dep:x}");
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        assert!(dep.get(&0x800009c).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
+        assert!(dep.get(&0x80000b1).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
+        assert!(dep.get(&0x80000b8).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
+        assert!(dep.get(&0x80000bc).is_some_and(|set| { set.len() == 1 && set.contains(&0x80000b5) }));
+        assert!(dep.get(&0x80000d2).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
+        assert!(dep.get(&0x80000d6).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
+        assert!(dep.get(&0x80000e0).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
+        assert!(dep.get(&0x80000e4).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
+        assert!(dep.get(&0x80000ed).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000d8) && set.contains(&0x80000ea) }));
+        assert!(dep.get(&0x80000f5).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
+        assert!(dep.get(&0x80000f6).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
+        assert!(dep.get(&0x8000120).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000100) }));
+        assert_eq!(dep.len(), 12, "DEP is:\n{dep:x}");
+        }
+
+        assert!(dep
+            .get(&0x8000079)
+            .is_some_and(|set| { set.contains(&0x8000059) && set.contains(&0x8000075) }));
+        assert!(dep
+            .get(&0x8000084)
+            .is_some_and(|set| { set.contains(&0x8000040) }));
     }
 }
