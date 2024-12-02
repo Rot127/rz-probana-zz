@@ -1495,10 +1495,10 @@ impl AbstrVM {
         let (reason, dont_execute) = if self.insn_info.calls_malloc() {
             // Not yet done for iwords. iwords must only skip the call part.
             ("is malloc", true)
-        } else if self.insn_info.calls_unmapped() {
-            ("is unmapped", true)
         } else if self.insn_info.calls_input() {
             ("is input", true)
+        } else if self.insn_info.calls_unmapped() {
+            ("is unmapped", true)
         } else {
             ("none", false)
         };
