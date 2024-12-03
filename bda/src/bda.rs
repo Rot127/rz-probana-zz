@@ -20,7 +20,7 @@ use crate::{
     cfg::Procedure,
     flow_graphs::{Address, FlowGraphOperations, NodeId},
     icfg::ICFG,
-    path_sampler::{sample_path, Path},
+    path_sampler::{sample_path, testing_addresses_to_path, Path},
     post_analysis::posterior_dependency_analysis,
     state::{run_condition_fulfilled, BDAState, StatisticID},
 };
@@ -395,4 +395,45 @@ fn sample_path_into_buffer(
         state.runtime_stats.add_path_len(path.len());
         path_buffer.push_back(path);
     }
+}
+
+#[allow(dead_code)]
+pub fn testing_bda_on_paths(
+    core: GRzCore,
+    icfg: &mut ICFG,
+    state: &mut BDAState,
+    paths: Vec<VecDeque<Address>>,
+) -> Option<SetMap<Address, Address>> {
+    state.bda_timer.start();
+    state.icfg_update_timer.start();
+    let entry_points = match get_entry_point_list(&core, icfg) {
+        Some(ep) => ep,
+        None => {
+            rz_notify_error(core.clone(), "BDA analysis failed with an error".to_owned());
+            return None;
+        }
+    };
+    icfg.set_entries(&entry_points);
+    icfg.resolve_loops(state.num_threads);
+
+    // Run abstract interpretation
+    let mut products: Vec<IntrpProducts> = Vec::new();
+    let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
+    for mut path_addresses in paths.into_iter() {
+        let mut path = Path::new();
+        testing_addresses_to_path(icfg, &mut path_addresses, &mut path);
+        let addr_path = path.to_addr_path();
+        println!("{addr_path}");
+        interpret(0, core.clone(), addr_path, tx.clone());
+
+        if let Ok(prods) = rx.try_recv() {
+            products.push(prods);
+        }
+        move_products_to_state(state, &mut products);
+        if state.update_icfg_check() {
+            update_icfg(core.clone(), state, icfg);
+        }
+    }
+    let dep = posterior_dependency_analysis(state, icfg);
+    Some(dep)
 }

@@ -443,3 +443,40 @@ pub fn sample_path(
     );
     path
 }
+
+#[allow(dead_code)]
+/// Translate given addresses to a Path.
+/// Expects the first node to be an entry node of an CFG.
+pub fn testing_addresses_to_path(icfg: &ICFG, addresses: &mut VecDeque<Address>, path: &mut Path) {
+    let proc = icfg.get_procedure(&&NodeId::new_original(*addresses.get(0).unwrap()));
+    let mut node_follows_call = false;
+    while let Some(addr) = addresses.pop_front() {
+        let nid = NodeId::new_original(addr);
+        let ninfo = get_node_info(
+            nid,
+            &mut node_follows_call,
+            icfg,
+            proc.write().unwrap().get_cfg_mut(),
+        );
+        path.push(nid, ninfo);
+
+        if ninfo.is_call() {
+            if !(ninfo.calls_unmapped() || ninfo.calls_malloc() || ninfo.calls_input()) {
+                let next = NodeId::new_original(*addresses.get(0).unwrap());
+                node_follows_call = true;
+                if icfg.has_procedure(&next) {
+                    testing_addresses_to_path(icfg, addresses, path);
+                }
+            }
+        }
+        if addresses.is_empty()
+            || !proc
+                .read()
+                .unwrap()
+                .get_cfg()
+                .has_node(NodeId::new_original(*addresses.get(0).unwrap()))
+        {
+            return;
+        }
+    }
+}

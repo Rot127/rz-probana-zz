@@ -1027,6 +1027,10 @@ impl CFG {
             );
         }
     }
+
+    pub(crate) fn has_node(&self, nid: NodeId) -> bool {
+        self.get_graph().contains_node(nid)
+    }
 }
 
 impl FlowGraphOperations for CFG {
