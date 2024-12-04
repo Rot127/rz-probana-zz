@@ -196,7 +196,9 @@ fn filter_call_targets(
             continue;
         }
         i.call_targets.iter().for_each(|ct| {
-            if addr_ranges.is_some_and(|ar| node_in_ranges(ct, ar)) {
+            if addr_ranges.is_none() {
+                call_targets.insert(ct.clone());
+            } else if addr_ranges.is_some_and(|ar| node_in_ranges(ct, ar)) {
                 call_targets.insert(ct.clone());
             }
         });
