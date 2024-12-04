@@ -143,13 +143,15 @@ mod tests {
         assert!(dep.get(&0x80000b8).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
         assert!(dep.get(&0x80000bc).is_some_and(|set| { set.len() == 1 && set.contains(&0x80000b5) }));
         assert!(dep.get(&0x80000d2).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000d6).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
         assert!(dep.get(&0x80000e0).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000e4).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
-        assert!(dep.get(&0x80000ed).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000d8) && set.contains(&0x80000ea) }));
         assert!(dep.get(&0x80000f5).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000090) }));
         assert!(dep.get(&0x80000f6).is_some_and(|set| { set.len() == 2 && set.contains(&0x8000090) && set.contains(&0x8000113) }));
         assert!(dep.get(&0x8000120).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000100) }));
+
+        // Should be infered by different paths
+        assert!(dep.get(&0x80000d6).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
+        assert!(dep.get(&0x80000e4).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
+        assert!(dep.get(&0x80000ed).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000d8) && set.contains(&0x80000ea) }));
         assert_eq!(dep.len(), 12, "DEP is:\n{dep:x}");
         }
     }
