@@ -252,22 +252,19 @@ impl PostAnalyzer {
             state.add_empty_map(curr_state_idx);
             curr_m2i = state.get_mut(curr_state_idx);
         }
+        let Some(m2i) = curr_m2i.as_mut() else {
+            panic!("It was just initialized");
+        };
         let Some(i2m_iter) = GI2M.set_iter(&iaddr) else {
             return;
         };
         for maddr in i2m_iter {
             if GI2M.len_of(&iaddr) == 1 {
-                curr_m2i
-                    .as_mut()
-                    .unwrap()
-                    .strong_update(maddr.clone(), iaddr);
+                m2i.strong_update(maddr.clone(), iaddr);
             } else {
-                curr_m2i.as_mut().unwrap().insert(maddr.clone(), iaddr);
+                m2i.insert(maddr.clone(), iaddr);
                 if GKILL.len_of(&iaddr) == 1 {
-                    curr_m2i
-                        .as_mut()
-                        .unwrap()
-                        .strong_kill(maddr, GKILL.get(&iaddr))
+                    m2i.strong_kill(maddr, GKILL.get(&iaddr))
                 }
             }
         }
@@ -292,10 +289,10 @@ impl PostAnalyzer {
             let Some(i2m_iter) = GI2M.set_iter(&iaddr) else {
                 return;
             };
+            let Some(m2i) = state.get(curr_state_idx) else {
+                return;
+            };
             for maddr in i2m_iter {
-                let Some(m2i) = state.get(curr_state_idx) else {
-                    continue;
-                };
                 let Some(m2i_iter) = m2i.map.set_iter(maddr) else {
                     continue;
                 };

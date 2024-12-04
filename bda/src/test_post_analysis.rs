@@ -87,7 +87,6 @@ mod tests {
         let Some(dep) = result else {
             panic!("Is none");
         };
-        println!("{dep:x}");
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
@@ -136,7 +135,6 @@ mod tests {
         let Some(dep) = result else {
             panic!("Is none");
         };
-        println!("{dep:x}");
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
