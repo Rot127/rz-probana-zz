@@ -263,6 +263,7 @@ fn sample_cfg_path(
 
         let mut res = SamplingState::Continue;
         // println!("{}", format!("{}-> {}", " ".repeat(i), cur));
+        path.push(cur, ninfo);
         if ninfo.is_call() {
             let call_targets = filter_call_targets(cfg, cur, Some(addr_ranges));
 
@@ -270,14 +271,12 @@ fn sample_cfg_path(
                 // Either a dynamically linked procedure (without CFG)
                 // a malloc/input call or indirect call with unknown addresses.
                 // We don't recurse in those.
-                path.push(cur, ninfo);
                 // These calls are effectively not followed.
                 // So the next instruction does not follow a semantic call.
                 node_follows_call = false;
             } else {
                 node_follows_call = true;
                 // recurse into CFG to sample a new path.
-                path.push(cur, ninfo);
                 let ct = call_targets.sample();
                 if ct != INVALID_NODE_ID {
                     if sample_cfg_path(
@@ -297,7 +296,6 @@ fn sample_cfg_path(
                 // Go to following node
             }
         } else if is_tail_call(cfg, cur) {
-            path.push(cur, ninfo);
             let jump_targets = filter_jump_targets(cfg, cur, addr_ranges);
             let jt = jump_targets.sample();
             if jt != INVALID_NODE_ID {
@@ -320,8 +318,6 @@ fn sample_cfg_path(
                 "The instruction word at {:#x} is marked as tail jump but as other outgoing edges which are no jumps.", cur.address
             );
             return res;
-        } else {
-            path.push(cur, ninfo);
         }
 
         // Visit all neighbors and decide which one to add to the path
