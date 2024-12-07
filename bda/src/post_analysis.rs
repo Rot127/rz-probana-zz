@@ -323,12 +323,16 @@ impl PostAnalyzer {
     fn get_dip_mut(&mut self) -> &mut BTreeSet<(Address, Address)> {
         &mut self.DIP
     }
+
+    fn clone_dip(&self) -> BTreeSet<(Address, Address)> {
+        self.DIP.clone()
+    }
 }
 
 pub fn posterior_dependency_analysis(
     state: &mut BDAState,
     icfg: &ICFG,
-) -> SetMap<Address, Address> {
+) -> BTreeSet<(Address, Address)> {
     let mut analyzer = PostAnalyzer::new(icfg, state.take_iword_info());
     // TODO: Handle all entries
     let icfg_entry = analyzer.next_icfg_entry();
@@ -387,5 +391,5 @@ pub fn posterior_dependency_analysis(
             }
         }
     }
-    DEP
+    analyzer.clone_dip()
 }

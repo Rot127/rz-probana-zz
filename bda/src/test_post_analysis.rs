@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
+    use std::collections::{BTreeSet, VecDeque};
 
     use binding::{
         get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
@@ -13,9 +13,17 @@ mod tests {
     use crate::{
         bda::{run_bda, testing_bda_on_paths},
         bda_binding::{add_procedures_to_icfg, get_graph},
+        flow_graphs::Address,
         icfg::ICFG,
         state::BDAState,
     };
+
+    fn print_dip(DIP: &BTreeSet<(Address, Address)>) {
+        println!("DIP:");
+        for (a0, a1) in DIP.iter() {
+            println!("({a0:#x} <-> {a1:#x})");
+        }
+    }
 
     fn get_x86_post_simple_two_deps() -> (GRzCore, ICFG) {
         let discover_o = get_test_bin_path().join("x86_post_simple_two_deps.o");
@@ -37,21 +45,19 @@ mod tests {
     }
 
     #[test]
-    pub fn test_x86_post_simple_two_deps() {
+    pub fn test_post_x86_simple_two_deps() {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_x86_post_simple_two_deps();
         let mut state = BDAState::new(3, 1, 1, 1);
         let result = run_bda(core, &mut icfg, &mut state);
-        let Some(dep) = result else {
+        let Some(dip) = result else {
             panic!("Is none");
         };
-        assert!(dep
-            .get(&0x8000079)
-            .is_some_and(|set| { set.contains(&0x8000059) && set.contains(&0x8000075) }));
-        assert!(dep
-            .get(&0x8000084)
-            .is_some_and(|set| { set.contains(&0x8000040) }));
+        assert!(dip.contains(&(0x8000079, 0x8000059)));
+        assert!(dip.contains(&(0x8000079, 0x8000075)));
+        assert!(dip.contains(&(0x8000084, 0x8000040)));
+        assert_eq!(dip.len(), 3);
     }
 
     fn get_x86_paper_dep_example() -> (GRzCore, ICFG) {
@@ -78,37 +84,42 @@ mod tests {
     }
 
     #[test]
-    pub fn test_x86_dep_paper_example() {
+    pub fn test_post_x86_dep_paper_example() {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_x86_paper_dep_example();
         let mut state = BDAState::new(3, 2, 1, 1);
         let result = run_bda(core, &mut icfg, &mut state);
-        let Some(dep) = result else {
+        let Some(dip) = result else {
             panic!("Is none");
         };
+        print_dip(&dip);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert!(dep.get(&0x800009c).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000b1).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000b8).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000bc).is_some_and(|set| { set.len() == 1 && set.contains(&0x80000b5) }));
-        assert!(dep.get(&0x80000d2).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000d6).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
-        assert!(dep.get(&0x80000e0).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000e4).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
-        assert!(dep.get(&0x80000ed).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000d8) && set.contains(&0x80000ea) }));
-        assert!(dep.get(&0x80000f5).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000090) }));
-        assert!(dep.get(&0x80000f6).is_some_and(|set| { set.len() == 2 && set.contains(&0x8000090) && set.contains(&0x8000113) }));
-        assert!(dep.get(&0x8000120).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000100) }));
-        assert_eq!(dep.len(), 12, "DEP is:\n{dep:x}");
+        assert!(dip.get(&(0x800009c, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000b1, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000b8, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000bc, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000d2, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000e0, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000f5, 0x8000090)).is_some());
+        assert!(dip.get(&(0x8000120, 0x8000100)).is_some());
+        assert!(dip.get(&(0x80000d6, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some());
+        assert!(dip.get(&(0x80000f6, 0x8000113)).is_some());
+        assert!(dip.get(&(0x80000d6, 0x80000a0)).is_some());
+        assert!(dip.get(&(0x80000e4, 0x80000a0)).is_some());
+        assert!(dip.get(&(0x80000ed, 0x80000d8)).is_some());
+        assert!(dip.get(&(0x80000f6, 0x8000090)).is_some());
+        assert_eq!(dip.len(), 16);
         }
     }
 
     #[test]
     /// Run only two paths, get products and check if the post analysis does the inference correctly.
-    pub fn test_x86_dep_paper_example_inference() {
+    pub fn test_post_x86_dep_paper_example_inference() {
         wait_for_exlusive_core!();
 
         let (core, mut icfg) = get_x86_paper_dep_example();
@@ -132,27 +143,32 @@ mod tests {
             ]),
         ]);
         let result = testing_bda_on_paths(core, &mut icfg, &mut state, paths);
-        let Some(dep) = result else {
+        let Some(dip) = result else {
             panic!("Is none");
         };
+        print_dip(&dip);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert!(dep.get(&0x800009c).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000b1).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000b8).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000bc).is_some_and(|set| { set.len() == 1 && set.contains(&0x80000b5) }));
-        assert!(dep.get(&0x80000d2).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000e0).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000098) }));
-        assert!(dep.get(&0x80000f5).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000090) }));
-        assert!(dep.get(&0x80000f6).is_some_and(|set| { set.len() == 2 && set.contains(&0x8000090) && set.contains(&0x8000113) }));
-        assert!(dep.get(&0x8000120).is_some_and(|set| { set.len() == 1 && set.contains(&0x8000100) }));
+        assert!(dip.get(&(0x800009c, 0x8000098)).is_some() );
+        assert!(dip.get(&(0x80000b1, 0x8000098)).is_some() );
+        assert!(dip.get(&(0x80000b8, 0x8000098)).is_some() );
+        assert!(dip.get(&(0x80000bc, 0x80000b5)).is_some() );
+        assert!(dip.get(&(0x80000d2, 0x8000098)).is_some() );
+        assert!(dip.get(&(0x80000e0, 0x8000098)).is_some() );
+        assert!(dip.get(&(0x80000f5, 0x8000090)).is_some() );
+        assert!(dip.get(&(0x80000f6, 0x8000113)).is_some() );
+        assert!(dip.get(&(0x80000f6, 0x8000090)).is_some() );
+        assert!(dip.get(&(0x8000120, 0x8000100)).is_some() );
 
         // Should be infered by different paths
-        assert!(dep.get(&0x80000d6).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
-        assert!(dep.get(&0x80000e4).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000a0) && set.contains(&0x80000b5) }));
-        assert!(dep.get(&0x80000ed).is_some_and(|set| { set.len() == 2 && set.contains(&0x80000d8) && set.contains(&0x80000ea) }));
-        assert_eq!(dep.len(), 12, "DEP is:\n{dep:x}");
+        assert!(dip.get(&(0x80000d6, 0x80000a0)).is_some() );
+        assert!(dip.get(&(0x80000e4, 0x80000a0)).is_some() );
+        assert!(dip.get(&(0x80000ed, 0x80000d8)).is_some() );
+        assert!(dip.get(&(0x80000d6, 0x80000b5)).is_some() );
+        assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some() );
+        assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some() );
+        assert_eq!(dip.len(), 16);
         }
     }
 }

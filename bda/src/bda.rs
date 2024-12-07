@@ -11,7 +11,7 @@ use std::{
 use binding::{
     log_rizin, log_rz, rz_notify_begin, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN,
 };
-use helper::{set_map::SetMap, spinner::Spinner, user::ask_yes_no};
+use helper::{spinner::Spinner, user::ask_yes_no};
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, CodeXrefType, ConcreteCodeXref, IntrpProducts};
 
@@ -194,7 +194,7 @@ pub fn run_bda(
     core: GRzCore,
     icfg: &mut ICFG,
     state: &mut BDAState,
-) -> Option<SetMap<Address, Address>> {
+) -> Option<BTreeSet<(Address, Address)>> {
     state.bda_timer.start();
     state.icfg_update_timer.start();
     let ranges = core
@@ -362,10 +362,9 @@ pub fn run_bda(
         format!("Finished BDA sampling ({})", term_reason),
     );
     rz_notify_begin(core.clone(), format!("BDA post-analysis"));
-    let dep = posterior_dependency_analysis(state, icfg);
+    let dip = posterior_dependency_analysis(state, icfg);
     rz_notify_done(core.clone(), format!("Finished BDA post-analysis"));
-    println!("{:x}", dep);
-    Some(dep)
+    Some(dip)
 }
 
 fn sample_path_into_buffer(
@@ -403,7 +402,7 @@ pub fn testing_bda_on_paths(
     icfg: &mut ICFG,
     state: &mut BDAState,
     paths: Vec<VecDeque<Address>>,
-) -> Option<SetMap<Address, Address>> {
+) -> Option<BTreeSet<(Address, Address)>> {
     state.bda_timer.start();
     state.icfg_update_timer.start();
     let entry_points = match get_entry_point_list(&core, icfg) {
@@ -434,6 +433,6 @@ pub fn testing_bda_on_paths(
             update_icfg(core.clone(), state, icfg);
         }
     }
-    let dep = posterior_dependency_analysis(state, icfg);
-    Some(dep)
+    let dip = posterior_dependency_analysis(state, icfg);
+    Some(dip)
 }
