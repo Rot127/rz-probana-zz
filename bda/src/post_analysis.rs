@@ -6,6 +6,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     fmt::LowerHex,
+    ops::{RangeBounds, RangeInclusive},
 };
 
 use helper::matrix::Matrix;
@@ -340,17 +341,17 @@ impl PostAnalyzer {
 
     fn iter_successors(
         &self,
-        iaddr: Address,
+        iaddr: &Address,
         successor_type: U8Cell,
     ) -> helper::matrix::KeyIter<Address, U8Cell> {
         if successor_type == CEDGE {
-            return self.programm_graph.x_row_key_iter(&iaddr, &is_cedge_cell);
+            return self.programm_graph.x_row_key_iter(iaddr, &is_cedge_cell);
         } else if successor_type == IEDGE {
-            return self.programm_graph.x_row_key_iter(&iaddr, &is_iedge_cell);
+            return self.programm_graph.x_row_key_iter(iaddr, &is_iedge_cell);
         } else if successor_type == (IEDGE | CEDGE) {
             return self
                 .programm_graph
-                .x_row_key_iter(&iaddr, &is_c_or_iedge_cell);
+                .x_row_key_iter(iaddr, &is_c_or_iedge_cell);
         }
         panic!("Edge type not handled: {}", successor_type);
     }
@@ -361,6 +362,21 @@ impl PostAnalyzer {
 
     fn clone_dip(&self) -> BTreeSet<(Address, Address)> {
         self.DIP.clone()
+    }
+
+    // Returns true if any of the call targets is followed.
+    // False otherwise.
+    fn call_is_followed(
+        &self,
+        addr_ranges: &Vec<RangeInclusive<Address>>,
+        iaddr: &Address,
+    ) -> bool {
+        for call_target in self.iter_successors(iaddr, CEDGE) {
+            if addr_ranges.iter().any(|range| range.contains(call_target)) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -385,15 +401,18 @@ pub fn posterior_dependency_analysis(
     println!("KILL:\n{:x}", KILL);
 
     let mut work_list: VecDeque<StateIdx> = VecDeque::new();
+    let mut succ_type = IEDGE;
     work_list.push_back((0, icfg_entry.unwrap()));
     while !work_list.is_empty() {
         let state_idx = work_list.pop_front().unwrap();
         let mut iaddr = state_idx.1;
         let cs_idx = state_idx.0;
-        if analyzer.is_call(&iaddr) {
+        if analyzer.is_call(&iaddr) && analyzer.call_is_followed(state.get_ranges(), &iaddr) {
             abstr_prog_state.push_to_cs(cs_idx, iaddr);
+            succ_type = CEDGE;
         } else if analyzer.is_return(&iaddr) {
             iaddr = abstr_prog_state.pop_from_cs(cs_idx);
+            succ_type = IEDGE;
         }
         if analyzer.is_mem_write(&iaddr) {
             PostAnalyzer::handle_memory_write(
@@ -403,7 +422,8 @@ pub fn posterior_dependency_analysis(
                 &I2M,
                 &KILL,
             );
-        } else if analyzer.is_mem_read(&iaddr) {
+        }
+        if analyzer.is_mem_read(&iaddr) {
             PostAnalyzer::handle_memory_read(
                 analyzer.get_dip_mut(),
                 iaddr,
@@ -413,16 +433,20 @@ pub fn posterior_dependency_analysis(
                 &DEP,
             );
         }
-        for succ in analyzer.iter_successors(iaddr, IEDGE | CEDGE) {
-            if !state.addr_in_ranges(succ) {
-                continue;
-            }
+        println!("Address: {iaddr:#x}");
+        if let Some(m2i) = abstr_prog_state.get(&state_idx) {
+            println!("M2I:\n{m2i:x}");
+        } else {
+            println!("M2I: None");
+        }
+        for succ in analyzer.iter_successors(&iaddr, succ_type) {
             let succ_state_id = (cs_idx, *succ);
             if !abstr_prog_state.m2i_contains(&succ_state_id, &state_idx) {
                 abstr_prog_state.merge_maps(&succ_state_id, &state_idx);
                 work_list.push_back(succ_state_id);
             }
         }
+        succ_type = IEDGE
     }
     analyzer.clone_dip()
 }
