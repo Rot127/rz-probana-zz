@@ -361,6 +361,9 @@ fn get_node_info(
     if is_exit(cfg, nid) {
         ninfo |= IWordInfo::IsExit;
     }
+    if is_return(cfg, nid) {
+        ninfo |= IWordInfo::IsReturn;
+    }
     if is_call(cfg, nid) {
         // Put we set the meta information for the path node (marking it as call).
         ninfo |= IWordInfo::IsCall;
@@ -404,6 +407,12 @@ fn is_exit(cfg: &mut CFG, cur: NodeId) -> bool {
     cfg.nodes_meta
         .get(&cur)
         .is_some_and(|meta| meta.node_type.is_exit())
+}
+
+fn is_return(cfg: &mut CFG, cur: NodeId) -> bool {
+    cfg.nodes_meta
+        .get(&cur)
+        .is_some_and(|meta| meta.node_type.is_return())
 }
 
 /// Sample a path from the given [icfg] and return it as vector.

@@ -14,6 +14,7 @@ use helper::set_map::SetMap;
 use rzil_abstr::interpreter::{AbstrVal, IWordInfo, MemOpSeq};
 
 use crate::{
+    cfg::InsnNodeType,
     flow_graphs::{Address, FlowGraphOperations},
     icfg::ICFG,
     state::BDAState,
@@ -187,15 +188,27 @@ pub struct PostAnalyzer {
 }
 
 impl PostAnalyzer {
-    pub fn new(icfg: &ICFG, iword_info: BTreeMap<Address, IWordInfo>) -> PostAnalyzer {
+    pub fn new(icfg: &ICFG, mut iword_info: BTreeMap<Address, IWordInfo>) -> PostAnalyzer {
         let mut edge_matrix = Matrix::new();
         for cfg in icfg.get_procedures().iter() {
             for (x_insn, y_insn, _) in cfg.1.read().unwrap().get_cfg().get_graph().all_edges() {
                 edge_matrix.set_cell(x_insn.address, y_insn.address, IEDGE);
+                // OMG is this ugly please let this prototype never be used in the real world.
+                if cfg
+                    .1
+                    .read()
+                    .unwrap()
+                    .get_cfg()
+                    .get_nodes_meta(&x_insn)
+                    .has_type(InsnNodeType::Return)
+                {
+                    iword_info.insert(x_insn.address, IWordInfo::IsReturn);
+                }
             }
             for call_insn in cfg.1.read().unwrap().get_cfg().nodes_meta.cinsn_iter() {
                 call_insn.call_targets.iter().for_each(|ct| {
                     edge_matrix.set_cell(call_insn.addr, ct.address, CEDGE);
+                    iword_info.insert(call_insn.addr, IWordInfo::IsCall);
                 });
             }
         }

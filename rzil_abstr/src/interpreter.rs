@@ -1335,6 +1335,10 @@ impl AbstrVM {
         self.insn_info.is_call()
     }
 
+    pub(crate) fn pc_is_return(&self) -> bool {
+        self.insn_info.is_return()
+    }
+
     pub(crate) fn pc_is_return_point(&self) -> bool {
         self.insn_info.is_return_point()
     }

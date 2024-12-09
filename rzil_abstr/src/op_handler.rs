@@ -1132,15 +1132,8 @@ fn rz_il_handler_jmp(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     if vm.pc_is_call() {
         vm.add_call_xref(vm.get_cur_entry(), addr);
         vm.call_stack_push(addr);
-        vm.add_iword_info(IWordInfo::IsCall);
     } else if add_jump_ref(vm, addr) {
         vm.add_jump_xref(vm.get_cur_entry(), addr);
-    }
-    if pc_is_return(vm, addr) {
-        // We need to check if the PC is a return instruction here.
-        // This information is very unreliable in Rizin, due to fuzzy tail jump detection
-        // and missing support for VLIW/RzArch archs.
-        vm.add_iword_info(IWordInfo::IsReturn);
     }
     true
 }
@@ -1149,15 +1142,7 @@ fn add_jump_ref(vm: &mut AbstrVM, target_addr: u64) -> bool {
     let insn_is_last_in_path = vm.peak_next_addr().is_none();
     let jump_target_is_not_next_insn =
         !insn_is_last_in_path && target_addr != vm.peak_next_addr().unwrap();
-    let insn_is_return = pc_is_return(vm, target_addr);
-    !insn_is_return && (insn_is_last_in_path || jump_target_is_not_next_insn)
-}
-
-fn pc_is_return(vm: &mut AbstrVM, target_addr: u64) -> bool {
-    let insn_is_return = vm
-        .peak_next()
-        .is_some_and(|(next_addr, info)| *next_addr != target_addr && info.is_return_point());
-    insn_is_return
+    !vm.pc_is_return() && (insn_is_last_in_path || jump_target_is_not_next_insn)
 }
 
 fn rz_il_handler_goto(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
