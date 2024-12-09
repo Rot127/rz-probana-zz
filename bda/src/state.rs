@@ -3,6 +3,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::RangeInclusive,
     sync::RwLock,
     time::Duration,
 };
@@ -111,6 +112,8 @@ pub struct BDAState {
     pub iword_info: Option<BTreeMap<Address, IWordInfo>>,
     /// Runtime statistics
     pub runtime_stats: RuntimeStats,
+    /// Address ranges to analyze
+    ranges: Vec<RangeInclusive<Address>>,
 }
 
 impl BDAState {
@@ -134,6 +137,7 @@ impl BDAState {
             stack_xrefs: BTreeSet::new(),
             mos: Some(BTreeSet::new()),
             runtime_stats: RuntimeStats::new(),
+            ranges: Vec::from([0x0..=Address::MAX]),
         }
     }
 
@@ -192,5 +196,18 @@ impl BDAState {
     pub(crate) fn update_icfg_check(&self) -> bool {
         (self.icfg_update_timer.timed_out() && self.unhandled_code_xrefs.len() > 0)
             || self.unhandled_code_xrefs.len() >= self.icfg_update_threshold
+    }
+
+    pub(crate) fn set_ranges(&mut self, ranges: Vec<RangeInclusive<Address>>) {
+        self.ranges.clear();
+        self.ranges.extend(ranges);
+    }
+
+    pub(crate) fn get_ranges(&self) -> &Vec<RangeInclusive<Address>> {
+        &self.ranges
+    }
+
+    pub(crate) fn addr_in_ranges(&self, addr: &Address) -> bool {
+        self.ranges.iter().any(|range| range.contains(addr))
     }
 }

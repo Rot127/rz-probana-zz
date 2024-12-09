@@ -414,6 +414,9 @@ pub fn posterior_dependency_analysis(
             );
         }
         for succ in analyzer.iter_successors(iaddr, IEDGE | CEDGE) {
+            if !state.addr_in_ranges(succ) {
+                continue;
+            }
             let succ_state_id = (cs_idx, *succ);
             if !abstr_prog_state.m2i_contains(&succ_state_id, &state_idx) {
                 abstr_prog_state.merge_maps(&succ_state_id, &state_idx);

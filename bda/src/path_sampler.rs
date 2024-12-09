@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::{collections::VecDeque, sync::RwLock};
+use std::{collections::VecDeque, ops::RangeInclusive, sync::RwLock};
 
 use petgraph::Direction::Outgoing;
 use rand::{thread_rng, Rng};
@@ -178,17 +178,14 @@ fn select_branch(mut weights: VecDeque<WeightID>, wmap: &RwLock<WeightMap>) -> u
     candidate
 }
 
-fn node_in_ranges(nid: &NodeId, addr_ranges: &Vec<(Address, Address)>) -> bool {
-    addr_ranges.is_empty()
-        || addr_ranges
-            .iter()
-            .any(|r| r.0 <= nid.address && nid.address <= r.1)
+fn node_in_ranges(nid: &NodeId, addr_ranges: &Vec<RangeInclusive<Address>>) -> bool {
+    addr_ranges.is_empty() || addr_ranges.iter().any(|r| r.contains(&nid.address))
 }
 
 fn filter_call_targets(
     cfg: &mut CFG,
     cur: NodeId,
-    addr_ranges: Option<&Vec<(Address, Address)>>,
+    addr_ranges: Option<&Vec<RangeInclusive<Address>>>,
 ) -> NodeIdSet {
     let mut call_targets = NodeIdSet::new();
     for i in cfg.nodes_meta.get(&cur).unwrap().insns.iter() {
@@ -209,7 +206,7 @@ fn filter_call_targets(
 fn filter_jump_targets(
     cfg: &mut CFG,
     cur: NodeId,
-    addr_ranges: &Vec<(Address, Address)>,
+    addr_ranges: &Vec<RangeInclusive<Address>>,
 ) -> NodeIdSet {
     let mut jump_targets = NodeIdSet::new();
     for i in cfg.nodes_meta.get(&cur).unwrap().insns.iter() {
@@ -238,7 +235,7 @@ fn sample_cfg_path(
     path: &mut Path,
     i: usize,
     wmap: &RwLock<WeightMap>,
-    addr_ranges: &Vec<(Address, Address)>,
+    addr_ranges: &Vec<RangeInclusive<Address>>,
 ) -> SamplingState {
     let entry = &cfg.get_entry();
     let cfg_needs_recalc = wmap.read().unwrap().needs_recalc(entry);
@@ -414,7 +411,7 @@ pub fn sample_path(
     icfg: &ICFG,
     entry_point: Address,
     wmap: &RwLock<WeightMap>,
-    addr_ranges: &Vec<(Address, Address)>,
+    addr_ranges: &Vec<RangeInclusive<Address>>,
 ) -> Path {
     let entry_node: NodeId;
     let mut path = Path::new();

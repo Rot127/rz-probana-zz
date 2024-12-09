@@ -197,11 +197,12 @@ pub fn run_bda(
 ) -> Option<BTreeSet<(Address, Address)>> {
     state.bda_timer.start();
     state.icfg_update_timer.start();
-    let ranges = core
-        .lock()
-        .expect("Should not be locked")
-        .get_bda_analysis_range()
-        .expect("Failed to get analysis ranges.");
+    state.set_ranges(
+        core.lock()
+            .expect("Should not be locked")
+            .get_bda_analysis_range()
+            .expect("Failed to get analysis ranges."),
+    );
     let entry_points = match get_entry_point_list(&core, icfg) {
         Some(ep) => ep,
         None => {
@@ -260,7 +261,6 @@ pub fn run_bda(
                 &entry_points,
                 &mut rng,
                 state,
-                &ranges,
             );
 
             if threads.get(&tid).is_some() {
@@ -374,7 +374,6 @@ fn sample_path_into_buffer(
     entry_points: &Vec<u64>,
     rng: &mut rand::prelude::ThreadRng,
     state: &mut BDAState,
-    ranges: &Vec<(u64, u64)>,
 ) {
     if path_buffer.len() < path_buf_limit {
         let ts_sampling_start = Instant::now();
@@ -385,7 +384,7 @@ fn sample_path_into_buffer(
                 .get(rng.gen_range(0..entry_points.len()))
                 .unwrap(),
             state.get_weight_map(),
-            ranges,
+            state.get_ranges(),
         );
         state.runtime_stats.add_dp(
             StatisticID::SampleTime,
@@ -403,6 +402,12 @@ pub fn testing_bda_on_paths(
     state: &mut BDAState,
     paths: Vec<VecDeque<Address>>,
 ) -> Option<BTreeSet<(Address, Address)>> {
+    state.set_ranges(
+        core.lock()
+            .expect("Should not be locked")
+            .get_bda_analysis_range()
+            .expect("Failed to get analysis ranges."),
+    );
     state.bda_timer.start();
     state.icfg_update_timer.start();
     let entry_points = match get_entry_point_list(&core, icfg) {

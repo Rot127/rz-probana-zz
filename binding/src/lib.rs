@@ -8,7 +8,10 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use helper::rz::{parse_bda_entry_list, parse_bda_range_conf_val, parse_bda_timeout};
-use std::ffi::{CStr, CString};
+use std::{
+    ffi::{CStr, CString},
+    ops::RangeInclusive,
+};
 
 use core::panic;
 use std::{
@@ -246,6 +249,8 @@ pub struct RzCoreWrapper {
     ptr: *mut rz_core_t,
 }
 
+type Address = u64;
+
 /// Guraded RzCore
 pub type GRzCore = Arc<Mutex<RzCoreWrapper>>;
 
@@ -260,10 +265,14 @@ impl RzCoreWrapper {
         unsafe { rz_config_set(get_bda_config!(self), k.as_ptr(), v.as_ptr()) };
     }
 
-    pub fn get_bda_analysis_range(&self) -> Option<Vec<(u64, u64)>> {
+    pub fn get_bda_analysis_range(&self) -> Option<Vec<RangeInclusive<Address>>> {
         let c = get_bda_config_val_str!(self, "plugins.bda.sampling.range");
         assert!(c != std::ptr::null_mut(), "Failed to get range.");
-        parse_bda_range_conf_val(c_to_str(c))
+        if let Some(ranges) = parse_bda_range_conf_val(c_to_str(c)) {
+            Some(Vec::from_iter(ranges.into_iter().map(|(b, e)| b..=e)))
+        } else {
+            None
+        }
     }
 
     pub fn get_bda_analysis_malloc_pattern(&self) -> String {
