@@ -430,19 +430,14 @@ pub fn posterior_dependency_analysis(
     println!("KILL:\n{:x}", KILL);
 
     let mut work_list: VecDeque<StateIdx> = VecDeque::new();
-    let mut succ_type = IEDGE;
+    let mut succ_type;
     work_list.push_back((0, icfg_entry.unwrap()));
     while !work_list.is_empty() {
         let state_idx = work_list.pop_front().unwrap();
         let mut iaddr = state_idx.1;
-        let cs_idx = state_idx.0;
-        if analyzer.is_call(&iaddr) && analyzer.call_is_followed(state.get_ranges(), &iaddr) {
-            abstr_prog_state.push_to_cs(cs_idx, iaddr);
-            succ_type = CEDGE;
-        } else if analyzer.is_return(&iaddr) {
-            iaddr = abstr_prog_state.pop_from_cs(cs_idx);
-            succ_type = IEDGE;
-        }
+        let mut cs_idx = state_idx.0;
+        println!("CS-idx: {cs_idx} - Address: {iaddr:#x}");
+        // Handle references
         if analyzer.is_mem_write(&iaddr) {
             PostAnalyzer::handle_memory_write(
                 iaddr,
@@ -462,7 +457,27 @@ pub fn posterior_dependency_analysis(
                 &DEP,
             );
         }
-        println!("Address: {iaddr:#x}");
+
+        if iaddr == 0x080000bf {
+            println!("bf");
+        }
+
+        // Choose which neighbor to follow.
+        if analyzer.is_call(&iaddr) && analyzer.call_is_followed(state.get_ranges(), &iaddr) {
+            // Go into a procedure
+            abstr_prog_state.push_to_cs(cs_idx, iaddr);
+            cs_idx += 1;
+            succ_type = CEDGE;
+        } else if analyzer.is_return(&iaddr) {
+            // Return from a procedure. Select a neighbor from the call we return to.
+            cs_idx -= 1;
+            iaddr = abstr_prog_state.pop_from_cs(cs_idx);
+            succ_type = IEDGE;
+        } else {
+            // Normal instuction.
+            succ_type = IEDGE
+        }
+
         if let Some(m2i) = abstr_prog_state.get(&state_idx) {
             println!("M2I:\n{m2i:x}");
         } else {
@@ -475,7 +490,6 @@ pub fn posterior_dependency_analysis(
                 work_list.push_back(succ_state_id);
             }
         }
-        succ_type = IEDGE
     }
     analyzer.clone_dip()
 }
