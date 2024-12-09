@@ -302,7 +302,7 @@ impl PostAnalyzer {
         state: &mut AbstractProgramState,
         curr_state_idx: &StateIdx,
         GI2M: &SetMap<Address, AbstrVal>,
-        GKILL: &SetMap<Address, Address>,
+        _GKILL: &SetMap<Address, Address>,
     ) {
         let mut curr_m2i = state.get_mut(curr_state_idx);
         if curr_m2i.is_none() {
@@ -316,13 +316,16 @@ impl PostAnalyzer {
             return;
         };
         for maddr in i2m_iter {
-            if GI2M.len_of(&iaddr) == 1 {
+            if m2i.get(maddr).is_some() {
+                // This instruction overwrites the previous defintion
+                // at the current abstract program state.
                 m2i.strong_update(maddr.clone(), iaddr);
             } else {
                 m2i.insert(maddr.clone(), iaddr);
-                if GKILL.len_of(&iaddr) == 1 {
-                    m2i.strong_kill(maddr, GKILL.get(&iaddr))
-                }
+                // Why is kill necessary again?
+                // if GKILL.len_of(&iaddr) == 1 {
+                //     m2i.strong_kill(maddr, GKILL.get(&iaddr))
+                // }
             }
         }
     }
@@ -333,31 +336,32 @@ impl PostAnalyzer {
         state: &AbstractProgramState,
         curr_state_idx: &StateIdx,
         GI2M: &SetMap<Address, AbstrVal>,
-        GDEP: &SetMap<Address, Address>,
+        _GDEP: &SetMap<Address, Address>,
     ) {
-        if GDEP.len_of(&iaddr) == 1 {
-            let Some(iter) = GDEP.set_iter(&iaddr) else {
-                return;
+        // TODO: Why again taking the DEP deendencies, when we can have the abstract value based one?
+        // if GDEP.len_of(&iaddr) == 1 {
+        //     let Some(iter) = GDEP.set_iter(&iaddr) else {
+        //         return;
+        //     };
+        //     for def in iter {
+        //         DIP.insert((iaddr, *def));
+        //     }
+        // } else {
+        let Some(i2m_iter) = GI2M.set_iter(&iaddr) else {
+            return;
+        };
+        let Some(m2i) = state.get(curr_state_idx) else {
+            return;
+        };
+        for maddr in i2m_iter {
+            let Some(m2i_iter) = m2i.map.set_iter(maddr) else {
+                continue;
             };
-            for def in iter {
+            for def in m2i_iter {
                 DIP.insert((iaddr, *def));
             }
-        } else {
-            let Some(i2m_iter) = GI2M.set_iter(&iaddr) else {
-                return;
-            };
-            let Some(m2i) = state.get(curr_state_idx) else {
-                return;
-            };
-            for maddr in i2m_iter {
-                let Some(m2i_iter) = m2i.map.set_iter(maddr) else {
-                    continue;
-                };
-                for def in m2i_iter {
-                    DIP.insert((iaddr, *def));
-                }
-            }
         }
+        // }
     }
 
     fn next_icfg_entry(&mut self) -> Option<u64> {
