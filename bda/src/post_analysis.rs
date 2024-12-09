@@ -56,6 +56,12 @@ impl MemDefMap {
         MemDefMap { map: SetMap::new() }
     }
 
+    fn merge(&mut self, other: MemDefMap) {
+        for (maddr, addr_set) in other.map.into_iter() {
+            self.map.extend(maddr, addr_set);
+        }
+    }
+
     fn strong_update(&mut self, maddr: AbstrVal, iaddr: Address) {
         self.map.reset_to(maddr, iaddr);
     }
@@ -146,10 +152,16 @@ impl AbstractProgramState {
 
     /// Sets the maps of [a] to `a.DEF = a.DEF ∪  b.DEF`
     fn merge_maps(&mut self, a: &StateIdx, b: &StateIdx) {
-        let Some(b_m2i) = self.state.get(b) else {
+        if self.state.get(b).is_none() {
             return;
-        };
-        self.state.insert(*a, b_m2i.clone());
+        }
+        let b_clone = self.state.get(b).unwrap().clone();
+
+        if let Some(map) = self.state.get_mut(a) {
+            map.merge(b_clone);
+        } else {
+            self.state.insert(*a, b_clone);
+        }
     }
 
     fn push_to_cs(&mut self, cs_idx: usize, addr: Address) {
