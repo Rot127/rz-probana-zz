@@ -3,7 +3,10 @@
 
 #![allow(dead_code)]
 
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    fmt::LowerHex,
+};
 
 use helper::matrix::Matrix;
 use helper::set_map::SetMap;
@@ -30,6 +33,10 @@ fn is_iedge_cell(cell: &U8Cell) -> bool {
 
 fn is_cedge_cell(cell: &U8Cell) -> bool {
     *cell == CEDGE
+}
+
+fn is_c_or_iedge_cell(cell: &U8Cell) -> bool {
+    *cell == IEDGE || *cell == CEDGE
 }
 
 type CallStack = VecDeque<Address>;
@@ -316,6 +323,10 @@ impl PostAnalyzer {
             return self.programm_graph.x_row_key_iter(&iaddr, &is_cedge_cell);
         } else if successor_type == IEDGE {
             return self.programm_graph.x_row_key_iter(&iaddr, &is_iedge_cell);
+        } else if successor_type == (IEDGE | CEDGE) {
+            return self
+                .programm_graph
+                .x_row_key_iter(&iaddr, &is_c_or_iedge_cell);
         }
         panic!("Edge type not handled: {}", successor_type);
     }
@@ -351,19 +362,14 @@ pub fn posterior_dependency_analysis(
 
     let mut work_list: VecDeque<StateIdx> = VecDeque::new();
     work_list.push_back((0, icfg_entry.unwrap()));
-    let mut succ_edge_type;
     while !work_list.is_empty() {
         let state_idx = work_list.pop_front().unwrap();
         let mut iaddr = state_idx.1;
         let cs_idx = state_idx.0;
         if analyzer.is_call(&iaddr) {
             abstr_prog_state.push_to_cs(cs_idx, iaddr);
-            succ_edge_type = CEDGE;
-        } else {
-            if analyzer.is_return(&iaddr) {
-                iaddr = abstr_prog_state.pop_from_cs(cs_idx);
-            }
-            succ_edge_type = IEDGE;
+        } else if analyzer.is_return(&iaddr) {
+            iaddr = abstr_prog_state.pop_from_cs(cs_idx);
         }
         if analyzer.is_mem_write(&iaddr) {
             PostAnalyzer::handle_memory_write(
@@ -383,7 +389,7 @@ pub fn posterior_dependency_analysis(
                 &DEP,
             );
         }
-        for succ in analyzer.iter_successors(iaddr, succ_edge_type) {
+        for succ in analyzer.iter_successors(iaddr, IEDGE | CEDGE) {
             let succ_state_id = (cs_idx, *succ);
             if !abstr_prog_state.def_maps_equal(&succ_state_id, &state_idx) {
                 abstr_prog_state.merge_maps(&succ_state_id, &state_idx);
