@@ -68,6 +68,30 @@ impl MemDefMap {
         }
         self.map.assign_difference(maddr, addr_set.unwrap());
     }
+
+    fn get<'a>(&'a self, aval: &AbstrVal) -> Option<&'a BTreeSet<u64>> {
+        self.map.get(aval)
+    }
+
+    // Return if [self] contains [other]
+    fn contains(&self, other: &MemDefMap) -> bool {
+        for (aval_key, addr_set) in other.map.iter() {
+            if let Some(set) = self.map.get(aval_key) {
+                if addr_set == set {
+                    continue;
+                }
+                return false;
+            }
+            return false;
+        }
+        true
+    }
+}
+
+impl LowerHex for MemDefMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:x}", self.map)
+    }
 }
 
 /// A state index is the address of the instruction and
@@ -109,13 +133,13 @@ impl AbstractProgramState {
         None
     }
 
-    fn def_maps_equal(&self, succ: &StateIdx, iaddr: &StateIdx) -> bool {
+    fn m2i_contains(&self, succ: &StateIdx, iaddr: &StateIdx) -> bool {
         let succ_m2i = self.state.get(succ);
         let iaddr_m2i = self.state.get(iaddr);
-        if succ_m2i.is_none() || iaddr_m2i.is_none() {
+        if iaddr_m2i.is_none() || succ_m2i.is_none() {
             return false;
         }
-        succ_m2i.unwrap().map == iaddr_m2i.unwrap().map
+        succ_m2i.unwrap().contains(iaddr_m2i.unwrap())
     }
 
     /// Sets the maps of [a] to `a.DEF = a.DEF ∪  b.DEF`
@@ -391,7 +415,7 @@ pub fn posterior_dependency_analysis(
         }
         for succ in analyzer.iter_successors(iaddr, IEDGE | CEDGE) {
             let succ_state_id = (cs_idx, *succ);
-            if !abstr_prog_state.def_maps_equal(&succ_state_id, &state_idx) {
+            if !abstr_prog_state.m2i_contains(&succ_state_id, &state_idx) {
                 abstr_prog_state.merge_maps(&succ_state_id, &state_idx);
                 work_list.push_back(succ_state_id);
             }

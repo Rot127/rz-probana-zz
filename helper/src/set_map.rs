@@ -127,6 +127,10 @@ where
         }
         None
     }
+
+    pub fn iter(&self) -> std::collections::btree_map::Iter<'_, KeyType, BTreeSet<CellType>> {
+        self.map.iter()
+    }
 }
 
 impl<KeyType, CellType> PartialEq for SetMap<KeyType, CellType>
