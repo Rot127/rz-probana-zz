@@ -207,6 +207,8 @@ impl BDAState {
         &self.ranges
     }
 
+    #[allow(dead_code)]
+    /// Used in testing.
     pub(crate) fn addr_in_ranges(&self, addr: &Address) -> bool {
         self.ranges.iter().any(|range| range.contains(addr))
     }
