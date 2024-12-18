@@ -6,7 +6,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     fmt::LowerHex,
-    ops::{RangeBounds, RangeInclusive},
+    ops::RangeInclusive,
 };
 
 use helper::matrix::Matrix;
@@ -105,6 +105,60 @@ impl LowerHex for MemDefMap {
 /// A state index is the address of the instruction and
 /// the index of the call stack this instruction is executed under.
 type StateIdx = (usize, Address);
+
+struct WorkList {
+    /// Work list for each call stack.
+    stack: BTreeMap<usize, VecDeque<Address>>,
+    head: usize,
+}
+
+impl WorkList {
+    fn new(procedure_entry: Address) -> WorkList {
+        let mut list = WorkList {
+            stack: BTreeMap::new(),
+            head: 0,
+        };
+        list.stack.insert(0, VecDeque::from_iter([procedure_entry]));
+        list
+    }
+
+    fn push_back(&mut self, state_idx: StateIdx) {
+        let (cs_idx, addr) = state_idx;
+        if let Some(queue) = self.stack.get_mut(&cs_idx) {
+            queue.push_back(addr);
+        } else {
+            self.stack.insert(cs_idx, VecDeque::from([addr]));
+        }
+        self.head = cs_idx;
+    }
+
+    fn pop_front(&mut self) -> StateIdx {
+        let mut queue = self
+            .stack
+            .get_mut(&self.head)
+            .expect("Work list out of sync wih program state.");
+        if queue.is_empty() {
+            self.head -= 1;
+            queue = self
+                .stack
+                .get_mut(&self.head)
+                .expect("Work list out of sync.");
+        }
+        (
+            self.head,
+            queue
+                .pop_front()
+                .expect("Work list out of sync wih program state."),
+        )
+    }
+
+    fn is_empty(&self) -> bool {
+        if self.head > 0 {
+            return false;
+        }
+        self.stack.get(&0).expect("Unreachable").is_empty()
+    }
+}
 
 struct AbstractProgramState {
     /// Set of unique CallStacks.
@@ -429,11 +483,10 @@ pub fn posterior_dependency_analysis(
     println!("DEP:\n{:x}", DEP);
     println!("KILL:\n{:x}", KILL);
 
-    let mut work_list: VecDeque<StateIdx> = VecDeque::new();
+    let mut work_list: WorkList = WorkList::new(icfg_entry.unwrap());
     let mut succ_type;
-    work_list.push_back((0, icfg_entry.unwrap()));
     while !work_list.is_empty() {
-        let state_idx = work_list.pop_front().unwrap();
+        let state_idx = work_list.pop_front();
         let mut iaddr = state_idx.1;
         let mut cs_idx = state_idx.0;
         println!("CS-idx: {cs_idx} - Address: {iaddr:#x}");
@@ -458,10 +511,6 @@ pub fn posterior_dependency_analysis(
             );
         }
 
-        if iaddr == 0x080000bf {
-            println!("bf");
-        }
-
         // Choose which neighbor to follow.
         if analyzer.is_call(&iaddr) && analyzer.call_is_followed(state.get_ranges(), &iaddr) {
             // Go into a procedure
@@ -470,11 +519,16 @@ pub fn posterior_dependency_analysis(
             succ_type = CEDGE;
         } else if analyzer.is_return(&iaddr) {
             // Return from a procedure. Select a neighbor from the call we return to.
+            if cs_idx == 0 {
+                // Don't return from main though.
+                // Just go to the next node in the work list if any left.
+                continue;
+            }
             cs_idx -= 1;
             iaddr = abstr_prog_state.pop_from_cs(cs_idx);
             succ_type = IEDGE;
         } else {
-            // Normal instuction.
+            // Normal instruction.
             succ_type = IEDGE
         }
 

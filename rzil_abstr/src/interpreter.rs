@@ -1481,6 +1481,7 @@ impl AbstrVM {
         } else {
             return StepResult::Done;
         }
+        self.add_iword_info(self.insn_info);
         debug!(target: "AbstrInterpreter", "TID: {} - pc = {:#x}", self.thread_id, self.pc);
 
         *self.ic.entry(self.pc).or_default() += 1;
