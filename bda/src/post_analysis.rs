@@ -295,6 +295,15 @@ impl PostAnalyzer {
         false
     }
 
+    fn is_call_to_skip(&self, addr: &Address) -> bool {
+        if let Some(info) = self.insn_meta_data.get(addr) {
+            return info
+                .iter()
+                .any(|i| i.calls_malloc() || i.calls_input() || i.calls_unmapped());
+        }
+        false
+    }
+
     fn is_return(&self, addr: &Address) -> bool {
         if let Some(info) = self.insn_meta_data.get(addr) {
             return info.iter().any(|i| i.is_return());
@@ -442,6 +451,9 @@ impl PostAnalyzer {
         addr_ranges: &Vec<RangeInclusive<Address>>,
         iaddr: &Address,
     ) -> bool {
+        if self.is_call_to_skip(iaddr) {
+            return false;
+        }
         for call_target in self.iter_successors(iaddr, CEDGE) {
             if addr_ranges.iter().any(|range| range.contains(call_target)) {
                 return true;
