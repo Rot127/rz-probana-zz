@@ -150,24 +150,24 @@ mod tests {
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         {
-        assert!(dip.get(&(0x800009c, 0x8000098)).is_some() );
-        assert!(dip.get(&(0x80000b1, 0x8000098)).is_some() );
-        assert!(dip.get(&(0x80000b8, 0x8000098)).is_some() );
-        assert!(dip.get(&(0x80000bc, 0x80000b5)).is_some() );
-        assert!(dip.get(&(0x80000d2, 0x8000098)).is_some() );
-        assert!(dip.get(&(0x80000e0, 0x8000098)).is_some() );
-        assert!(dip.get(&(0x80000f5, 0x8000090)).is_some() );
-        assert!(dip.get(&(0x80000f6, 0x8000113)).is_some() );
-        assert!(dip.get(&(0x80000f6, 0x8000090)).is_some() );
-        assert!(dip.get(&(0x8000120, 0x8000100)).is_some() );
+        assert!(dip.get(&(0x800009c, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000b1, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000b8, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000bc, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000d2, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000e0, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000f5, 0x8000090)).is_some());
+        assert!(dip.get(&(0x80000f6, 0x8000113)).is_some());
+        assert!(dip.get(&(0x80000f6, 0x8000090)).is_some());
+        assert!(dip.get(&(0x8000120, 0x8000100)).is_some());
 
         // Should be infered by different paths
-        assert!(dip.get(&(0x80000d6, 0x80000a0)).is_some() );
-        assert!(dip.get(&(0x80000e4, 0x80000a0)).is_some() );
-        assert!(dip.get(&(0x80000ed, 0x80000d8)).is_some() );
-        assert!(dip.get(&(0x80000d6, 0x80000b5)).is_some() );
-        assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some() );
-        assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some() );
+        assert!(dip.get(&(0x80000d6, 0x80000a0)).is_some());
+        assert!(dip.get(&(0x80000e4, 0x80000a0)).is_some());
+        assert!(dip.get(&(0x80000ed, 0x80000d8)).is_some());
+        assert!(dip.get(&(0x80000d6, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some());
         assert_eq!(dip.len(), 16);
         }
     }

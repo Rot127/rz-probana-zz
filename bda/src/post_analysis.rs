@@ -309,7 +309,7 @@ impl PostAnalyzer {
         DEP: &mut SetMap<Address, Address>,
         KILL: &mut SetMap<Address, Address>,
     ) {
-        println!("MOS: {:?}", self.insn_meta_data);
+        // println!("MOS: {:?}", self.insn_meta_data);
         debug_assert!(
             MOS.iter()
                 .all(|mop| { self.insn_meta_data.get(&mop.ref_addr).is_some() }),
@@ -333,10 +333,10 @@ impl PostAnalyzer {
             }
             I2M.insert(iaddr, aval);
         }
-        println!("DEF:");
-        for (k, v) in DEF.iter() {
-            println!("{} -> {:#x}", k, v);
-        }
+        // println!("DEF:");
+        // for (k, v) in DEF.iter() {
+        //     println!("{} -> {:#x}", k, v);
+        // }
     }
 
     fn handle_memory_write(
@@ -467,9 +467,9 @@ pub fn posterior_dependency_analysis(
     for mos in state.take_moses() {
         analyzer.per_sample_analysis(mos, &mut I2M, &mut DEP, &mut KILL);
     }
-    println!("I2M:\n{:x}", I2M);
-    println!("DEP:\n{:x}", DEP);
-    println!("KILL:\n{:x}", KILL);
+    // println!("I2M:\n{:x}", I2M);
+    // println!("DEP:\n{:x}", DEP);
+    // println!("KILL:\n{:x}", KILL);
 
     let mut work_list: WorkList = WorkList::new(icfg_entry.unwrap());
     let mut succ_type;
@@ -477,7 +477,7 @@ pub fn posterior_dependency_analysis(
         let state_idx = work_list.pop_front();
         let mut iaddr = state_idx.1;
         let mut cs_idx = state_idx.0;
-        println!("CS-idx: {cs_idx} - Address: {iaddr:#x}");
+        // println!("CS-idx: {cs_idx} - Address: {iaddr:#x}");
         // Handle references
         if analyzer.is_mem_write(&iaddr) {
             PostAnalyzer::handle_memory_write(
@@ -520,11 +520,11 @@ pub fn posterior_dependency_analysis(
             succ_type = IEDGE
         }
 
-        if let Some(m2i) = abstr_prog_state.get(&state_idx) {
-            println!("M2I:\n{m2i:x}");
-        } else {
-            println!("M2I: None");
-        }
+        // if let Some(m2i) = abstr_prog_state.get(&state_idx) {
+        //     println!("M2I:\n{m2i:x}");
+        // } else {
+        //     println!("M2I: None");
+        // }
         for succ in analyzer.iter_successors(&iaddr, succ_type) {
             let succ_state_id = (cs_idx, *succ);
             if !abstr_prog_state.m2i_contains(&succ_state_id, &state_idx) {

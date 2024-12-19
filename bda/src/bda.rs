@@ -427,7 +427,7 @@ pub fn testing_bda_on_paths(
         let mut path = Path::new();
         testing_addresses_to_path(icfg, &mut path_addresses, &mut path);
         let addr_path = path.to_addr_path();
-        println!("{addr_path}");
+        // println!("InterPath: {addr_path}");
         interpret(0, core.clone(), addr_path, tx.clone());
 
         if let Ok(prods) = rx.try_recv() {
