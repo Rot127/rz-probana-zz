@@ -310,7 +310,7 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
             16,
             Some(rz_set_bda_threads),
         ),
-        str_to_c!("Number of paths to buffer at a maximum."),
+        str_to_c!("Number of path samples to buffer at a maximum."),
     );
     rz_config_node_desc(
         rz_config_set_i_cb(
@@ -319,7 +319,9 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
             32,
             Some(rz_set_bda_iterations),
         ),
-        str_to_c!("Maximum number of iterations for non-static RzIL REPEAT operations."),
+        str_to_c!(
+            "Maximum number of iterations for RzIL REPEAT operations with unknown iteration count."
+        ),
     );
     rz_config_node_desc(
             rz_config_set_i_cb(
