@@ -14,7 +14,7 @@ use helper::set_map::SetMap;
 use rzil_abstr::interpreter::{AbstrVal, IWordInfo, MemOpSeq};
 
 use crate::{
-    flow_graphs::{Address, FlowGraphOperations},
+    flow_graphs::{Address, FlowGraphOperations, NodeId},
     icfg::ICFG,
     state::BDAState,
 };
@@ -40,7 +40,7 @@ fn is_c_or_iedge_cell(cell: &U8Cell) -> bool {
     *cell == IEDGE || *cell == CEDGE
 }
 
-type CallStack = VecDeque<Address>;
+type CallStack = VecDeque<NodeId>;
 
 /// M2I -> Map abstract value to its defining instructions (mem writes)
 /// One abstract value can have multiple definitions (writes).
@@ -103,11 +103,11 @@ impl LowerHex for MemDefMap {
 
 /// A state index is the address of the instruction and
 /// the index of the call stack this instruction is executed under.
-type StateIdx = (usize, Address);
+type StateIdx = (usize, NodeId);
 
 struct WorkList {
     /// Work list for each call stack.
-    stack: BTreeMap<usize, VecDeque<Address>>,
+    stack: BTreeMap<usize, VecDeque<NodeId>>,
     head: usize,
 }
 
@@ -117,7 +117,10 @@ impl WorkList {
             stack: BTreeMap::new(),
             head: 0,
         };
-        list.stack.insert(0, VecDeque::from_iter([procedure_entry]));
+        list.stack.insert(
+            0,
+            VecDeque::from_iter([NodeId::new_original(procedure_entry)]),
+        );
         list
     }
 
@@ -176,7 +179,9 @@ impl AbstractProgramState {
         // Insert initial empty call stack entry.
         new_state.call_stacks.push(CallStack::new());
         // Entry state points to an invalid call stack index.
-        new_state.state.insert((0, entry), MemDefMap::new());
+        new_state
+            .state
+            .insert((0, NodeId::new_original(entry)), MemDefMap::new());
         new_state
     }
 
@@ -217,7 +222,7 @@ impl AbstractProgramState {
         }
     }
 
-    fn push_to_cs(&mut self, cs_idx: usize, addr: Address) {
+    fn push_to_cs(&mut self, cs_idx: usize, addr: NodeId) {
         if let Some(call_stack) = self.call_stacks.get_mut(cs_idx) {
             call_stack.push_back(addr);
             return;
@@ -227,7 +232,7 @@ impl AbstractProgramState {
         self.call_stacks.insert(cs_idx, new_call_stack);
     }
 
-    fn pop_from_cs(&mut self, cs_idx: usize) -> Address {
+    fn pop_from_cs(&mut self, cs_idx: usize) -> NodeId {
         self.call_stacks
             .get_mut(cs_idx)
             .expect("Call stack was not initiaized.")
@@ -245,7 +250,7 @@ pub struct PostAnalyzer {
     icfg_entries: Vec<Address>,
     /// The complete flow graph of the whole program.
     /// The rows are offsets from the minimal address sampled.
-    programm_graph: Matrix<Address, U8Cell>,
+    programm_graph: Matrix<NodeId, U8Cell>,
     /// Instruction meta data (instruction type etc.)
     insn_meta_data: BTreeMap<Address, IWordInfo>,
     /// Dependent instruction pairs. If set, there is a dependency between the instructions.
@@ -257,11 +262,12 @@ impl PostAnalyzer {
         let mut edge_matrix = Matrix::new();
         for cfg in icfg.get_procedures().iter() {
             for (x_insn, y_insn, _) in cfg.1.read().unwrap().get_cfg().get_graph().all_edges() {
-                edge_matrix.set_cell(x_insn.address, y_insn.address, IEDGE);
+                edge_matrix.set_cell(x_insn, y_insn, IEDGE);
             }
+            let icfg_clone_id = cfg.0.icfg_clone_id;
             for call_insn in cfg.1.read().unwrap().get_cfg().nodes_meta.cinsn_iter() {
                 call_insn.call_targets.iter().for_each(|ct| {
-                    edge_matrix.set_cell(call_insn.addr, ct.address, CEDGE);
+                    edge_matrix.set_cell(NodeId::new(icfg_clone_id, 0, call_insn.addr), *ct, CEDGE);
                 });
             }
         }
@@ -420,9 +426,9 @@ impl PostAnalyzer {
 
     fn iter_successors(
         &self,
-        iaddr: &Address,
+        iaddr: &NodeId,
         successor_type: U8Cell,
-    ) -> helper::matrix::KeyIter<Address, U8Cell> {
+    ) -> helper::matrix::KeyIter<NodeId, U8Cell> {
         if successor_type == CEDGE {
             return self.programm_graph.x_row_key_iter(iaddr, &is_cedge_cell);
         } else if successor_type == IEDGE {
@@ -445,16 +451,15 @@ impl PostAnalyzer {
 
     // Returns true if any of the call targets is followed.
     // False otherwise.
-    fn call_is_followed(
-        &self,
-        addr_ranges: &Vec<RangeInclusive<Address>>,
-        iaddr: &Address,
-    ) -> bool {
-        if self.is_call_to_skip(iaddr) {
+    fn call_is_followed(&self, addr_ranges: &Vec<RangeInclusive<Address>>, iaddr: &NodeId) -> bool {
+        if self.is_call_to_skip(&iaddr.address) {
             return false;
         }
         for call_target in self.iter_successors(iaddr, CEDGE) {
-            if addr_ranges.iter().any(|range| range.contains(call_target)) {
+            if addr_ranges
+                .iter()
+                .any(|range| range.contains(&call_target.address))
+            {
                 return true;
             }
         }
@@ -488,21 +493,21 @@ pub fn posterior_dependency_analysis(
         let state_idx = work_list.pop_front();
         let mut iaddr = state_idx.1;
         let mut cs_idx = state_idx.0;
-        // println!("CS-idx: {cs_idx} - Address: {iaddr:#x}");
+        println!("CS-idx: {cs_idx} - Address: {iaddr}");
         // Handle references
-        if analyzer.is_mem_write(&iaddr) {
+        if analyzer.is_mem_write(&iaddr.address) {
             PostAnalyzer::handle_memory_write(
-                iaddr,
+                iaddr.address,
                 &mut abstr_prog_state,
                 &state_idx,
                 &I2M,
                 &KILL,
             );
         }
-        if analyzer.is_mem_read(&iaddr) {
+        if analyzer.is_mem_read(&iaddr.address) {
             PostAnalyzer::handle_memory_read(
                 analyzer.get_dip_mut(),
-                iaddr,
+                iaddr.address,
                 &abstr_prog_state,
                 &state_idx,
                 &I2M,
@@ -511,12 +516,13 @@ pub fn posterior_dependency_analysis(
         }
 
         // Choose which neighbor to follow.
-        if analyzer.is_call(&iaddr) && analyzer.call_is_followed(state.get_ranges(), &iaddr) {
+        if analyzer.is_call(&iaddr.address) && analyzer.call_is_followed(state.get_ranges(), &iaddr)
+        {
             // Go into a procedure
             abstr_prog_state.push_to_cs(cs_idx, iaddr);
             cs_idx += 1;
             succ_type = CEDGE;
-        } else if analyzer.is_return(&iaddr) {
+        } else if analyzer.is_return(&iaddr.address) {
             // Return from a procedure. Select a neighbor from the call we return to.
             if cs_idx == 0 {
                 // Don't return from main though.

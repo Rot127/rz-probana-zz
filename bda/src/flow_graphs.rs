@@ -220,6 +220,10 @@ impl NodeId {
         self.icfg_clone_id
     }
 
+    pub fn is_original_icfg_id(&self) -> bool {
+        self.icfg_clone_id == 0
+    }
+
     /// Returns true if either clone id is greate than [limit].
     pub fn is_clone_over_limit(&self, limit: i32) -> bool {
         self.icfg_clone_id > limit || self.cfg_clone_id > limit
