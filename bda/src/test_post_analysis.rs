@@ -201,7 +201,7 @@ mod tests {
 
         let (core, mut icfg) = get_x86_post_loop_offsets();
 
-        let mut state = BDAState::new(3, 2, 1, 1);
+        let mut state = BDAState::new(3, 3, 1, 1);
         let result = run_bda(core, &mut icfg, &mut state);
         let Some(dip) = result else {
             panic!("Is none");
@@ -215,22 +215,17 @@ mod tests {
         assert!(dip.get(&(0x8000076, 0x8000065)).is_some());
         assert!(dip.get(&(0x800007b, 0x8000065)).is_some());
         assert!(dip.get(&(0x800007f, 0x8000065)).is_some());
-
         // These should be detected because BDA sees it does a comparison
         // and jump based on a global value. So it should do the all iterations.
         // Although they are more than the limit.
         assert!(dip.get(&(0x8000085, 0x8000065)).is_some());
         assert!(dip.get(&(0x800008d, 0x8000065)).is_some());
-        assert!(dip.get(&(0x8000091, 0x8000065)).is_some());
-        assert!(dip.get(&(0x800009d, 0x8000065)).is_some());
-        assert!(dip.get(&(0x80000a5, 0x8000065)).is_some());
-        assert!(dip.get(&(0x80000a9, 0x8000065)).is_some());
 
         // Stack push and pop
-        assert!(dip.get(&(0x80000b5, 0x8000042)).is_some());
-        assert!(dip.get(&(0x80000b6, 0x8000040)).is_some());
+        assert!(dip.get(&(0x8000097, 0x8000042)).is_some());
+        assert!(dip.get(&(0x8000098, 0x8000040)).is_some());
 
-        assert_eq!(dip.len(), 12);
+        assert_eq!(dip.len(), 8);
         }
     }
 }

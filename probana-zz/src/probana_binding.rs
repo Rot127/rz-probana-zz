@@ -307,7 +307,7 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
         rz_config_set_i_cb(
             config,
             str_to_c!("plugins.bda.sampling.path_buf_limit"),
-            16,
+            1024,
             Some(rz_set_bda_threads),
         ),
         str_to_c!("Number of path samples to buffer at a maximum."),
