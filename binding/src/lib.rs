@@ -313,7 +313,7 @@ impl RzCoreWrapper {
     }
 
     pub fn get_bda_threads(&self) -> usize {
-        get_bda_config_val_str!(self, "plugins.bda.threads") as usize
+        get_bda_config_val_i!(self, "plugins.bda.threads") as usize
     }
 
     pub fn get_bda_path_buf_limit(&self) -> usize {

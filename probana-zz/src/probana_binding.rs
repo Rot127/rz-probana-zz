@@ -14,9 +14,10 @@ use binding::{
     c_to_str, log_rizin, log_rz, pderef, rz_cmd_desc_arg_t__bindgen_ty_1,
     rz_cmd_desc_arg_t__bindgen_ty_1__bindgen_ty_1, rz_cmd_desc_argv_new, rz_cmd_desc_group_new,
     rz_cmd_desc_remove, rz_cmd_get_desc, rz_cmd_status_t_RZ_CMD_STATUS_OK, rz_config_lock,
-    rz_config_new, rz_config_node_desc, rz_config_set_cb, rz_config_set_i_cb, rz_core_cmd_help,
-    str_to_c, RzCmdDesc, RzCmdDescArg, RzCmdDescHelp, RzCmdStatus, RzConfig, RzConfigNode, RzCore,
-    RzCorePlugin, RzLibStruct, RzLibType_RZ_LIB_TYPE_CORE, LOG_ERROR, RZ_VERSION,
+    rz_config_new, rz_config_node_desc, rz_config_set_cb, rz_config_set_i, rz_config_set_i_cb,
+    rz_core_cmd_help, str_to_c, RzCmdDesc, RzCmdDescArg, RzCmdDescHelp, RzCmdStatus, RzConfig,
+    RzConfigNode, RzCore, RzCorePlugin, RzLibStruct, RzLibType_RZ_LIB_TYPE_CORE, LOG_ERROR,
+    RZ_VERSION,
 };
 use cty::c_void;
 
@@ -179,7 +180,7 @@ pub extern "C" fn rz_set_bda_threads(core: *mut c_void, node: *mut c_void) -> bo
     log_rz!(
         LOG_ERROR,
         None,
-        "At a minimum BDA has to spawn a single thread. Maximum is capped at 128 (you cn change it in code)."
+        "At a minimum BDA has to spawn a single thread. Maximum is capped at 128 (you can change it in code)."
     );
     return false;
 }
@@ -286,11 +287,10 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
         ),
     );
     rz_config_node_desc(
-        rz_config_set_i_cb(
+        rz_config_set_i(
             config,
             str_to_c!("plugins.bda.sampling.unknown_xref_threshold"),
             5,
-            Some(rz_set_bda_threads),
         ),
         str_to_c!("Number of code xrefs to discover before an iCFG update is performed."),
     );
@@ -304,11 +304,10 @@ pub unsafe extern "C" fn rz_bda_get_config_core(private_data: *mut c_void) -> *m
         str_to_c!("Number of threads BDA should spawn."),
     );
     rz_config_node_desc(
-        rz_config_set_i_cb(
+        rz_config_set_i(
             config,
             str_to_c!("plugins.bda.sampling.path_buf_limit"),
             1024,
-            Some(rz_set_bda_threads),
         ),
         str_to_c!("Number of path samples to buffer at a maximum."),
     );
