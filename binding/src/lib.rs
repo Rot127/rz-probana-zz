@@ -308,43 +308,16 @@ impl RzCoreWrapper {
         parse_bda_timeout(c_to_str(c))
     }
 
-    pub fn get_bda_unknown_code_xrefs_theshold(&self) -> Option<usize> {
-        let c = get_bda_config_val_str!(self, "plugins.bda.sampling.unknown_xref_threshold");
-        assert!(
-            c != std::ptr::null_mut(),
-            "Failed to get unknown_xref_threshold."
-        );
-        match c_to_str(c).parse::<usize>() {
-            Ok(tn) => Some(tn),
-            Err(_) => {
-                println!("{} is not a valid u64 number", c_to_str(c));
-                None
-            }
-        }
+    pub fn get_bda_unknown_code_xrefs_theshold(&self) -> usize {
+        get_bda_config_val_i!(self, "plugins.bda.sampling.unknown_xref_threshold") as usize
     }
 
-    pub fn get_bda_threads(&self) -> Option<usize> {
-        let c = get_bda_config_val_str!(self, "plugins.bda.threads");
-        assert!(c != std::ptr::null_mut(), "Failed to get threads.");
-        match c_to_str(c).parse::<usize>() {
-            Ok(tn) => Some(tn),
-            Err(_) => {
-                println!("{} is not a valid u64 number", c_to_str(c));
-                None
-            }
-        }
+    pub fn get_bda_threads(&self) -> usize {
+        get_bda_config_val_str!(self, "plugins.bda.threads") as usize
     }
 
-    pub fn get_bda_path_buf_limit(&self) -> Option<usize> {
-        let c = get_bda_config_val_str!(self, "plugins.bda.sampling.path_buf_limit");
-        assert!(c != std::ptr::null_mut(), "Failed to get path_buf_limit.");
-        match c_to_str(c).parse::<usize>() {
-            Ok(tn) => Some(tn),
-            Err(_) => {
-                println!("{} is not a valid u64 number", c_to_str(c));
-                None
-            }
-        }
+    pub fn get_bda_path_buf_limit(&self) -> usize {
+        get_bda_config_val_i!(self, "plugins.bda.sampling.path_buf_limit") as usize
     }
 
     pub fn get_bda_max_iterations(&self) -> u64 {

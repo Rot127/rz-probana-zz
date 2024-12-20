@@ -239,11 +239,7 @@ pub fn run_bda(
     // Run abstract interpretation
     let mut spinner = Spinner::new("".to_string());
     let mut paths_walked = 0;
-    let path_buf_limit = core
-        .lock()
-        .unwrap()
-        .get_bda_path_buf_limit()
-        .expect("Faulty config.");
+    let path_buf_limit = core.lock().unwrap().get_bda_path_buf_limit();
     let mut path_buffer = VecDeque::<Path>::new();
     let mut rng = thread_rng();
     let mut products: Vec<IntrpProducts> = Vec::new();

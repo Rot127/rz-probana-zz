@@ -358,11 +358,7 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
     unsafe {
         rz_graph_free(rz_icfg);
     }
-    let nthreads = core
-        .lock()
-        .unwrap()
-        .get_bda_threads()
-        .expect("Should been set before.");
+    let nthreads = core.lock().unwrap().get_bda_threads();
     let runtime = core
         .lock()
         .unwrap()
@@ -373,11 +369,7 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
         .unwrap()
         .get_bda_icfg_enforce_update_timeout()
         .expect("Should been set before.");
-    let unknown_code_xrefs_theshold = core
-        .lock()
-        .unwrap()
-        .get_bda_unknown_code_xrefs_theshold()
-        .expect("Should have been checked before.");
+    let unknown_code_xrefs_theshold = core.lock().unwrap().get_bda_unknown_code_xrefs_theshold();
     let mut state = BDAState::new(
         nthreads,
         runtime,

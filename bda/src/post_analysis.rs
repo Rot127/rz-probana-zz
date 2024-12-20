@@ -14,7 +14,6 @@ use helper::set_map::SetMap;
 use rzil_abstr::interpreter::{AbstrVal, IWordInfo, MemOpSeq};
 
 use crate::{
-    cfg::InsnNodeType,
     flow_graphs::{Address, FlowGraphOperations},
     icfg::ICFG,
     state::BDAState,
