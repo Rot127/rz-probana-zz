@@ -83,6 +83,29 @@ mod tests {
         (rz_core, icfg)
     }
 
+    fn get_x86_post_loop_offsets() -> (GRzCore, ICFG) {
+        let discover_o = get_test_bin_path().join("x86_post_loop_offsets.o");
+        let rz_core = RzCoreWrapper::new(init_rizin_instance(
+            discover_o.to_str().expect("Path wrong"),
+        ));
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.entries", "0x08000040");
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.node_duplicates", "9");
+        rz_core
+            .lock()
+            .unwrap()
+            .set_conf_val("plugins.bda.skip_questions", "true");
+        let rz_icfg = unsafe { rz_core_graph_icfg(rz_core.lock().unwrap().get_ptr()) };
+        let mut icfg = ICFG::new_graph(get_graph(rz_icfg));
+        add_procedures_to_icfg(rz_core.clone(), &mut icfg);
+        (rz_core, icfg)
+    }
+
     #[test]
     pub fn test_post_x86_dep_paper_example() {
         wait_for_exlusive_core!();
@@ -169,6 +192,45 @@ mod tests {
         assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some());
         assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some());
         assert_eq!(dip.len(), 16);
+        }
+    }
+
+    #[test]
+    pub fn test_post_x86_post_loop_offsets() {
+        wait_for_exlusive_core!();
+
+        let (core, mut icfg) = get_x86_post_loop_offsets();
+
+        let mut state = BDAState::new(3, 2, 1, 1);
+        let result = run_bda(core, &mut icfg, &mut state);
+        let Some(dip) = result else {
+            panic!("Is none");
+        };
+        print_dip(&dip);
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        {
+        // Default loop limit is 3. So it should always detect those references.
+        assert!(dip.get(&(0x8000072, 0x8000065)).is_some());
+        assert!(dip.get(&(0x8000076, 0x8000065)).is_some());
+        assert!(dip.get(&(0x800007b, 0x8000065)).is_some());
+        assert!(dip.get(&(0x800007f, 0x8000065)).is_some());
+
+        // These should be detected because BDA sees it does a comparison
+        // and jump based on a global value. So it should do the all iterations.
+        // Although they are more than the limit.
+        assert!(dip.get(&(0x8000085, 0x8000065)).is_some());
+        assert!(dip.get(&(0x800008d, 0x8000065)).is_some());
+        assert!(dip.get(&(0x8000091, 0x8000065)).is_some());
+        assert!(dip.get(&(0x800009d, 0x8000065)).is_some());
+        assert!(dip.get(&(0x80000a5, 0x8000065)).is_some());
+        assert!(dip.get(&(0x80000a9, 0x8000065)).is_some());
+
+        // Stack push and pop
+        assert!(dip.get(&(0x80000b5, 0x8000042)).is_some());
+        assert!(dip.get(&(0x80000b6, 0x8000040)).is_some());
+
+        assert_eq!(dip.len(), 12);
         }
     }
 }
