@@ -450,7 +450,7 @@ impl BitVector {
     }
 
     pub fn is_neg(&self) -> bool {
-        self.msb()
+        self.msb() == true
     }
 
     pub fn set_range(&mut self, pos_start: u32, pos_end: u32, fill_bit: bool) {

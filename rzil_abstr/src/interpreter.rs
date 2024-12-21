@@ -969,7 +969,8 @@ impl AbstrVM {
         }
         av.il_gvar = Some(name.to_string());
         debug!(target: "AbstrInterpreter", "TID: {} - SET GLOBAL: {} -> {}", self.thread_id, name, av);
-        self.gvars.insert(name.to_owned(), av);
+        self.gvars
+            .insert(name.to_owned(), self.normalize_val(av, false));
     }
 
     pub fn set_varl(&mut self, name: &str, av: AbstrVal) {
@@ -1065,24 +1066,20 @@ impl AbstrVM {
                 "TID: {} - \t-> {}", self.thread_id, name
             );
 
-            let init_val = match name == *bp_name
-                || name == *sp_name
-                || name == sp_name_tmp
-                || name == bp_name_tmp
-            {
-                true => {
-                    stack_access_size = rsize;
-                    let svar = AbstrVal::new_stack(1, BitVector::new_zero(rsize), self.get_pc());
-                    self.set_taint_flag(&svar, TaintFlag::Unset);
-                    svar
-                }
-                false => AbstrVal::new_global(1, BitVector::new_zero(rsize), Some(name.clone()), 0),
-            };
+            if name == *bp_name || name == *sp_name || name == sp_name_tmp || name == bp_name_tmp {
+                stack_access_size = rsize;
+                continue;
+            }
+            let init_val =
+                AbstrVal::new_global(1, BitVector::new_zero(rsize), Some(name.clone()), 0);
             self.reg_sizes.insert(name.clone(), rsize as usize);
             self.gvars.insert(name.clone(), init_val);
             self.rt.insert(name.to_owned(), TaintFlag::Unset);
         }
-        self.setup_initial_stack(stack_access_size);
+        self.setup_initial_stack(
+            stack_access_size,
+            &[sp_name, bp_name, sp_name_tmp, bp_name_tmp],
+        );
     }
 
     /// Gives the invocation count for a given instruction address.
@@ -1162,13 +1159,17 @@ impl AbstrVM {
     /// it returns a clone.
     /// Otherwise, it returns an abtract value with the memory region set to
     /// the enclosing stack frame. [^1]
+    ///
+    /// If [norm_zero] is true, it will also normalize values with an offset
+    /// of 0.
+    ///
     /// [^1] Figure 2.11 - https://doi.org/10.25394/PGS.23542014.v1
-    pub fn normalize_val(&self, mut v: AbstrVal) -> AbstrVal {
+    pub fn normalize_val(&self, mut v: AbstrVal, norm_zero: bool) -> AbstrVal {
         if v.m.class != MemRegionClass::Stack {
             return v;
         }
         for vt in self.cs.iter().rev() {
-            if v.c.is_neg() {
+            if v.c.is_neg() || (!norm_zero && v.c.is_zero()) {
                 break;
             }
             v.m = vt.sp.m.clone();
@@ -1257,9 +1258,19 @@ impl AbstrVM {
     }
 
     pub fn enqueue_mos(&mut self, v: &AbstrVal) {
+        // We need to normalize the value, because otherwise we can't detect stack pointer
+        // dependencies at the stack frame boundaries (usually between call and return instructions).
+        //
+        // The last value pushed to the stack on a call (usually the return address),
+        // has two abstract addresses assigned.
+        // One is the abstract address by the caller: 〈₁𝑺 ⌊caller_base⌋, -offset〉
+        // and one of the rebased stack pointer for the new callee stack frame: 〈₁𝑺 ⌊callee_base⌋, 0〉
+        // But memory ops must be unique, so we normalize the 0 offsets to the last element
+        // of the caller stack.
+        let normed_v = self.normalize_val(v.clone(), true);
         let mem_op = MemOp {
             ref_addr: self.get_pc(),
-            aval: v.clone(),
+            aval: normed_v,
         };
         debug!(target: "AbstrInterpreter", "TID: {} - ENQUEUE MOS: {}", self.thread_id, &mem_op);
         self.mos.push(mem_op);
@@ -1299,20 +1310,6 @@ impl AbstrVM {
         debug!(target: "AbstrInterpreter", "TID: {} - POP: {}", self.thread_id, cf.as_ref().unwrap());
         self.proc_entry.pop();
         debug!(target: "AbstrInterpreter", "TID: {} - Stack: {:?}", self.thread_id, self.proc_entry);
-        self.set_sp(
-            cf.as_ref()
-                .expect(
-                    format!(
-                        "TID: {} - There should be a call frame. PC = {:#x} ic = {}",
-                        self.thread_id,
-                        self.pc,
-                        self.ic.get(&self.pc).unwrap()
-                    )
-                    .as_str(),
-                )
-                .sp
-                .clone(),
-        );
         cf
     }
 
@@ -1337,10 +1334,6 @@ impl AbstrVM {
 
     pub(crate) fn pc_is_return(&self) -> bool {
         self.insn_info.is_return()
-    }
-
-    pub(crate) fn pc_is_return_point(&self) -> bool {
-        self.insn_info.is_return_point()
     }
 
     pub(crate) fn pc_is_tail_call(&self) -> bool {
@@ -1386,23 +1379,51 @@ impl AbstrVM {
     }
 
     /// Initializes the stack for the first two cells of size [stack_cell_size].
-    fn setup_initial_stack(&mut self, stack_cell_size: u32) {
-        let zero = BitVector::new_zero(stack_cell_size);
-        // Save dummy values where first stack pointers point to
-        self.set_mem_val(
-            &AbstrVal::new_stack(1, zero.clone(), self.get_pc()),
-            AbstrVal::new_global(1, zero.clone(), None, 0),
+    fn setup_initial_stack(&mut self, stack_cell_size: u32, stack_reg_names: &[String]) {
+        // Setup all stack base pointer and stack pointer.
+        let init_stack_ptr = AbstrVal::new_stack(
+            1,
+            BitVector::new_from_i32(stack_cell_size, -(stack_cell_size as i32)),
+            MAX_U64_ADDRESS,
         );
+        for rname in stack_reg_names {
+            self.reg_sizes
+                .insert(rname.clone(), stack_cell_size as usize);
+            self.gvars.insert(rname.clone(), init_stack_ptr.clone());
+            self.rt.insert(rname.to_owned(), TaintFlag::Unset);
+        }
+        self.set_taint_flag(&init_stack_ptr, TaintFlag::Unset);
+
+        // Save dummy values where first stack pointer points to
+        self.set_mem_val(
+            &init_stack_ptr,
+            AbstrVal::new_global(
+                1,
+                BitVector::new_zero(stack_cell_size),
+                None,
+                MAX_U64_ADDRESS,
+            ),
+        );
+
         // Push initial stack frame
-        let cf = CallFrame {
+        let mut cf = CallFrame {
+            in_site: MAX_U64_ADDRESS,
+            instance: 1,
+            return_addr: MAX_U64_ADDRESS,
+            sp: init_stack_ptr,
+        };
+        self.proc_entry.push(MAX_U64_ADDRESS);
+        self.cs.push(cf);
+
+        // Pretend to call main
+        self.rebase_sp(self.pc);
+        cf = CallFrame {
             in_site: self.pc,
-            instance: 0,
+            instance: 1,
             return_addr: MAX_U64_ADDRESS,
             sp: self.get_sp(),
         };
-        debug!(target: "AbstrInterpreter", "TID: {} - PUSH: {}", self.thread_id, cf);
         self.proc_entry.push(self.pc);
-        debug!(target: "AbstrInterpreter", "TID: {} - Stack: {:?}", self.thread_id, self.proc_entry);
         self.cs.push(cf);
     }
 
@@ -1486,9 +1507,6 @@ impl AbstrVM {
 
         *self.ic.entry(self.pc).or_default() += 1;
 
-        if self.pc_is_return_point() {
-            self.call_stack_pop();
-        }
         if self.insn_info.is_exit() {
             debug_assert!(
                 self.pa.next().is_none(),
@@ -1553,6 +1571,8 @@ impl AbstrVM {
                 self.call_stack_pop();
                 self.call_stack_push(target);
             }
+        } else if self.pc_is_return() {
+            self.call_stack_pop();
         }
         self.lvars.clear();
         if result {
@@ -1599,7 +1619,7 @@ enum StepResult {
     Fail,
     // VM walked the whole path
     Done,
-    // VM walked hit an exit.
+    // VM hit an exit.
     Exit,
 }
 

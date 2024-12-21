@@ -982,7 +982,7 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     check_pure_validity!(k, None);
     let key = k.unwrap();
     let key_t = vm.get_taint_flag(&key);
-    let norm_k = vm.normalize_val(key);
+    let norm_k = vm.normalize_val(key, false);
     vm.enqueue_mos(&norm_k);
     // We assume for now a size of 8 bytes. Just as rz_il_mem_value_len() does.
     let size = 8;
@@ -1009,7 +1009,7 @@ fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal
     check_pure_validity!(k, None);
     let key = k.unwrap();
     let key_t = vm.get_taint_flag(&key);
-    let norm_k = vm.normalize_val(key);
+    let norm_k = vm.normalize_val(key, false);
     vm.enqueue_mos(&norm_k);
     let (v, is_sampled) = vm.get_mem_val(&norm_k, n_bytes as usize);
     if is_sampled.is_set() {
@@ -1051,7 +1051,7 @@ fn rz_il_handler_store(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     check_pure_validity!(value, false);
     let v = value.unwrap();
     let norm_t = vm.get_taint_flag(&key) | vm.get_taint_flag(&v);
-    let norm_k = &vm.normalize_val(key);
+    let norm_k = &vm.normalize_val(key, false);
     vm.enqueue_mos(&norm_k);
     vm.set_mem_val(norm_k, v.clone());
     vm.set_taint_flag(&norm_k, norm_t);
@@ -1074,7 +1074,7 @@ fn rz_il_handler_storew(vm: &mut AbstrVM, op: *mut RzILOpEffect) -> bool {
     check_pure_validity!(value, false);
     let v = value.unwrap();
     let norm_t = vm.get_taint_flag(&key) | vm.get_taint_flag(&v);
-    let norm_k = &vm.normalize_val(key);
+    let norm_k = &vm.normalize_val(key, false);
     vm.enqueue_mos(&norm_k);
     vm.set_mem_val(norm_k, v.clone());
     vm.set_taint_flag(&norm_k, norm_t);
