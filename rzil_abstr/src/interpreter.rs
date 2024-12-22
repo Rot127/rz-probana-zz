@@ -1515,6 +1515,21 @@ impl AbstrVM {
             return StepResult::Exit;
         }
 
+        let iword_decoder = unlocked_core!(self).get_iword_decoder();
+        let effect;
+        let result;
+        if iword_decoder.is_some() {
+            // So if the next address in the path is not ht next address, a call is performed.
+            let iword = self.get_buffered_iword();
+            self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
+            effect = pderef!(iword).il_op;
+        } else {
+            let ana_op = self.get_buffered_aop();
+            // So if the next address in the path is not ht next address, a call is performed.
+            self.is.insert(self.pc, pderef!(ana_op).size as u64);
+            effect = pderef!(ana_op).il_op;
+        }
+
         let (reason, dont_execute) = if self.insn_info.calls_malloc() {
             // Not yet done for iwords. iwords must only skip the call part.
             ("is malloc", true)
@@ -1522,48 +1537,26 @@ impl AbstrVM {
             ("is input", true)
         } else if self.insn_info.calls_unmapped() {
             ("is unmapped", true)
+        } else if self.pc_is_call() && !self.call_is_taken() {
+            ("out of scope", true)
         } else {
             ("none", false)
         };
 
-        let iword_decoder = unlocked_core!(self).get_iword_decoder();
-        let effect;
-        let result;
-        if iword_decoder.is_some() {
-            let iword = self.get_buffered_iword();
-            self.is.insert(self.pc, pderef!(iword).size_bytes as u64);
-            effect = pderef!(iword).il_op;
-            if dont_execute {
-                if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
-                    self.move_heap_val_into_ret_reg();
-                }
-                debug!(target: "AbstrInterpreter", "TID: {} - Skip call: {}", self.thread_id, reason);
-                result = true;
-            } else if effect != std::ptr::null_mut() {
-                debug!(target: "AbstrInterpreter", "TID: {} - rzil_op: {}", self.thread_id, effect_to_str(effect));
-                result = eval_effect(self, effect);
-            } else {
-                // Otherwise not implemented
-                result = true;
+        if dont_execute {
+            if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
+                self.move_heap_val_into_ret_reg();
             }
+            debug!(target: "AbstrInterpreter", "TID: {} - Skip call: {}", self.thread_id, reason);
+            result = true;
+        } else if effect != std::ptr::null_mut() {
+            debug!(target: "AbstrInterpreter", "TID: {} - rzil_op: {}", self.thread_id, effect_to_str(effect));
+            result = eval_effect(self, effect);
         } else {
-            let ana_op = self.get_buffered_aop();
-            self.is.insert(self.pc, pderef!(ana_op).size as u64);
-            effect = pderef!(ana_op).il_op;
-            if dont_execute {
-                if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
-                    self.move_heap_val_into_ret_reg();
-                }
-                debug!(target: "AbstrInterpreter", "TID: {} - Skip call: {}", self.thread_id, reason);
-                result = true;
-            } else if effect != std::ptr::null_mut() {
-                debug!(target: "AbstrInterpreter", "TID: {} - rzil_op: {}", self.thread_id, effect_to_str(effect));
-                result = eval_effect(self, effect);
-            } else {
-                // Otherwise not implemented
-                result = true;
-            }
+            // Otherwise not implemented
+            result = true;
         }
+
         if self.pc_is_tail_call() {
             // Pop CallFrame from stack before jumping to the next one.
             debug!(target: "AbstrInterpreter", "TID: {} - Tail call", self.thread_id);
@@ -1608,6 +1601,16 @@ impl AbstrVM {
         }
         println!();
         println!("--------------------------------------------------");
+    }
+
+    pub(crate) fn call_is_taken(&self) -> bool {
+        debug_assert!(self.pc_is_call());
+        if let Some(next) = self.peak_next_addr() {
+            // Assume the call doesn't target the next instruction.
+            // So if the next address in the path is not ht next address, a call is performed.
+            return self.get_pc() + self.is.get(&self.get_pc()).expect("Size unset") != next;
+        }
+        false
     }
 }
 

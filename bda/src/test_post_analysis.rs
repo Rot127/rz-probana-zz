@@ -144,18 +144,17 @@ mod tests {
         assert!(dip.get(&(0x80000b8, 0x8000098)).is_some());
         assert!(dip.get(&(0x80000bc, 0x80000b5)).is_some());
         assert!(dip.get(&(0x80000d2, 0x8000098)).is_some());
-        assert!(dip.get(&(0x80000e0, 0x8000098)).is_some());
-        assert!(dip.get(&(0x80000f5, 0x8000090)).is_some());
-        assert!(dip.get(&(0x8000120, 0x8000100)).is_some());
         assert!(dip.get(&(0x80000d6, 0x80000b5)).is_some());
-        assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some());
-        assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some());
-        assert!(dip.get(&(0x80000f6, 0x8000113)).is_some());
         assert!(dip.get(&(0x80000d6, 0x80000a0)).is_some());
+        assert!(dip.get(&(0x80000e0, 0x8000098)).is_some());
+        assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some());
         assert!(dip.get(&(0x80000e4, 0x80000a0)).is_some());
         assert!(dip.get(&(0x80000ed, 0x80000d8)).is_some());
-        assert!(dip.get(&(0x80000f6, 0x8000090)).is_some());
-        assert_eq!(dip.len(), 16);
+        assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some());
+        assert!(dip.get(&(0x80000f5, 0x8000090)).is_some());
+        assert!(dip.get(&(0x80000f6, 0x8000113)).is_some());
+        assert!(dip.get(&(0x800011f, 0x8000100)).is_some());
+        assert_eq!(dip.len(), 15);
         }
     }
 
@@ -200,17 +199,16 @@ mod tests {
         assert!(dip.get(&(0x80000e0, 0x8000098)).is_some());
         assert!(dip.get(&(0x80000f5, 0x8000090)).is_some());
         assert!(dip.get(&(0x80000f6, 0x8000113)).is_some());
-        assert!(dip.get(&(0x80000f6, 0x8000090)).is_some());
-        assert!(dip.get(&(0x8000120, 0x8000100)).is_some());
+        assert!(dip.get(&(0x800011f, 0x8000100)).is_some());
 
         // Should be infered by different paths
         assert!(dip.get(&(0x80000d6, 0x80000a0)).is_some());
-        assert!(dip.get(&(0x80000e4, 0x80000a0)).is_some());
-        assert!(dip.get(&(0x80000ed, 0x80000d8)).is_some());
         assert!(dip.get(&(0x80000d6, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000e4, 0x80000a0)).is_some());
         assert!(dip.get(&(0x80000e4, 0x80000b5)).is_some());
+        assert!(dip.get(&(0x80000ed, 0x80000d8)).is_some());
         assert!(dip.get(&(0x80000ed, 0x80000ea)).is_some());
-        assert_eq!(dip.len(), 16);
+        assert_eq!(dip.len(), 15);
         }
     }
 
@@ -234,8 +232,8 @@ mod tests {
         assert!(dip.get(&(0x8000076, 0x8000065)).is_some());
         assert!(dip.get(&(0x800007b, 0x8000065)).is_some());
         assert!(dip.get(&(0x800007f, 0x8000065)).is_some());
-        // These should be detected because BDA sees it does a comparison
-        // and jump based on a global value. So it should do the all iterations.
+        // These should be detected because BDA does a comparison
+        // and jump based on a global value. So it should do all iterations.
         // Although they are more than the limit.
         assert!(dip.get(&(0x8000085, 0x8000065)).is_some());
         assert!(dip.get(&(0x800008d, 0x8000065)).is_some());
