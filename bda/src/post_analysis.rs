@@ -105,6 +105,7 @@ impl LowerHex for MemDefMap {
 /// the index of the call stack this instruction is executed under.
 type StateIdx = (usize, NodeId);
 
+#[derive(Debug)]
 struct WorkList {
     /// Work list for each call stack.
     stack: BTreeMap<usize, VecDeque<NodeId>>,
@@ -138,7 +139,7 @@ impl WorkList {
         let mut queue = self
             .stack
             .get_mut(&self.head)
-            .expect("Work list out of sync wih program state.");
+            .expect("Work list out of sync wih program state. Likely an unmarked return or call instruction messed up the stack.");
         if queue.is_empty() {
             self.head -= 1;
             queue = self
@@ -150,7 +151,7 @@ impl WorkList {
             self.head,
             queue
                 .pop_front()
-                .expect("Work list out of sync wih program state."),
+                .expect("Work list out of sync wih program state. Likely an unmarked return or call instruction messed up the stack."),
         )
     }
 
@@ -314,6 +315,17 @@ impl PostAnalyzer {
             return info.iter().any(|i| i.is_return());
         }
         false
+    }
+
+    fn addr_info(&self, addr: &Address) -> String {
+        if let Some(info) = self.insn_meta_data.get(addr) {
+            let mut info_str = "<".to_string();
+            info.iter()
+                .for_each(|i| info_str.push_str(format!("{}", i).as_str()));
+            info_str.push_str(">");
+            return info_str;
+        }
+        "<>".to_string()
     }
 
     fn per_sample_analysis(
@@ -493,7 +505,11 @@ pub fn posterior_dependency_analysis(
         let state_idx = work_list.pop_front();
         let mut iaddr = state_idx.1;
         let mut cs_idx = state_idx.0;
-        println!("CS-idx: {cs_idx} - Address: {iaddr}");
+        println!(
+            "CS-idx: {cs_idx} - Address: {iaddr} - {}",
+            analyzer.addr_info(&iaddr.address)
+        );
+        println!("{work_list:?}");
         // Handle references
         if analyzer.is_mem_write(&iaddr.address) {
             PostAnalyzer::handle_memory_write(
