@@ -72,6 +72,22 @@ impl Path {
     pub(crate) fn len(&self) -> usize {
         self.path.len()
     }
+
+    /// Does some vaidations on the path. To ensure the interpreter gets
+    /// a path with the properties it expects.
+    pub(crate) fn validate_for_interpretation(&self) {
+        assert!(self.path.last().is_some(), "Path empty");
+        if self.path.len() == 0 {
+            panic!("Empty path");
+        };
+        let Some(info) = self.node_info.get(self.path.len() - 1) else {
+            panic!("Not all node infos added");
+        };
+        assert!(
+            info.is_return() || info.is_exit(),
+            "Invalid last node type."
+        );
+    }
 }
 
 impl std::fmt::Display for Path {
@@ -331,7 +347,11 @@ fn sample_cfg_path(
         }
         if neigh_ids.is_empty() {
             // Leaf node. We are done
-            return SamplingState::Continue;
+            return if ninfo.is_exit() {
+                SamplingState::Exit
+            } else {
+                SamplingState::Continue
+            };
         }
         let picked_neighbor = *neigh_ids.get(select_branch(neigh_weights, wmap)).unwrap();
         if picked_neighbor == cur {
