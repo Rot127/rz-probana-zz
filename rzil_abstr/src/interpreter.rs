@@ -675,7 +675,7 @@ impl std::fmt::Display for MemOp {
 
 pub type MemOpSeq = Vec<MemOp>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CallFrame {
     /// The invocation site
     in_site: Address,
@@ -742,27 +742,38 @@ pub struct AbstrVM {
     is: BTreeMap<Address, u64>,
     /// Invocation count map
     ic: BTreeMap<Address, u32>,
-    /// MemStore map
-    ms: BTreeMap<AbstrVal, AbstrVal>,
     /// MemTaint map
     mt: BTreeMap<AbstrVal, TaintFlag>,
-    /// RegTaint map. Techincally this stores all global variables.
+    /// RegTaint map. Stores taint flags of all global variables.
     rt: BTreeMap<String, TaintFlag>,
-    /// Path
-    pa: IntrpPath,
-    /// Entry point of the currerntly executed procedure.
-    proc_entry: Vec<Address>,
-    /// Call stack
-    cs: CallStack,
-    /// The resulting memory operand sequences of the interpretation
-    mos: MemOpSeq,
+
+    /// MemStore map
+    ms: BTreeMap<AbstrVal, AbstrVal>,
     /// Global variables (mostly registers)
     /// This is equivalent to the RS map described in the paper.
     gvars: BTreeMap<String, AbstrVal>,
-    /// Local pure variables. Defined via LET()
-    lpures: BTreeMap<String, AbstrVal>,
+    /// Call stack
+    cs: CallStack,
+    /// Entry point of the currerntly executed procedure.
+    proc_entry: Vec<Address>,
+
+    /// State backup
+    /// Back up from above: (ms, gvars, cs, proc_entry)
+    state_backup: VecDeque<(
+        BTreeMap<AbstrVal, AbstrVal>,
+        BTreeMap<String, AbstrVal>,
+        CallStack,
+        Vec<Address>,
+    )>,
+
     /// Local variables, defined via SETL
     lvars: BTreeMap<String, AbstrVal>,
+    /// The resulting memory operand sequences of the interpretation
+    mos: MemOpSeq,
+    /// Path
+    pa: IntrpPath,
+    /// Local pure variables. Defined via LET()
+    lpures: BTreeMap<String, AbstrVal>,
     /// Register roles (SP, PC, LR, ARG 1, ARG 2 etc)
     /// Role to register name nap.
     reg_roles: BTreeMap<RzRegisterId, String>,
@@ -831,8 +842,8 @@ impl AbstrVM {
             limit_repeat,
             iword_buffer: BTreeMap::new(),
             aop_buffer: BTreeMap::new(),
+            state_backup: VecDeque::new(),
         };
-        vm.proc_entry.push(entry);
         vm.init_register_file(rz_core);
         vm
     }
@@ -1529,25 +1540,31 @@ impl AbstrVM {
             self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
         }
-
-        let (reason, dont_execute) = if self.insn_info.calls_malloc() {
+        if self.pc == 0x0800005e {
+            println!("");
+        }
+        let (skip_reason, execute_insn) = if self.insn_info.calls_malloc() {
             // Not yet done for iwords. iwords must only skip the call part.
-            ("is malloc", true)
+            ("calls malloc", false)
         } else if self.insn_info.calls_input() {
-            ("is input", true)
+            ("calls input", false)
         } else if self.insn_info.calls_unmapped() {
-            ("is unmapped", true)
-        } else if self.pc_is_call() && !self.call_is_taken() {
-            ("out of scope", true)
+            ("calls unmapped", false)
         } else {
-            ("none", false)
+            ("none", true)
         };
 
-        if dont_execute {
+        // Calls which are not followed, but should be interpreted anyays (to find new call edges) set this flag.
+        let dont_commit_to_state = execute_insn && self.pc_is_call() && !self.call_is_taken();
+        if dont_commit_to_state {
+            self.backup_state();
+        }
+
+        if !execute_insn {
             if self.insn_info.calls_malloc() || self.insn_info.calls_input() {
                 self.move_heap_val_into_ret_reg();
             }
-            debug!(target: "AbstrInterpreter", "TID: {} - Skip call: {}", self.thread_id, reason);
+            debug!(target: "AbstrInterpreter", "TID: {} - Skip call: {}", self.thread_id, skip_reason);
             result = true;
         } else if effect != std::ptr::null_mut() {
             debug!(target: "AbstrInterpreter", "TID: {} - rzil_op: {}", self.thread_id, effect_to_str(effect));
@@ -1568,6 +1585,10 @@ impl AbstrVM {
             self.call_stack_pop();
         }
         self.lvars.clear();
+
+        if dont_commit_to_state {
+            self.restore_state();
+        }
         if result {
             return StepResult::Ok;
         }
@@ -1607,10 +1628,31 @@ impl AbstrVM {
         debug_assert!(self.pc_is_call());
         if let Some(next) = self.peak_next_addr() {
             // Assume the call doesn't target the next instruction.
-            // So if the next address in the path is not ht next address, a call is performed.
+            // So if the next address in the path is not the next address, a call is performed.
             return self.get_pc() + self.is.get(&self.get_pc()).expect("Size unset") != next;
         }
         false
+    }
+
+    /// Backup the state of the VM for later restoral.
+    /// Used before executing instructions which should be only analysed,
+    /// but not commited.
+    /// E.g. call instructions to unmapped addresses. They are executed, but should not manipulate
+    /// the stack, because they are never followed.
+    fn backup_state(&mut self) {
+        self.state_backup.push_back((
+            self.ms.clone(),
+            self.gvars.clone(),
+            self.cs.clone(),
+            self.proc_entry.clone(),
+        ));
+    }
+
+    fn restore_state(&mut self) {
+        (self.ms, self.gvars, self.cs, self.proc_entry) = self
+            .state_backup
+            .pop_back()
+            .expect("Should not be reached.");
     }
 }
 
@@ -1629,6 +1671,7 @@ enum StepResult {
 /// Interprets the given path with the given interpreter VM.
 pub fn interpret(thread_id: usize, rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
     debug!(target: "AbstrInterpreter", "TID: {thread_id}: {}", path);
+    println!("\nPath: {path}");
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
     vm.thread_id = thread_id;
 
