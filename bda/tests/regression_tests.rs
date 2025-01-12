@@ -5,14 +5,10 @@
 
 mod test {
     use bda::bda_binding::rz_analysis_bda_handler;
-    use binding::{
-        get_rz_test_bin_path, init_rizin_instance, wait_for_exlusive_core, RzCoreWrapper,
-    };
+    use binding::{get_rz_test_bin_path, init_rizin_instance, RzCoreWrapper};
 
     #[test]
     fn test_call_target_loop() {
-        wait_for_exlusive_core!();
-
         let test_bin = get_rz_test_bin_path()
             .join("elf")
             .join("analysis")

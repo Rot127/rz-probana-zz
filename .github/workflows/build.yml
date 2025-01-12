@@ -43,8 +43,8 @@ jobs:
       run:
         |
         cargo build --verbose
-    - name: Run tests
+    - name: Run tests (sequencially)
       run:
          |
-        cargo test --verbose
+        cargo test_seq --verbose
 

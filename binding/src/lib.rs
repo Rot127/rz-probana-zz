@@ -21,22 +21,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-// Rizin is not thread safe. If multiple RzCore are initialized and used in parallel, everything breaks.
-pub static TEST_RIZIN_MUTEX: Mutex<u64> = Mutex::new(0);
-
-#[macro_export]
-macro_rules! wait_for_exlusive_core {
-    () => {
-        let mut mr = binding::TEST_RIZIN_MUTEX.try_lock();
-        while mr.is_err() {
-            if binding::TEST_RIZIN_MUTEX.is_poisoned() {
-                binding::TEST_RIZIN_MUTEX.clear_poison();
-            }
-            mr = binding::TEST_RIZIN_MUTEX.try_lock();
-        }
-    };
-}
-
 #[macro_export]
 macro_rules! log_rz {
     ($level:ident, $tag:expr, $msg:expr) => {{

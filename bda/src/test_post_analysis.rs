@@ -6,8 +6,7 @@ mod tests {
     use std::collections::{BTreeSet, VecDeque};
 
     use binding::{
-        get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
-        GRzCore, RzCoreWrapper,
+        get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, GRzCore, RzCoreWrapper,
     };
 
     use crate::{
@@ -46,8 +45,6 @@ mod tests {
 
     #[test]
     pub fn test_post_x86_simple_two_deps() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_x86_post_simple_two_deps();
         let mut state = BDAState::new(3, 1, 1, 1);
         let result = run_bda(core, &mut icfg, &mut state);
@@ -127,8 +124,6 @@ mod tests {
 
     #[test]
     pub fn test_post_x86_dep_paper_example() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_x86_paper_dep_example();
         let mut state = BDAState::new(3, 2, 1, 1);
         let result = run_bda(core, &mut icfg, &mut state);
@@ -161,8 +156,6 @@ mod tests {
     #[test]
     /// Run only two paths, get products and check if the post analysis does the inference correctly.
     pub fn test_post_x86_dep_paper_example_inference() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_x86_paper_dep_example();
         let mut state = BDAState::new(3, 2, 1, 1);
         let paths = Vec::from([
@@ -214,8 +207,6 @@ mod tests {
 
     #[test]
     pub fn test_post_x86_post_loop_offsets() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_x86_post_loop_offsets();
 
         let mut state = BDAState::new(3, 3, 1, 1);
@@ -248,8 +239,6 @@ mod tests {
 
     #[test]
     pub fn test_post_x86_post_pass_ref_across_proc() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_x86_post_pass_ref_across_proc();
 
         let mut state = BDAState::new(1, 2, 1, 1);

@@ -12,7 +12,7 @@ mod tests {
         },
     };
 
-    use binding::{get_test_bin_path, init_rizin_instance, wait_for_exlusive_core, RzCoreWrapper};
+    use binding::{get_test_bin_path, init_rizin_instance, RzCoreWrapper};
 
     use crate::{
         bitvector::BitVector,
@@ -293,8 +293,6 @@ mod tests {
 
     #[test]
     fn test_x86_icall_discover() {
-        wait_for_exlusive_core!();
-
         let (core, path) = get_x86_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
         interpret(0, core, path, tx);
@@ -378,8 +376,6 @@ mod tests {
 
     #[test]
     fn test_hexagon_icall_discover() {
-        wait_for_exlusive_core!();
-
         let (core, path) = get_hexagon_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
         interpret(0, core, path, tx);
@@ -440,8 +436,6 @@ mod tests {
 
     #[test]
     fn test_constant() {
-        wait_for_exlusive_core!();
-
         let u_32_max = BitVector::new_from_u64(32, 0xffffffff);
         // Comparison tests. Due to our bit width limitation, we need to check
         // how the converted values are interpreted.
@@ -495,8 +489,6 @@ mod tests {
 
     #[test]
     fn test_x86_malloc() {
-        wait_for_exlusive_core!();
-
         let (core, path) = get_x86_malloc_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
         interpret(0, core, path, tx);
@@ -560,8 +552,6 @@ mod tests {
 
     #[test]
     fn test_hexagon_malloc() {
-        wait_for_exlusive_core!();
-
         let (core, path) = get_hexagon_malloc_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
         interpret(0, core, path, tx);

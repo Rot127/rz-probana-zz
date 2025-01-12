@@ -6,8 +6,7 @@ mod tests {
     use std::collections::HashSet;
 
     use binding::{
-        get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, wait_for_exlusive_core,
-        GRzCore, RzCoreWrapper,
+        get_test_bin_path, init_rizin_instance, rz_core_graph_icfg, GRzCore, RzCoreWrapper,
     };
     use rzil_abstr::bitvector::BitVector;
     use rzil_abstr::interpreter::{AbstrVal, MemOp};
@@ -61,8 +60,6 @@ mod tests {
 
     #[test]
     pub fn test_setup_unmapped_procedure() {
-        wait_for_exlusive_core!();
-
         let rz_core = RzCoreWrapper::new(init_rizin_instance("="));
         let mut unk_procedure = setup_procedure_at_addr(&rz_core.lock().unwrap(), 0x0);
         assert!(
@@ -102,8 +99,6 @@ mod tests {
 
     #[test]
     fn test_x86_discover_recurse() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_x86_discover_recurse();
         let mut state = BDAState::new(1, 2, 300, 1);
         assert!(icfg.get_procedures().len() == 2, "Incomplete iCFG");
@@ -207,8 +202,6 @@ mod tests {
 
     #[test]
     fn test_hexagon_discover_recurse() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_hexagon_discover_recurse();
         let mut state = BDAState::new(1, 2, 300, 1);
         assert!(icfg.get_procedures().len() == 2, "Incomplete iCFG");
@@ -314,8 +307,6 @@ mod tests {
 
     #[test]
     fn test_x86_icall_malloc() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_x86_icall_malloc();
         let mut state = BDAState::new(1, 3, 300, 1);
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
@@ -358,8 +349,6 @@ mod tests {
 
     #[test]
     fn test_hexagon_icall_malloc() {
-        wait_for_exlusive_core!();
-
         let (core, mut icfg) = get_hexagon_icall_malloc();
         let mut state = BDAState::new(1, 3, 300, 1);
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");

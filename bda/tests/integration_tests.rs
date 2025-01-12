@@ -5,17 +5,13 @@
 
 mod test {
     use bda::bda_binding::rz_analysis_bda_handler;
-    use binding::{
-        get_rz_test_bin_path, init_rizin_instance, wait_for_exlusive_core, RzCoreWrapper,
-    };
+    use binding::{get_rz_test_bin_path, init_rizin_instance, RzCoreWrapper};
 
     /// General "run BDA from beginning to end" tests.
     /// Nothing should break or hang.
 
     #[test]
     fn test_x86_cfg_test() {
-        wait_for_exlusive_core!();
-
         let test_bin = get_rz_test_bin_path()
             .join("elf")
             .join("analysis")
@@ -39,8 +35,6 @@ mod test {
 
     #[test]
     fn test_arm_ls() {
-        wait_for_exlusive_core!();
-
         let test_bin = get_rz_test_bin_path()
             .join("elf")
             .join("analysis")
@@ -60,8 +54,6 @@ mod test {
 
     #[test]
     fn test_ppc_execstack() {
-        wait_for_exlusive_core!();
-
         let test_bin = get_rz_test_bin_path()
             .join("elf")
             .join("analysis")
@@ -81,8 +73,6 @@ mod test {
 
     #[test]
     fn test_hexagon_test_jmp() {
-        wait_for_exlusive_core!();
-
         let test_bin = get_rz_test_bin_path()
             .join("elf")
             .join("hexagon")
@@ -103,8 +93,6 @@ mod test {
 
     #[test]
     fn test_hexagon_hello_loop() {
-        wait_for_exlusive_core!();
-
         let test_bin = get_rz_test_bin_path()
             .join("elf")
             .join("analysis")
