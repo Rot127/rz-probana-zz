@@ -307,6 +307,8 @@ pub fn run_bda(
         move_products_to_state(state, &mut products);
         if state.update_icfg_check() {
             update_icfg(core.clone(), state, icfg);
+            // Get rid of old paths.
+            path_buffer.clear();
         }
 
         if !run_condition_fulfilled(&state) {
