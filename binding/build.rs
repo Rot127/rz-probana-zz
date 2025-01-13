@@ -16,6 +16,7 @@ fn main() {
         Ok(v) => v,
         Err(_e) => String::from(""), // Try root
     };
+    // Works in Fedora
     println!("cargo:rustc-link-search=/usr/local/lib");
     println!("cargo:rustc-link-search={}/usr/local/lib", rz_install_root);
     println!("cargo:rustc-link-search=/usr/local/lib64");
@@ -23,6 +24,28 @@ fn main() {
         "cargo:rustc-link-search={}/usr/local/lib64",
         rz_install_root
     );
+    println!("cargo:rustc-link-search=/usr/local/lib/x86_64-linux-gnu/");
+    println!(
+        "cargo:rustc-link-search={}/usr/local/lib/x86_64-linux-gnu/",
+        rz_install_root
+    );
+    println!("cargo:rustc-link-search=/usr/local/lib64/x86_64-linux-gnu/");
+    println!(
+        "cargo:rustc-link-search={}/usr/local/lib64/x86_64-linux-gnu/",
+        rz_install_root
+    );
+    println!("cargo:rustc-link-search=/usr/local/lib");
+    println!("cargo:rustc-link-search={}/usr/local/lib", rz_install_root);
+    println!("cargo:rustc-link-search=/usr/local/lib64");
+    println!(
+        "cargo:rustc-link-search={}/usr/local/lib64",
+        rz_install_root
+    );
+    println!("cargo:rustc-link-search=/lib");
+    println!("cargo:rustc-link-search={}/lib", rz_install_root);
+    println!("cargo:rustc-link-search=/lib64");
+    println!("cargo:rustc-link-search={}/lib64", rz_install_root);
+
     println!("cargo:rustc-link-lib=rz_util");
     println!("cargo:rustc-link-lib=rz_io");
     println!("cargo:rustc-link-lib=rz_reg");
