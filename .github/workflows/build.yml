@@ -24,6 +24,7 @@ jobs:
     - name: Install deps
       run: |
           pip3 install meson ninja
+          sudo apt install -y lld
     - name: Checkout Rizin
       uses: actions/checkout@v4
       with:
@@ -42,7 +43,7 @@ jobs:
     - name: Build rz-probana-zz
       run:
         |
-        cargo build --verbose
+        cargo build --target-dir target/lib_out/ --verbose
     - name: Run tests (sequencially)
       run:
          |

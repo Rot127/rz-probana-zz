@@ -5,3 +5,8 @@
 # We have no other choice then running tests sequencially.
 [alias]
 test_seq = "test -- --test-threads=1"
+
+[build]
+# Required because it uses ld by default. Which breaks the build on some Linux dists
+# See: https://users.rust-lang.org/t/enabling-rust-lld-for-aarch64-unknown-linux-gnu/113243/5
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]

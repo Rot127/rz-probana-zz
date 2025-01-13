@@ -24,6 +24,14 @@ fn main() {
         rz_install_root
     );
     println!("cargo:rustc-link-lib=rz_util");
+    println!("cargo:rustc-link-lib=rz_io");
+    println!("cargo:rustc-link-lib=rz_reg");
+    println!("cargo:rustc-link-lib=rz_il");
+    println!("cargo:rustc-link-lib=rz_config");
+    println!("cargo:rustc-link-lib=rz_flag");
+    println!("cargo:rustc-link-lib=rz_arch");
+    println!("cargo:rustc-link-lib=rz_bin");
+    println!("cargo:rustc-link-lib=rz_core");
     println!("cargo:rerun-if-changed=wrapper.h");
 
     println!("RZ_INSTALL_ROOT_PATH={}", rz_install_root);
