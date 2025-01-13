@@ -435,6 +435,16 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "assertion failed: bv != std::ptr::null_mut()"]
+    fn test_constant_cast_0() {
+        let u_32_max = BitVector::new_from_u64(32, 0xffffffff);
+        let (casted, tainted) = cast(&u_32_max, 0, AbstrVal::new_false());
+        assert!(tainted.is_unset());
+        assert_eq!(casted, 0x0u64);
+        assert_eq!(casted, 0);
+    }
+
+    #[test]
     fn test_constant() {
         let u_32_max = BitVector::new_from_u64(32, 0xffffffff);
         // Comparison tests. Due to our bit width limitation, we need to check
@@ -442,7 +452,7 @@ mod tests {
         // This should be independent of the underlying BigInt or BigUint struct.
         assert_eq!(u_32_max, 0xffffffffu32);
         assert_eq!(u_32_max, -1);
-        assert_ne!(u_32_max, 0xffffffffu64);
+        assert_ne!(u_32_max, 0xffffffffffffffffu64);
 
         let (mut casted, mut tainted) = cast(&u_32_max, 64, AbstrVal::new_false());
         assert!(tainted.is_unset());
@@ -452,17 +462,13 @@ mod tests {
         (casted, tainted) = cast(&u_32_max, 64, AbstrVal::new_true());
         assert!(tainted.is_unset());
         assert_eq!(casted, 0xffffffffffffffffu64);
-        assert_eq!(casted, -1);
-
-        (casted, tainted) = cast(&u_32_max, 0, AbstrVal::new_false());
-        assert!(tainted.is_unset());
-        assert_eq!(casted, 0x0u64);
-        assert_eq!(casted, 0);
+        assert_eq!(casted, -1i32);
 
         let u_16_half = BitVector::new_from_u64(16, 0xffff);
         assert_eq!(u_16_half, 0xffffu16);
-        assert_eq!(u_16_half, -1);
-        assert_ne!(u_16_half, 0xffffu64);
+        assert_eq!(u_16_half, -1i16);
+        assert_eq!(u_16_half, 0xffffu64);
+        assert_ne!(u_16_half, -1i64);
 
         (casted, tainted) = cast(&u_16_half, 64, AbstrVal::new_true());
         assert!(tainted.is_unset());
