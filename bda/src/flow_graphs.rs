@@ -130,6 +130,20 @@ impl std::convert::From<(i32, i32, u64)> for NodeId {
     }
 }
 
+impl std::convert::From<&str> for NodeId {
+    fn from(v: &str) -> NodeId {
+        let tuple: Vec<&str> = v.split(":").collect();
+        assert!(tuple.len() == 3, "To convert a string to a node id, it must be of the form: \"<i32_base10>:<i32_base10>:<u64_base16>\"");
+        let icfg = i32::from_str_radix(tuple.get(0).unwrap(), 10)
+            .expect("Number parsing failed for icfg_clone_id.");
+        let cfg = i32::from_str_radix(tuple.get(1).unwrap(), 10)
+            .expect("Number parsing failed for cfg_clone_id.");
+        let addr = u64::from_str_radix(tuple.get(2).unwrap(), 16)
+            .expect("Number parsing failed for address.");
+        NodeId::new(icfg, cfg, addr)
+    }
+}
+
 impl std::fmt::Debug for NodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
@@ -287,9 +301,6 @@ impl NodeIdSet {
     /// But only nodes with a valid id, address and if the node is not already added.
     pub fn insert(&mut self, nid: NodeId) {
         if nid != INVALID_NODE_ID && nid.address != MAX_ADDRESS && !self.vec.contains(&nid) {
-            if nid.cfg_clone_id > 0 {
-                print!("ASD");
-            }
             self.vec.push(nid);
         }
     }
@@ -490,7 +501,7 @@ pub trait FlowGraphOperations {
             if new_edge.0.is_clone_over_limit(dup_bound)
                 || new_edge.1.is_clone_over_limit(dup_bound)
             {
-                // We don't handle any edge pointint outside of the limit. Can happen if
+                // We don't handle any edge pointing outside of the limit. Can happen if
                 // resolve loop is called multiple times.
                 break;
             }

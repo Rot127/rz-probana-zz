@@ -612,7 +612,7 @@ pub fn get_cfg_no_loop_sub_routine_loop_ret() -> CFG {
 
 pub fn get_cfg_single_node() -> CFG {
     let mut cfg = CFG::new();
-    cfg.add_node((
+    cfg.add_node(
         NodeId::new(0, 0, 0),
         CFGNodeData::new_test_single(
             0,
@@ -620,7 +620,7 @@ pub fn get_cfg_single_node() -> CFG {
             INVALID_NODE_ID,
             INVALID_NODE_ID,
         ),
-    ));
+    );
     cfg
 }
 
@@ -1146,4 +1146,37 @@ pub fn get_node_data_iter_test() -> (CFG, CFG, CFG) {
     cfg_only_indirect.add_edge(cfg_oi_n3, cfg_oi_n4);
     }
     (cfg_call_mix, cfg_no_call, cfg_only_indirect)
+}
+
+// 0 --> 1 ---> 2 ---> 3 ---> 4 ---> 5 ---> 6 ---> 7 ---> 8 ---> 9
+//       <------|----------------------------------+     ^
+//              +----------------------------------------+
+pub fn get_offset_loop() -> CFG {
+    let cfg = CFG::from(
+        "
+            0:0:0 := E
+            0:0:1 := N
+            0:0:2 := C.J
+            0:0:3 := N
+            0:0:4 := N
+            0:0:5 := N
+            0:0:6 := C.J
+            0:0:7 := N
+            0:0:8 := R
+
+            0:0:0 -> 0:0:1
+            0:0:1 -> 0:0:2
+            0:0:2 -> 0:0:3
+            0:0:3 -> 0:0:4
+            0:0:4 -> 0:0:5
+            0:0:5 -> 0:0:6
+            0:0:6 -> 0:0:7
+            0:0:7 -> 0:0:8
+
+            # Jumps
+            0:0:6 -> 0:0:1
+            0:0:2 -> 0:0:7
+        ",
+    );
+    cfg
 }

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use bitflags::bitflags;
+use bitflags::{bitflags, Flags};
 use core::panic;
 use std::{
     collections::{btree_map, btree_set, BTreeMap, BTreeSet, HashMap, VecDeque},
@@ -32,6 +32,7 @@ bitflags! {
     /// The type of a node which determines the weight calculation of it.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub struct InsnNodeType: u32 {
+        const None = 0;
         /// A node without any special meaning in the graph.
         /// It's weight is:
         ///
@@ -127,6 +128,46 @@ impl InsnNodeType {
 
     pub fn without_hint(&self) -> InsnNodeType {
         *self & !(InsnNodeType::HintMask)
+    }
+}
+
+impl std::convert::From<&str> for InsnNodeType {
+    /// Convert from a string to an InsnNodeType.
+    /// Separated by "."
+    ///
+    /// "N" = Normal
+    /// "c" = Call
+    /// "R" = Return
+    /// "X" = Exit
+    /// "J" = Jump
+    /// "E" = Entry
+    /// "C" = Cond
+    /// "T" = Tail
+    ///
+    /// Example:
+    ///
+    /// "N"       - Normal type
+    /// "c"       - Call
+    /// "c.E"     - Call & Exit
+    /// "T.c.X"   - TailCall & Exit
+    /// "C.T.c"   - Conditional & TailCall & Exit
+    /// "N.E"     - Normal entry node.
+    fn from(type_str: &str) -> InsnNodeType {
+        let mut t = InsnNodeType::Normal;
+        for letter in type_str.split(".") {
+            t |= match letter {
+                "N" => InsnNodeType::Normal,
+                "c" => InsnNodeType::Call,
+                "R" => InsnNodeType::Return,
+                "X" => InsnNodeType::Exit,
+                "J" => InsnNodeType::Jump,
+                "E" => InsnNodeType::Entry,
+                "C" => InsnNodeType::Cond,
+                "T" => InsnNodeType::Tail,
+                _ => panic!("Invalid letter: {}", letter),
+            }
+        }
+        t
     }
 }
 
@@ -436,7 +477,11 @@ impl CFGNodeData {
     }
 
     pub fn has_type(&self, wtype: InsnNodeType) -> bool {
-        self.insns.iter().any(|i| (i.itype & wtype) == wtype)
+        if wtype.bits() == 0 {
+            self.node_type.bits() == 0 && self.insns.iter().all(|i| i.itype.bits() == 0)
+        } else {
+            self.node_type & wtype == wtype && self.insns.iter().any(|i| (i.itype & wtype) == wtype)
+        }
     }
 
     pub fn has_entry(&self) -> bool {
@@ -942,17 +987,25 @@ impl CFG {
         }
     }
 
+    /// Adds an edge into the flow graph.
+    fn add_edge_raw(&mut self, from: NodeId, to: NodeId) {
+        if !self.graph.contains_edge(from, to) {
+            self.graph.add_edge(from, to, 0);
+        }
+    }
+
     /// Adds an node to the graph.
-    /// If the node was present before, it nothing is done.
-    pub fn add_node(&mut self, node: (NodeId, CFGNodeData)) {
-        if self.nodes_meta.contains_key(&node.0) && self.graph.contains_node(node.0) {
+    /// If the node was present before, nothing is done.
+    /// If the node is an entry node, the entry of the CFG is updated as well.
+    pub fn add_node(&mut self, nid: NodeId, node_data: CFGNodeData) {
+        if self.nodes_meta.contains_key(&nid) && self.graph.contains_node(nid) {
             return;
         }
-        if node.1.has_entry() {
-            self.set_entry(node.0);
+        if node_data.has_entry() {
+            self.set_entry(nid);
         }
-        self.nodes_meta.insert(node.0, node.1);
-        self.graph.add_node(node.0);
+        self.nodes_meta.insert(nid, node_data);
+        self.graph.add_node(nid);
     }
 
     pub fn add_node_data(&mut self, node_id: NodeId, data: CFGNodeData) {
@@ -1030,6 +1083,60 @@ impl CFG {
 
     pub(crate) fn has_node(&self, nid: NodeId) -> bool {
         self.get_graph().contains_node(nid)
+    }
+
+    pub(crate) fn get_insn_node_data(&self, nid: &NodeId) -> Option<&CFGNodeData> {
+        self.nodes_meta.get(nid)
+    }
+
+    fn add_node_type_flag(&mut self, from: &NodeId, ntype: InsnNodeType) {
+        let node_meta = self.get_nodes_meta_mut(from);
+        node_meta.node_type |= ntype;
+    }
+}
+
+impl std::convert::From<&str> for CFG {
+    /// Parse a string to a flow graph.
+    ///
+    /// Each line must be a node or edge.
+    /// Nodes: "x:y:addr := <InsnNodeType>"
+    /// Edges: "x:y:addr -> a:b:addr"
+    /// Empty lines allowed.
+    /// Lines with '#' are comments.
+    /// Padding with spaces at the beginning of the line, is allowed (not in between).
+    ///
+    /// a, b, x, y are expected to be i32 numbers of base 10.
+    /// addr is expected to be a u64 number of base 16.
+    fn from(str: &str) -> CFG {
+        let mut cfg = CFG::new();
+        for mut line in str.lines() {
+            line = line.trim();
+            if line.is_empty() || line.starts_with("#") {
+                continue;
+            }
+            if line.contains("->") {
+                let tuple: Vec<&str> = line.split(" -> ").collect();
+                assert!(tuple.len() == 2, "Malformed line: {}", line);
+                let from = tuple.get(0).unwrap().trim();
+                let to = tuple.get(1).unwrap().trim();
+                cfg.add_edge_raw(NodeId::from(from), NodeId::from(to));
+                continue;
+            }
+            let tuple: Vec<&str> = line.split(" := ").collect();
+            assert!(tuple.len() == 2, "Malformed line: {}", line);
+            let nid = NodeId::from(*tuple.get(0).expect("node id missing"));
+            let ntype = InsnNodeType::from(*tuple.get(1).expect("info missing"));
+            cfg.add_node(
+                nid.clone(),
+                CFGNodeData {
+                    nid,
+                    node_type: ntype,
+                    weight_id: None,
+                    insns: InsnNodeDataVec::new(),
+                },
+            );
+        }
+        cfg
     }
 }
 
