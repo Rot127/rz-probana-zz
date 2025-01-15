@@ -821,36 +821,23 @@ pub fn get_cfg_loop_self_ref() -> CFG {
 }
 
 pub fn get_paper_example_cfg_loop() -> CFG {
-    let mut cfg = CFG::new();
-    #[cfg_attr(rustfmt, rustfmt_skip)]
-    {
-    cfg.add_edge(
-        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+    let cfg = CFG::from(
+        "
+        0:0:0 := E
+        0:0:1 := N
+        0:0:2 := C.J
+        0:0:3 := C.J
+        0:0:4 := R
+
+        0:0:0 -> 0:0:1
+        0:0:1 -> 0:0:2
+        0:0:2 -> 0:0:3
+        0:0:3 -> 0:0:4
+
+        0:0:2 -> 0:0:1
+        0:0:3 -> 0:0:2
+    ",
     );
-    cfg.add_edge(
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-    );
-    // Back edge
-    cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
-    );
-    cfg.add_edge(
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
-    );
-    // Back edge
-    cfg.add_edge(
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
-        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
-    );
-    cfg.add_edge(
-        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
-        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
-    );
-    }
     cfg
 }
 
