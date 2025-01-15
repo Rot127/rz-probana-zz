@@ -75,18 +75,21 @@ impl Path {
 
     /// Does some vaidations on the path. To ensure the interpreter gets
     /// a path with the properties it expects.
-    pub(crate) fn validate_for_interpretation(&self) {
+    pub(crate) fn validate_for_interpretation(&self) -> bool {
         assert!(self.path.last().is_some(), "Path empty");
         if self.path.len() == 0 {
             panic!("Empty path");
         };
-        let Some(info) = self.node_info.get(self.path.len() - 1) else {
+        let Some(info) = self.node_info.last() else {
             panic!("Not all node infos added");
         };
+        println!("{:?}", self.path.last());
         assert!(
             info.is_return() || info.is_exit(),
-            "Invalid last node type."
+            "Invalid last node type: {}",
+            info
         );
+        true
     }
 }
 

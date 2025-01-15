@@ -266,7 +266,8 @@ pub fn run_bda(
             let next_path = path_buffer
                 .pop_front()
                 .expect("Path generation before failed.");
-            next_path.validate_for_interpretation();
+            debug_assert!(next_path.validate_for_interpretation());
+
             if threads.get(&tid).is_none() {
                 let core_ref = core.clone();
                 let thread_tx = tx.clone();
