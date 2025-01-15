@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use helper::spinner::Spinner;
 use petgraph::algo::{is_cyclic_directed, kosaraju_scc, toposort};
 use petgraph::dot::{Config, Dot};
 use petgraph::prelude::DiGraphMap;
@@ -635,7 +634,7 @@ pub trait FlowGraphOperations {
     /// 3.    Get edges within, from, to SCC
     /// 4. foreach (scc, scc_edges):
     /// 5.    Clone SCC and its edges
-    fn make_acyclic(&mut self, spinner_text: Option<String>) {
+    fn make_acyclic(&mut self, _spinner_text: Option<String>) {
         // Strongly connected components
         let sccs = kosaraju_scc(self.get_graph());
         self.fill_scc_map(sccs);
@@ -726,6 +725,42 @@ pub trait FlowGraphOperations {
     fn mark_exit_node(&mut self, _nid: &NodeId) {}
 
     fn get_name(&self) -> String;
+
+    /// Compares two flow graphs and checks if they match.
+    /// Graph A is the one this method is called opon.
+    /// Graph B is the other.
+    ///
+    /// Returns None if they match.
+    /// Returns a string descrbing the differences between them otherwise.
+    fn diff(&self, other: &Self) -> Option<String> {
+        let mut diff = String::new();
+        let graph = self.get_graph();
+        let other_graph = other.get_graph();
+        for n in graph.nodes().chain(other_graph.nodes()) {
+            if !graph.contains_node(n) {
+                diff += &format!("Not in A: {}\n", n);
+            } else if !other_graph.contains_node(n) {
+                diff += &format!("Not in B: {}\n", n);
+            }
+        }
+        if !diff.is_empty() {
+            diff += "\n";
+        }
+        for e in graph.all_edges().chain(other_graph.all_edges()) {
+            if !graph.contains_edge(e.0, e.1) {
+                diff += &format!("Not in A: {} -> {}\n", e.0, e.1);
+            } else if !other_graph.contains_edge(e.0, e.1) {
+                diff += &format!("Not in B: {} -> {}\n", e.0, e.1);
+            }
+        }
+        if !diff.is_empty() {
+            diff += "\n";
+        }
+        if diff.is_empty() {
+            return None;
+        }
+        Some(diff)
+    }
 
     fn dot_graph_to_stdout(&self) {
         println!(
