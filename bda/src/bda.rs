@@ -428,6 +428,7 @@ pub fn testing_bda_on_paths(
     for mut path_addresses in paths.into_iter() {
         let mut path = Path::new();
         testing_addresses_to_path(icfg, &mut path_addresses, &mut path);
+        debug_assert!(path.validate_for_interpretation());
         let addr_path = path.to_addr_path();
         // println!("InterPath: {addr_path}");
         interpret(0, core.clone(), addr_path, tx.clone());
