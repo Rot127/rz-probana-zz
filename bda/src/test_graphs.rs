@@ -854,23 +854,36 @@ pub fn get_cfg_loop_self_ref() -> CFG {
 }
 
 pub fn get_paper_example_cfg_loop() -> CFG {
-    let cfg = CFG::from(
-        "
-        0:0:0 := E
-        0:0:1 := N
-        0:0:2 := C.J
-        0:0:3 := C.J
-        0:0:4 := R
-
-        0:0:0 -> 0:0:1
-        0:0:1 -> 0:0:2
-        0:0:2 -> 0:0:3
-        0:0:3 -> 0:0:4
-
-        0:0:2 -> 0:0:1
-        0:0:3 -> 0:0:2
-    ",
+    let mut cfg = CFG::new();
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    cfg.add_edge(
+        (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
     );
+    cfg.add_edge(
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+    );
+    // Back edge
+    cfg.add_edge(
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID)),
+    );
+    cfg.add_edge(
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
+    );
+    // Back edge
+    cfg.add_edge(
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 1))),
+    );
+    cfg.add_edge(
+        (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), NodeId::new(0, 0, 2))),
+        (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Return, INVALID_NODE_ID, INVALID_NODE_ID)),
+    );
+    }
     cfg
 }
 
@@ -1166,37 +1179,4 @@ pub fn get_node_data_iter_test() -> (CFG, CFG, CFG) {
     cfg_only_indirect.add_edge(cfg_oi_n3, cfg_oi_n4);
     }
     (cfg_call_mix, cfg_no_call, cfg_only_indirect)
-}
-
-// 0 --> 1 ---> 2 ---> 3 ---> 4 ---> 5 ---> 6 ---> 7 ---> 8 ---> 9
-//       <------|----------------------------------+     ^
-//              +----------------------------------------+
-pub fn get_offset_loop() -> CFG {
-    let cfg = CFG::from(
-        "
-            0:0:0 := E
-            0:0:1 := N
-            0:0:2 := C.J
-            0:0:3 := N
-            0:0:4 := N
-            0:0:5 := N
-            0:0:6 := C.J
-            0:0:7 := N
-            0:0:8 := R
-
-            0:0:0 -> 0:0:1
-            0:0:1 -> 0:0:2
-            0:0:2 -> 0:0:3
-            0:0:3 -> 0:0:4
-            0:0:4 -> 0:0:5
-            0:0:5 -> 0:0:6
-            0:0:6 -> 0:0:7
-            0:0:7 -> 0:0:8
-
-            # Jumps
-            0:0:6 -> 0:0:1
-            0:0:2 -> 0:0:7
-        ",
-    );
-    cfg
 }

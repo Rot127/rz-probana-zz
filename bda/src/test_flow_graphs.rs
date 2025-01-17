@@ -21,10 +21,10 @@ mod tests {
             get_endless_loop_icfg, get_endless_loop_icfg_branch, get_endless_recurse_icfg,
             get_endless_recurse_icfg_nonlinear_address, get_entry_loop_cfg, get_gee_cfg,
             get_icfg_with_selfref_and_recurse_cfg, get_loop_to_loop_cfg, get_loop_to_loop_icfg,
-            get_main_cfg, get_offset_loop, get_paper_example_cfg_loop, get_paper_example_icfg,
-            get_scc_refs_scc, get_unset_indirect_call_to_0_cfg, A_ADDR, B_ADDR, C_ADDR, D_ADDR,
-            E_ADDR, FOO_ADDR, F_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, NULL_ADDR,
-            SIMPLE_LOOP_ENTRY, UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
+            get_main_cfg, get_paper_example_cfg_loop, get_paper_example_icfg, get_scc_refs_scc,
+            get_unset_indirect_call_to_0_cfg, A_ADDR, B_ADDR, C_ADDR, D_ADDR, E_ADDR, FOO_ADDR,
+            F_ADDR, GEE_ADDR, LINEAR_CFG_ENTRY, MAIN_ADDR, NULL_ADDR, SIMPLE_LOOP_ENTRY,
+            UNSET_INDIRECT_CALL_TO_0_CALL, UNSET_INDIRECT_CALL_TO_0_ENTRY,
         },
         weight::{WeightID, WeightMap},
     };
@@ -76,80 +76,16 @@ mod tests {
     }
 
     #[test]
-    fn test_cfg_from_string() {
-        let cfg = get_offset_loop();
+    fn test_node_id_from_string() {
         let n0 = NodeId::from("0:0:0");
-        assert!(cfg.has_node(n0));
-        let n1 = NodeId::from("0:0:1");
-        assert!(cfg.has_node(n1));
-        let n2 = NodeId::from("0:0:2");
-        assert!(cfg.has_node(n2));
-        let n3 = NodeId::from("0:0:3");
-        assert!(cfg.has_node(n3));
-        let n4 = NodeId::from("0:0:4");
-        assert!(cfg.has_node(n4));
-        let n5 = NodeId::from("0:0:5");
-        assert!(cfg.has_node(n5));
-        let n6 = NodeId::from("0:0:6");
-        assert!(cfg.has_node(n6));
-        let n7 = NodeId::from("0:0:7");
-        assert!(cfg.has_node(n7));
-        let n8 = NodeId::from("0:0:8");
-        assert!(cfg.has_node(n8));
+        assert_eq!(n0.get_icfg_clone_id(), 0);
+        assert_eq!(n0.get_cfg_clone_id(), 0);
+        assert_eq!(n0.address, 0);
 
-        assert!(cfg.has_edge(n0, n1));
-        assert!(cfg.has_edge(n1, n2));
-        assert!(cfg.has_edge(n2, n3));
-        assert!(cfg.has_edge(n3, n4));
-        assert!(cfg.has_edge(n4, n5));
-        assert!(cfg.has_edge(n5, n6));
-        assert!(cfg.has_edge(n6, n7));
-        assert!(cfg.has_edge(n7, n8));
-
-        assert!(cfg.has_edge(n2, n7));
-        assert!(cfg.has_edge(n6, n1));
-        assert_eq!(cfg.get_graph().node_count(), 9);
-        assert_eq!(cfg.get_graph().edge_count(), 10);
-
-        assert!(cfg
-            .get_insn_node_data(&n0)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Entry)));
-        assert!(cfg
-            .get_insn_node_data(&n1)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Normal)));
-        assert!(cfg
-            .get_insn_node_data(&n2)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Cond | InsnNodeType::Jump)));
-        assert!(cfg
-            .get_insn_node_data(&n3)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Normal)));
-        assert!(cfg
-            .get_insn_node_data(&n4)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Normal)));
-        assert!(cfg
-            .get_insn_node_data(&n5)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Normal)));
-        assert!(cfg
-            .get_insn_node_data(&n6)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Cond | InsnNodeType::Jump)));
-        assert!(cfg
-            .get_insn_node_data(&n7)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Normal)));
-        assert!(cfg
-            .get_insn_node_data(&n8)
-            .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Return)));
-    }
-
-    #[test]
-    #[should_panic = "Check Normal type mismatch"]
-    fn test_cfg_has_type() {
-        let cfg = get_offset_loop();
-        let n6 = NodeId::from("0:0:6");
-        assert!(
-            cfg.get_insn_node_data(&n6)
-                .is_some_and(|cfgd| cfgd.has_type(InsnNodeType::Normal)),
-            "Check Normal type mismatch"
-        );
+        let n0 = NodeId::from("3:-2:a");
+        assert_eq!(n0.get_icfg_clone_id(), 3);
+        assert_eq!(n0.get_cfg_clone_id(), -2);
+        assert_eq!(n0.address, 10);
     }
 
     #[test]

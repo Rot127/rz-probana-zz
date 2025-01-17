@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use bitflags::{bitflags, Flags};
+use bitflags::bitflags;
 use core::panic;
 use std::{
     collections::{btree_map, btree_set, BTreeMap, BTreeSet, HashMap, VecDeque},
@@ -477,11 +477,7 @@ impl CFGNodeData {
     }
 
     pub fn has_type(&self, wtype: InsnNodeType) -> bool {
-        if wtype.bits() == 0 {
-            self.node_type.bits() == 0 && self.insns.iter().all(|i| i.itype.bits() == 0)
-        } else {
-            self.node_type & wtype == wtype && self.insns.iter().any(|i| (i.itype & wtype) == wtype)
-        }
+        self.insns.iter().any(|i| (i.itype & wtype) == wtype)
     }
 
     pub fn has_entry(&self) -> bool {
@@ -987,13 +983,6 @@ impl CFG {
         }
     }
 
-    /// Adds an edge into the flow graph.
-    fn add_edge_raw(&mut self, from: NodeId, to: NodeId) {
-        if !self.graph.contains_edge(from, to) {
-            self.graph.add_edge(from, to, 0);
-        }
-    }
-
     /// Adds an node to the graph.
     /// If the node was present before, nothing is done.
     /// If the node is an entry node, the entry of the CFG is updated as well.
@@ -1102,51 +1091,6 @@ impl CFG {
             i.itype &= !ntype;
             i.itype |= repl_type;
         })
-    }
-}
-
-impl std::convert::From<&str> for CFG {
-    /// Parse a string to a flow graph.
-    ///
-    /// Each line must be a node or edge.
-    /// Nodes: "x:y:addr := <InsnNodeType>"
-    /// Edges: "x:y:addr -> a:b:addr"
-    /// Empty lines allowed.
-    /// Lines with '#' are comments.
-    /// Padding with spaces at the beginning of the line, is allowed (not in between).
-    ///
-    /// a, b, x, y are expected to be i32 numbers of base 10.
-    /// addr is expected to be a u64 number of base 16.
-    fn from(str: &str) -> CFG {
-        let mut cfg = CFG::new();
-        for mut line in str.lines() {
-            line = line.trim();
-            if line.is_empty() || line.starts_with("#") {
-                continue;
-            }
-            if line.contains("->") {
-                let tuple: Vec<&str> = line.split(" -> ").collect();
-                assert!(tuple.len() == 2, "Malformed line: {}", line);
-                let from = tuple.get(0).unwrap().trim();
-                let to = tuple.get(1).unwrap().trim();
-                cfg.add_edge_raw(NodeId::from(from), NodeId::from(to));
-                continue;
-            }
-            let tuple: Vec<&str> = line.split(" := ").collect();
-            assert!(tuple.len() == 2, "Malformed line: {}", line);
-            let nid = NodeId::from(*tuple.get(0).expect("node id missing"));
-            let ntype = InsnNodeType::from(*tuple.get(1).expect("info missing"));
-            cfg.add_node(
-                nid.clone(),
-                CFGNodeData {
-                    nid,
-                    node_type: ntype,
-                    weight_id: None,
-                    insns: InsnNodeDataVec::new(),
-                },
-            );
-        }
-        cfg
     }
 }
 

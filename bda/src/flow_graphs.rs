@@ -300,6 +300,9 @@ impl NodeIdSet {
     /// But only nodes with a valid id, address and if the node is not already added.
     pub fn insert(&mut self, nid: NodeId) {
         if nid != INVALID_NODE_ID && nid.address != MAX_ADDRESS && !self.vec.contains(&nid) {
+            if nid.cfg_clone_id > 0 {
+                print!("ASD");
+            }
             self.vec.push(nid);
         }
     }
@@ -500,7 +503,7 @@ pub trait FlowGraphOperations {
             if new_edge.0.is_clone_over_limit(dup_bound)
                 || new_edge.1.is_clone_over_limit(dup_bound)
             {
-                // We don't handle any edge pointing outside of the limit. Can happen if
+                // We don't handle any edge pointint outside of the limit. Can happen if
                 // resolve loop is called multiple times.
                 break;
             }
