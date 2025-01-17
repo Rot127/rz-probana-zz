@@ -372,7 +372,6 @@ fn get_node_info(
 ) -> IWordInfo {
     let mut ninfo = IWordInfo::None;
     if *node_follows_call {
-        ninfo |= IWordInfo::IsReturnPoint;
         *node_follows_call = false;
     }
     if is_jump(cfg, nid) {

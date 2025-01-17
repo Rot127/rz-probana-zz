@@ -87,8 +87,6 @@ bitflags! {
         const IsTail = 1 << 2;
         /// The iword will exit the program. If the exit happens via a call, jump or due to the iword itself depends on the bits set.
         const IsExit = 1 << 3;
-        /// IWord is executed on return of a procedure. It effectively follows a call instruction.
-        const IsReturnPoint = 1 << 4;
         /// IWord calls an allocating function.
         const CallsMalloc = 1 << 5 | Self::IsCall.bits();
         /// IWord calls an input function.
@@ -129,10 +127,6 @@ impl IWordInfo {
 
     pub fn is_tail_call(&self) -> bool {
         (*self & IWordInfo::IsTailCall) == IWordInfo::IsTailCall
-    }
-
-    pub fn is_return_point(&self) -> bool {
-        (*self & IWordInfo::IsReturnPoint) == IWordInfo::IsReturnPoint
     }
 
     pub fn is_return(&self) -> bool {
@@ -186,12 +180,6 @@ impl Display for IWordInfo {
 
         if self.is_tail_call() {
             if let Err(e) = write!(f, "t") {
-                return Err(e);
-            }
-        }
-
-        if self.is_return_point() {
-            if let Err(e) = write!(f, "(rp)") {
                 return Err(e);
             }
         }

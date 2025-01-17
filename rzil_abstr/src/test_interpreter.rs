@@ -149,7 +149,7 @@ mod tests {
             (0x080000b1, NO_ADDR_INFO),
             (0x080000b4, NO_ADDR_INFO),
             (0x080000b6, NO_ADDR_INFO),
-            (0x080000b7, IWordInfo::IsReturnPoint),
+            (0x080000b7, IWordInfo::IsReturn),
             (0x08000064, NO_ADDR_INFO),
             (0x08000067, NO_ADDR_INFO),
             (0x0800006a, NO_ADDR_INFO),
@@ -163,7 +163,7 @@ mod tests {
             (0x080000c1, NO_ADDR_INFO),
             (0x080000c4, NO_ADDR_INFO),
             (0x080000c9, NO_ADDR_INFO),
-            (0x080000ca, IWordInfo::IsReturnPoint),
+            (0x080000ca, IWordInfo::IsReturn),
             (0x08000081, NO_ADDR_INFO),
             (0x08000084, NO_ADDR_INFO),
             (0x08000087, NO_ADDR_INFO),
@@ -177,13 +177,13 @@ mod tests {
             (0x080000d1, NO_ADDR_INFO),
             (0x080000d4, NO_ADDR_INFO),
             (0x080000d9, NO_ADDR_INFO),
-            (0x080000da, IWordInfo::IsReturnPoint),
+            (0x080000da, IWordInfo::IsReturn),
             (0x0800009e, NO_ADDR_INFO),
             (0x080000a1, NO_ADDR_INFO),
             (0x080000a4, NO_ADDR_INFO),
             (0x080000a7, NO_ADDR_INFO),
             (0x080000ab, NO_ADDR_INFO),
-            (0x080000ac, IWordInfo::IsReturnPoint),
+            (0x080000ac, IWordInfo::IsReturn),
         ]);
         let path = IntrpPath::from(v);
 
@@ -202,14 +202,14 @@ mod tests {
             (0x08000040, NO_ADDR_INFO),
             (0x0800004c, NO_ADDR_INFO),
             (0x08000050, IWordInfo::IsCall),
-            (0x08000070, IWordInfo::IsReturnPoint),
-            (0x08000054, NO_ADDR_INFO),
+            (0x08000070, IWordInfo::IsReturn),
+            (0x08000054, IWordInfo::None),
             (0x08000058, IWordInfo::IsCall),
-            (0x08000080, IWordInfo::IsReturnPoint),
-            (0x0800005c, NO_ADDR_INFO),
+            (0x08000080, IWordInfo::IsReturn),
+            (0x0800005c, IWordInfo::None),
             (0x08000060, IWordInfo::IsCall),
-            (0x08000090, IWordInfo::IsReturnPoint),
-            (0x08000064, IWordInfo::IsReturnPoint),
+            (0x08000090, IWordInfo::IsReturn),
+            (0x08000064, IWordInfo::IsReturn),
         ]);
         let path = IntrpPath::from(v);
 
@@ -232,10 +232,10 @@ mod tests {
             (0x08000068, NO_ADDR_INFO),
             (0x0800006f, NO_ADDR_INFO),
             (0x08000074, IWordInfo::CallsMalloc),
-            (0x08000079, IWordInfo::IsReturnPoint),
+            (0x08000079, NO_ADDR_INFO),
             (0x0800007d, NO_ADDR_INFO),
             (0x08000082, IWordInfo::CallsMalloc),
-            (0x08000087, IWordInfo::IsReturnPoint),
+            (0x08000087, NO_ADDR_INFO),
             (0x0800008b, NO_ADDR_INFO),
             (0x0800008f, NO_ADDR_INFO),
             (0x08000099, NO_ADDR_INFO),
@@ -248,7 +248,7 @@ mod tests {
             (0x080000bb, NO_ADDR_INFO),
             (0x080000bd, NO_ADDR_INFO),
             (0x080000c1, NO_ADDR_INFO),
-            (0x080000c2, IWordInfo::IsReturnPoint),
+            (0x080000c2, IWordInfo::IsReturn),
         ]);
         let path = IntrpPath::from(v);
 
@@ -270,10 +270,10 @@ mod tests {
             (0x08000068, NO_ADDR_INFO),
             (0x0800006c, NO_ADDR_INFO),
             (0x08000070, IWordInfo::CallsMalloc),
-            (0x08000074, IWordInfo::IsReturnPoint),
+            (0x08000074, NO_ADDR_INFO),
             (0x08000078, NO_ADDR_INFO),
             (0x0800007c, IWordInfo::CallsMalloc),
-            (0x08000080, IWordInfo::IsReturnPoint),
+            (0x08000080, NO_ADDR_INFO),
             (0x08000084, NO_ADDR_INFO),
             (0x08000088, NO_ADDR_INFO),
             (0x08000090, NO_ADDR_INFO),
@@ -285,7 +285,7 @@ mod tests {
             (0x080000b4, NO_ADDR_INFO),
             (0x080000b8, NO_ADDR_INFO),
             (0x080000c0, NO_ADDR_INFO),
-            (0x080000c4, IWordInfo::IsReturnPoint),
+            (0x080000c4, IWordInfo::IsReturn),
         ]);
         let path = IntrpPath::from(v);
         (rz_core, path)
