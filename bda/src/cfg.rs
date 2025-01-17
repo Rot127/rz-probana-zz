@@ -1093,6 +1093,16 @@ impl CFG {
         let node_meta = self.get_nodes_meta_mut(from);
         node_meta.node_type |= ntype;
     }
+
+    fn replace_node_type(&mut self, from: &NodeId, ntype: InsnNodeType, repl_type: InsnNodeType) {
+        let node_data = self.get_nodes_meta_mut(from);
+        node_data.node_type &= !ntype;
+        node_data.node_type |= repl_type;
+        node_data.insns.iter_mut().for_each(|i| {
+            i.itype &= !ntype;
+            i.itype |= repl_type;
+        })
+    }
 }
 
 impl std::convert::From<&str> for CFG {
@@ -1241,7 +1251,25 @@ impl FlowGraphOperations for CFG {
         self.get_graph_mut().remove_edge(*from, *to);
     }
 
-    fn handle_last_clone(&mut self, _from: &NodeId, _non_existent_node: &NodeId) {}
+    fn handle_last_clone(&mut self, from: &NodeId, _non_existent_node: &NodeId) {
+        if !self.has_node(*from) {
+            // Happens sometimes, if the edge 3rd -> 4th clone is handled (going over the duplicate limit),
+            // before any edge towards the 3rd is added.
+            // Due to this the 3rd clone is not yet in the CFG.
+            let data = self.get_nodes_meta(&from.get_orig_node_id()).clone();
+            self.add_node(*from, data);
+        }
+        let node_meta = self.get_nodes_meta(from);
+        if node_meta.has_type(InsnNodeType::Jump) || node_meta.has_type(InsnNodeType::Call) {
+            if self.get_graph().edges_directed(*from, Outgoing).count() == 0 {
+                self.replace_node_type(from, InsnNodeType::Jump, InsnNodeType::Exit);
+                self.replace_node_type(from, InsnNodeType::Call, InsnNodeType::Exit);
+            } else {
+                self.replace_node_type(from, InsnNodeType::Jump, InsnNodeType::Normal);
+                self.replace_node_type(from, InsnNodeType::Call, InsnNodeType::Normal);
+            }
+        }
+    }
 
     fn mark_exit_node(&mut self, nid: &NodeId) {
         self.discovered_exits.insert(*nid);
