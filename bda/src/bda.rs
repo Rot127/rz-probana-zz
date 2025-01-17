@@ -315,12 +315,10 @@ pub fn run_bda(
 
         if !run_condition_fulfilled(&state) {
             // End of run. Collect the rest of all products.
-            for tid in 0..state.num_threads {
-                if !threads.get(&tid).is_none() {
-                    let thread = threads.remove(&tid).unwrap();
-                    if let Err(_) = thread.join() {
-                        panic!("Thread failed.");
-                    }
+            while !threads.is_empty() {
+                let (_, thread) = threads.pop_first().unwrap();
+                if let Err(_) = thread.join() {
+                    panic!("Thread failed.");
                 }
             }
             if let Ok(prods) = rx.try_recv() {
