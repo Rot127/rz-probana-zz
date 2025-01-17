@@ -1074,15 +1074,6 @@ impl CFG {
         self.get_graph().contains_node(nid)
     }
 
-    pub(crate) fn get_insn_node_data(&self, nid: &NodeId) -> Option<&CFGNodeData> {
-        self.nodes_meta.get(nid)
-    }
-
-    fn add_node_type_flag(&mut self, from: &NodeId, ntype: InsnNodeType) {
-        let node_meta = self.get_nodes_meta_mut(from);
-        node_meta.node_type |= ntype;
-    }
-
     fn replace_node_type(&mut self, from: &NodeId, ntype: InsnNodeType, repl_type: InsnNodeType) {
         let node_data = self.get_nodes_meta_mut(from);
         node_data.node_type &= !ntype;
