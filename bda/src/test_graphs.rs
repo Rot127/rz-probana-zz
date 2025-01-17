@@ -514,6 +514,39 @@ pub fn get_loop_to_loop_cfg() -> CFG {
     cfg
 }
 
+//
+//        <----------------------------+
+// 0 --> 1 --> 2 --> 3 --> 4 --> 5 --> 6 --> 7 --> 8
+//             +---------------------------->
+pub fn get_cfg_quit_loop() -> CFG {
+    let mut cfg = CFG::new();
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    {
+    let n0 = (NodeId::new(0, 0, 0), CFGNodeData::new_test_single(0, InsnNodeType::NormalEntry, NodeId::new(0, 0, 1), INVALID_NODE_ID));
+    let n1 = (NodeId::new(0, 0, 1), CFGNodeData::new_test_single(1, InsnNodeType::Normal, NodeId::new(0, 0, 2), INVALID_NODE_ID));
+    let n2 = (NodeId::new(0, 0, 2), CFGNodeData::new_test_single(2, InsnNodeType::Normal, NodeId::new(0, 0, 3), NodeId::new(0, 0, 7)));
+    let n3 = (NodeId::new(0, 0, 3), CFGNodeData::new_test_single(3, InsnNodeType::Normal, NodeId::new(0, 0, 4), INVALID_NODE_ID));
+    let n4 = (NodeId::new(0, 0, 4), CFGNodeData::new_test_single(4, InsnNodeType::Normal, NodeId::new(0, 0, 5), INVALID_NODE_ID));
+    let n5 = (NodeId::new(0, 0, 5), CFGNodeData::new_test_single(5, InsnNodeType::Normal, NodeId::new(0, 0, 6), NodeId::new(0, 0, 1)));
+    let n6 = (NodeId::new(0, 0, 6), CFGNodeData::new_test_single(6, InsnNodeType::Normal, NodeId::new(0, 0, 7), INVALID_NODE_ID));
+    let n7 = (NodeId::new(0, 0, 7), CFGNodeData::new_test_single(7, InsnNodeType::Normal, NodeId::new(0, 0, 8), INVALID_NODE_ID));
+    let n8 = (NodeId::new(0, 0, 8), CFGNodeData::new_test_single(8, InsnNodeType::Return, NodeId::new(0, 0, 9), INVALID_NODE_ID));
+
+    cfg.add_edge(n0.clone(), n1.clone());
+    cfg.add_edge(n1.clone(), n2.clone());
+    cfg.add_edge(n2.clone(), n3.clone());
+    cfg.add_edge(n3.clone(), n4.clone());
+    cfg.add_edge(n4.clone(), n5.clone());
+    cfg.add_edge(n5.clone(), n6.clone());
+    cfg.add_edge(n6.clone(), n7.clone());
+    cfg.add_edge(n7.clone(), n8.clone());
+
+    cfg.add_edge(n2.clone(), n7.clone());
+    cfg.add_edge(n6.clone(), n1.clone());
+    }
+    cfg
+}
+
 //   0       32
 //    ^      ^
 //     \    /

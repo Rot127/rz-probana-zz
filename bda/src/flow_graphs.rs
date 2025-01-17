@@ -504,6 +504,7 @@ pub trait FlowGraphOperations {
                 // resolve loop is called multiple times.
                 break;
             }
+            println!("Add: {} -> {} - {}", from, to, flow);
             self.add_cloned_edge(new_edge.0, new_edge.1, flow);
         }
     }
@@ -557,6 +558,7 @@ pub trait FlowGraphOperations {
                 if flow != EdgeFlow::BackEdge {
                     continue;
                 }
+                println!("Remove: {} -> {} - {}", from, to, flow);
                 // Back edge: remove the original. Check if last node
                 self.remove_edge(&from, &to);
             }
