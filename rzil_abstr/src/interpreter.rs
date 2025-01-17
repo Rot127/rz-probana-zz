@@ -427,7 +427,7 @@ pub struct MemRegion {
     /// function invocation. So it always counts the c'th invocation of an instruction.
     /// This might change though in the future, if someone
     /// invents "multiple-entry" functions or something.
-    c: u32,
+    ic: u32,
 }
 
 impl std::fmt::Display for MemRegion {
@@ -437,7 +437,7 @@ impl std::fmt::Display for MemRegion {
             MemRegionClass::Heap => "𝑯",
             MemRegionClass::Stack => "𝑺",
         };
-        write!(f, "{}{} ⌊{:#x}⌋", subscript(self.c), letter, self.base)
+        write!(f, "{}{} ⌊{:#x}⌋", subscript(self.ic), letter, self.base)
     }
 }
 
@@ -520,7 +520,7 @@ impl AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Global,
             base,
-            c: ic,
+            ic,
         };
         AbstrVal { m, c, il_gvar }
     }
@@ -529,7 +529,7 @@ impl AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Stack,
             base,
-            c: ic,
+            ic,
         };
         AbstrVal {
             m,
@@ -542,7 +542,7 @@ impl AbstrVal {
         let m = MemRegion {
             class: MemRegionClass::Heap,
             base,
-            c: ic,
+            ic,
         };
         AbstrVal {
             m,
@@ -909,6 +909,7 @@ impl AbstrVM {
     /// Logs the usage of a stack variable [var] at the current PC.
     pub fn add_stack_xref(&mut self, var: AbstrVal) {
         assert!(var.is_stack());
+        assert!(var.get_mem_region().ic != 0);
         self.stack_xrefs.insert(StackXref { at: self.pc, var });
     }
 
@@ -1370,6 +1371,7 @@ impl AbstrVM {
     fn rebase_sp(&mut self, base: Address) {
         let sp = self.get_sp();
         let ic = self.get_pc_ic();
+        debug_assert!(ic != 0);
         self.set_sp(AbstrVal::new_stack(
             ic,
             BitVector::new_zero(sp.get_width()),
@@ -1415,7 +1417,17 @@ impl AbstrVM {
         self.cs.push(cf);
 
         // Pretend to call main
-        self.rebase_sp(self.pc);
+
+        // Set SP.
+        // We don't use rebase_sp() here.
+        // Because it uses the IC of the PC. Which is 0 at this point.
+        self.set_sp(AbstrVal::new_stack(
+            1,
+            BitVector::new_zero(self.get_sp().get_width()),
+            self.pc,
+        ));
+
+        // Push initial call frame.
         cf = CallFrame {
             in_site: self.pc,
             instance: 1,
