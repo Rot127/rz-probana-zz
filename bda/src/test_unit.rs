@@ -102,7 +102,7 @@ mod tests {
         let (core, mut icfg) = get_x86_discover_recurse();
         let mut state = BDAState::new(1, 2, 300, 1);
         assert!(icfg.get_procedures().len() == 2, "Incomplete iCFG");
-        run_bda(core, &mut icfg, &mut state);
+        run_bda(core, &mut icfg, &mut state, false);
         icfg.dot_graph_to_stdout();
 
         assert_eq!(icfg.get_graph().edge_count(), 7, "Wrong number of edges");
@@ -205,7 +205,7 @@ mod tests {
         let (core, mut icfg) = get_hexagon_discover_recurse();
         let mut state = BDAState::new(1, 2, 300, 1);
         assert!(icfg.get_procedures().len() == 2, "Incomplete iCFG");
-        run_bda(core, &mut icfg, &mut state);
+        run_bda(core, &mut icfg, &mut state, false);
 
         assert_eq!(icfg.get_graph().edge_count(), 7, "Wrong number of edges");
         assert_eq!(icfg.get_graph().node_count(), 8, "Wrong number of nodes");
@@ -310,7 +310,8 @@ mod tests {
         let (core, mut icfg) = get_x86_icall_malloc();
         let mut state = BDAState::new(1, 3, 300, 1);
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
-        run_bda(core, &mut icfg, &mut state);
+        // Don't run post analysis. Because it takes the MOS.
+        run_bda(core, &mut icfg, &mut state, true);
 
         let moses = &state.take_moses();
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -352,7 +353,8 @@ mod tests {
         let (core, mut icfg) = get_hexagon_icall_malloc();
         let mut state = BDAState::new(1, 3, 300, 1);
         assert_eq!(icfg.get_procedures().len(), 7, "Incomplete iCFG");
-        run_bda(core, &mut icfg, &mut state);
+        // Don't run post analysis. Because it takes the MOS.
+        run_bda(core, &mut icfg, &mut state, true);
 
         let moses = &state.take_moses();
         let heap_val_0 = MemOp::new(

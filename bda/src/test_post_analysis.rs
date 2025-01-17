@@ -47,7 +47,7 @@ mod tests {
     pub fn test_post_x86_simple_two_deps() {
         let (core, mut icfg) = get_x86_post_simple_two_deps();
         let mut state = BDAState::new(3, 1, 1, 1);
-        let result = run_bda(core, &mut icfg, &mut state);
+        let result = run_bda(core, &mut icfg, &mut state, false);
         let Some(dip) = result else {
             panic!("Is none");
         };
@@ -126,7 +126,7 @@ mod tests {
     pub fn test_post_x86_dep_paper_example() {
         let (core, mut icfg) = get_x86_paper_dep_example();
         let mut state = BDAState::new(3, 2, 1, 1);
-        let result = run_bda(core, &mut icfg, &mut state);
+        let result = run_bda(core, &mut icfg, &mut state, false);
         let Some(dip) = result else {
             panic!("Is none");
         };
@@ -210,7 +210,7 @@ mod tests {
         let (core, mut icfg) = get_x86_post_loop_offsets();
 
         let mut state = BDAState::new(3, 3, 1, 1);
-        let result = run_bda(core, &mut icfg, &mut state);
+        let result = run_bda(core, &mut icfg, &mut state, false);
         let Some(dip) = result else {
             panic!("Is none");
         };
@@ -242,7 +242,7 @@ mod tests {
         let (core, mut icfg) = get_x86_post_pass_ref_across_proc();
 
         let mut state = BDAState::new(1, 2, 1, 1);
-        let result = run_bda(core, &mut icfg, &mut state);
+        let result = run_bda(core, &mut icfg, &mut state, false);
         let Some(dip) = result else {
             panic!("Is none");
         };

@@ -379,7 +379,7 @@ pub extern "C" fn run_bda_analysis(rz_core: *mut rz_core_t) {
     add_procedures_to_icfg(core.clone(), &mut icfg);
     icfg.make_icfg_consistent();
     debug_assert!(icfg.icfg_consistency_check());
-    run_bda(core, &mut icfg, &mut state);
+    run_bda(core, &mut icfg, &mut state, false);
 }
 
 pub fn add_procedures_to_icfg(core: GRzCore, icfg: &mut ICFG) {

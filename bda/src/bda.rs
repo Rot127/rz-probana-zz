@@ -194,6 +194,7 @@ pub fn run_bda(
     core: GRzCore,
     icfg: &mut ICFG,
     state: &mut BDAState,
+    skip_post_analysis: bool,
 ) -> Option<BTreeSet<(Address, Address)>> {
     state.bda_timer.start();
     state.icfg_update_timer.start();
@@ -361,6 +362,9 @@ pub fn run_bda(
         core.clone(),
         format!("Finished BDA sampling ({})", term_reason),
     );
+    if skip_post_analysis {
+        return None;
+    }
     rz_notify_begin(core.clone(), format!("BDA post-analysis"));
     let dip = posterior_dependency_analysis(state, icfg);
     rz_notify_done(core.clone(), format!("Finished BDA post-analysis"));
