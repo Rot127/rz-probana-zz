@@ -44,8 +44,8 @@ jobs:
       run:
         |
         cargo build --target-dir target/lib_out/ --verbose
-    - name: Run tests (sequencially)
+    - name: Run lib tests (sequencially)
       run:
          |
-        cargo test_seq --verbose
+        cargo test_lib_seq --verbose
 
