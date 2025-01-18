@@ -83,11 +83,11 @@ impl Path {
         let Some(info) = self.node_info.last() else {
             panic!("Not all node infos added");
         };
-        println!("{:?}", self.path.last());
         assert!(
             info.is_return() || info.is_exit(),
-            "Invalid last node type: {}",
-            info
+            "Invalid last node type: {}\nPath: {}",
+            info,
+            self
         );
         true
     }
