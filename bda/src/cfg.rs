@@ -35,48 +35,50 @@ bitflags! {
         const None = 0;
         /// A node without any special meaning in the graph.
         /// It's weight is:
+        /// ```
         ///
         ///   foreach s in addr.successors:
         ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
-        ///
+        /// ```
         const Normal = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_NONE;
         /// A node which calls a procedure.
         /// Its weight is defined as:
         ///
+        /// ```
         ///   W\[iaddr\] = W\[ret_addr\] × W\[callee\]
-        ///
+        /// ```
         const Call = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_CALL;
         /// A return node. This is always a leaf and always has
-        ///
+        /// ```
         ///   W\[iaddr\] = 1
-        ///
+        /// ```
         const Return = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_RETURN;
         /// A node which exits the procedure without return.
         /// Its weight is defined by:
-        ///
+        /// ```
         ///   W\[iaddr\] = 1
-        ///
+        /// ```
         const Exit = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_EXIT;
         /// A node which jumps to one or multiple nodes.
         /// Its weight is defined as:
-        ///
+        /// ```
         ///   foreach s in addr.successors:
         ///     W\[iaddr\] = W\[iaddr\] + W\[s\]
-        ///
+        /// ```
         const Jump = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_JUMP;
 
         /// Other properties of the node. They don't have an effect on the weight calculation.
-        /// An procdeure entry node. It is treated as a normal node.
+        /// An procedure entry node. It is treated as a normal node.
         const Entry = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_ENTRY;
         const NormalEntry = Self::Normal.bits() | Self::Entry.bits();
         /// An node with a conditional instruction. It is treated as a normal node.
         const Cond = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_COND;
-        /// Indicating it is the end of an function.
+        /// Indicating it is the end of a function.
         /// In case it is also a call, it is an exit. If it is a jump, it is
         /// likely a tail call. It requires the VM to pop from the call stack.
         const Tail = RzGraphNodeCFGSubType_RZ_GRAPH_NODE_SUBTYPE_CFG_TAIL;
         /// A jump to another procedure at the end of the function.
-        /// The return value of the procedure jumped to, is als returned by the procedure.
+        /// The return value of the procedure jumped to, is also returned by the procedure.
         const TailCall = Self::Tail.bits() | Self::Jump.bits();
         /// A call to another procedure as the last instruction of a function.
         /// This call does not return and is considered an exit.
@@ -146,12 +148,14 @@ impl std::convert::From<&str> for InsnNodeType {
     ///
     /// Example:
     ///
+    /// ```
     /// "N"       - Normal type
     /// "c"       - Call
     /// "c.E"     - Call & Exit
     /// "T.c.X"   - TailCall & Exit
     /// "C.T.c"   - Conditional & TailCall & Exit
     /// "N.E"     - Normal entry node.
+    /// ```
     fn from(type_str: &str) -> InsnNodeType {
         let mut t = InsnNodeType::Normal;
         for letter in type_str.split(".") {
@@ -185,7 +189,7 @@ pub struct InsnNodeData {
     /// Node this instruction jumps to.
     /// It always points to the original NodeId. It is not updated if a cloned edge is added.
     pub orig_jump_targets: NodeIdSet,
-    /// Follwing instruction address.
+    /// Following instruction address.
     /// It always points to the original NodeId. It is not updated if a cloned edge is added.
     pub orig_next: NodeId,
     /// Flag if this instruction is an indirect call.
@@ -282,9 +286,9 @@ impl InsnNodeData {
             InsnNodeType::Normal | InsnNodeType::Jump => sum_succ_weights,
             InsnNodeType::Call => {
                 // This sampling step breaks the promise of path insensitivity of the algorithm.
-                // But due to the design decission, to seperate path sampling from
+                // But due to the design decision, to separate path sampling from
                 // abstract interpretation, I can't come up with a better method then this for now.
-                // Because, if a single call instruction computes its targets
+                // Because if a single call instruction computes its targets
                 // dynamically, we do not know at this sampling stage, where it will
                 // jump to.
                 // The interpreter would know, but the sampler does not.
@@ -292,7 +296,7 @@ impl InsnNodeData {
                 let p: Option<&RwLock<Procedure>> = procedure_map.get(ct_nid);
                 let mut has_procedure = p.is_some();
                 if has_procedure {
-                    // malloc, input and unmapped CFGs always have a weight of 1
+                    // Malloc, input and unmapped CFGs always have a weight of 1
                     has_procedure &= !p
                         .unwrap()
                         .try_read()
@@ -396,7 +400,7 @@ impl CFGNodeData {
         }
     }
 
-    /// Initialize an CFG node with a single instruction.
+    /// Initialize a CFG node with a single instruction.
     pub fn new_test_single(
         addr: Address,
         ntype: InsnNodeType,
@@ -420,7 +424,7 @@ impl CFGNodeData {
         node
     }
 
-    /// Calulcates the weights of all instructions part of this instruction word
+    /// Calculates the weights of all instructions part of this instruction word
     /// and returns it as vector
     pub fn iword_calc_weight(
         &self,
@@ -441,7 +445,7 @@ impl CFGNodeData {
         insn_weights
     }
 
-    /// Initialize an CFG node with a single call instruction.
+    /// Initialize a CFG node with a single call instruction.
     pub fn new_test_single_call(
         addr: Address,
         call_target: NodeId,
@@ -563,7 +567,7 @@ impl<'a> Iterator for CallInsnIterator<'a> {
         self.insn_index = 0;
         let next_ci = self.call_insns_idx.next();
         if next_ci.is_none() {
-            // No call instrution left
+            // No call instruction left
             return None;
         }
         self.cur_node_data = self.map.get(next_ci.unwrap());
@@ -793,15 +797,15 @@ pub struct CFG {
     discovered_exits: NodeIdSet,
     /// Set of tail call nodes, discovered while building the CFG.
     discovered_tail_calls: NodeIdSet,
-    /// Reverse topoloical sorted graph
+    /// Reverse topological sorted graph
     topograph: Vec<NodeId>,
     /// The node id of the entry node
     entry: NodeId,
-    /// Number of node duplications for loop resolvement
+    /// Number of node duplicates for loop resolving
     dup_cnt: usize,
     /// SCC map. Mapping NodeId to it's SCC member.
     scc_members: BTreeMap<NodeId, usize>,
-    /// The strongly connected compononets of the cyclical graph
+    /// The strongly connected components of the cyclical graph
     sccs: Vec<Vec<NodeId>>,
 }
 
@@ -983,7 +987,7 @@ impl CFG {
         }
     }
 
-    /// Adds an node to the graph.
+    /// Adds a node to the graph.
     /// If the node was present before, nothing is done.
     /// If the node is an entry node, the entry of the CFG is updated as well.
     pub fn add_node(&mut self, nid: NodeId, node_data: CFGNodeData) {
@@ -1031,7 +1035,7 @@ impl CFG {
         }
     }
 
-    /// Insert a jump target to the first jump instruction int the iword of the node [nid].
+    /// Insert a jump target to the first jump instruction int the instruction word of the node [nid].
     /// Otherwise it assigns the new jump target.
     fn insert_jump_target(&mut self, nid: &NodeId, jump_target: &NodeId) {
         let ninfo = self
@@ -1253,7 +1257,7 @@ impl FlowGraphOperations for CFG {
                 curr_nid = succ;
                 continue;
             }
-            // All childs' weights were determined or we arrived at a leaf node.
+            // All children's weights were determined or we arrived at a leaf node.
             // Get the weight ids of the successors, if any.
             let mut succ_weights: NodeWeightIDRefMap = HashMap::new();
             for neigh in graph.neighbors_directed(curr_nid, Outgoing) {
@@ -1292,7 +1296,7 @@ impl FlowGraphOperations for CFG {
                 );
                 return self.get_node_weight_id(nid).unwrap().clone();
             }
-            // If not, go a level higher in the tree
+            // If not go a level higher in the tree
             done.insert(curr_nid);
             curr_nid = prev_nids
                 .pop_back()
@@ -1377,7 +1381,7 @@ impl Procedure {
         }
     }
 
-    /// Reutrns the mutable CFG.
+    /// Returns the mutable CFG.
     pub fn get_cfg_mut(&mut self) -> &mut CFG {
         match &mut self.cfg {
             Some(ref mut cfg) => cfg,
@@ -1420,7 +1424,7 @@ impl Procedure {
                 return;
             }
             EdgeFlow::BackEdge => {
-                // Update ct to icfg clone id
+                // Update ct to iCFG clone id
                 self.get_cfg_mut().nodes_meta.for_each_cinsn_mut(|ci| {
                     // Prevent duplication of call targets.
                     let mut seen = BTreeSet::<NodeId>::new();

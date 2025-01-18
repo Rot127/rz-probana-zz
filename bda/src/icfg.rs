@@ -16,19 +16,19 @@ use crate::{
     weight::{WeightID, WeightMap},
 };
 
-/// An inter-procedual control flow graph.
+/// An inter-procedural control flow graph.
 pub struct ICFG {
     /// The actual graph. Nodes are indexed by the entry node id of the procedures.
     graph: FlowGraph,
     /// Map of procedures in the CFG. Indexed by entry point node id.
     pub procedures: ProcedureMap,
-    /// Topoloical sorted graph
+    /// Topological sorted graph
     topograph: Vec<NodeId>,
-    /// Number of node duplications for loop resolvement
+    /// Number of node duplicates for loop resolving.
     dup_cnt: usize,
     /// SCC map. Mapping NodeId to it's SCC member.
     scc_members: BTreeMap<NodeId, usize>,
-    /// The strongly connected compononets of the cyclical graph
+    /// The strongly connected components of the cyclical graph
     sccs: Vec<Vec<NodeId>>,
     /// ICFG entry points
     entry_points: Vec<Address>,
@@ -264,7 +264,7 @@ impl ICFG {
         self.make_acyclic(Some("Make iCFG acyclic".to_owned()));
     }
 
-    /// Check if the call targets are alligned to the actual iCFG.
+    /// Check if the call targets are aligned to the actual iCFG.
     /// And if the iCFG only contains edges by calls
     pub(crate) fn icfg_consistency_check(&self) -> bool {
         let mut seen_call_edges = BTreeSet::<(NodeId, NodeId)>::new();

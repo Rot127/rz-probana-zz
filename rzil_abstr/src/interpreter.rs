@@ -3,7 +3,7 @@
 
 use bitflags::bitflags;
 use helper::num::subscript;
-use log::{debug, error, warn};
+use log::{debug, error, trace, warn};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use std::{
@@ -101,7 +101,7 @@ bitflags! {
         const IsMemWrite = 1 << 10;
         /// A tail call to another function.
         const IsTailCall = Self::IsTail.bits() | Self::IsJump.bits();
-        /// Exits the program by calling a fucntion (e.g. abort, stack_chk_fail).
+        /// Exits the program by calling a function (e.g. `abort`, `stack_chk_fail`).
         const IsExitCall = Self::IsExit.bits() | Self::IsCall.bits();
         /// Exits the program by jumping to a procedure
         const IsExitJump = Self::IsExit.bits() | Self::IsJump.bits();
@@ -402,9 +402,9 @@ impl std::fmt::Display for StackXref {
 /// Memory region classes: Global, Stack, Heap
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum MemRegionClass {
-    /// Global memory region. E.g. .data, .rodata, .bss
+    /// Global memory region. E.g. `.data, .rodata, .bss`
     Global,
-    /// The stacck memory region.
+    /// The stack memory region.
     Stack,
     /// The Heap memory region.
     Heap,
@@ -419,7 +419,7 @@ pub struct MemRegion {
     /// For Heap regions: The address of the allocating instruction.
     /// For Stack regions: The function address this stack frame was used.
     base: Address,
-    /// The c-th invocation this region was allocated/used.
+    /// The c'th invocation this region was allocated/used.
     /// For stack regions this is the c'th invocation of the function.
     /// For heap regions this is the c'th invocation of the instruction.
     /// This is a mere theoretical distinction. Because the invocation count
@@ -449,7 +449,7 @@ pub struct AbstrVal {
     /// The memory region of this value
     m: MemRegion,
     /// The offset of this variable from the base of the region.
-    /// Or, if this is a global value, the constant.
+    /// Or if this is a global value, the constant.
     c: BitVector,
     /// Name of the global IL variable this abstract value was read from.
     /// If None, it is a memory value.
@@ -672,7 +672,7 @@ pub struct CallFrame {
     /// The return address
     return_addr: Address,
     /// The abstract value of the SP register. It can point behind the base pointer, if
-    /// after a call the new stac frame wasn't set up yet (new stack base wasn't set).
+    /// after a call the new stack frame wasn't set up yet (new stack base wasn't set).
     sp: AbstrVal,
 }
 
@@ -730,23 +730,23 @@ pub struct AbstrVM {
     is: BTreeMap<Address, u64>,
     /// Invocation count map
     ic: BTreeMap<Address, u32>,
-    /// MemTaint map
+    /// Memory taint map
     mt: BTreeMap<AbstrVal, TaintFlag>,
-    /// RegTaint map. Stores taint flags of all global variables.
+    /// Register taint map. Stores taint flags of all global variables.
     rt: BTreeMap<String, TaintFlag>,
 
-    /// MemStore map
+    /// Memory store map
     ms: BTreeMap<AbstrVal, AbstrVal>,
     /// Global variables (mostly registers)
     /// This is equivalent to the RS map described in the paper.
     gvars: BTreeMap<String, AbstrVal>,
     /// Call stack
     cs: CallStack,
-    /// Entry point of the currerntly executed procedure.
+    /// Entry point of the currently executed procedure.
     proc_entry: Vec<Address>,
 
     /// State backup
-    /// Back up from above: (ms, gvars, cs, proc_entry)
+    /// Back up from above: (`ms, gvars, cs, proc_entry`)
     state_backup: VecDeque<(
         BTreeMap<AbstrVal, AbstrVal>,
         BTreeMap<String, AbstrVal>,
@@ -754,7 +754,7 @@ pub struct AbstrVM {
         Vec<Address>,
     )>,
 
-    /// Local variables, defined via SETL
+    /// Local variables, defined via `SETL`
     lvars: BTreeMap<String, AbstrVal>,
     /// The resulting memory operand sequences of the interpretation
     mos: MemOpSeq,
@@ -762,18 +762,18 @@ pub struct AbstrVM {
     pa: IntrpPath,
     /// Local pure variables. Defined via LET()
     lpures: BTreeMap<String, AbstrVal>,
-    /// Register roles (SP, PC, LR, ARG 1, ARG 2 etc)
+    /// Register roles (`SP, PC, LR, ARG 1, ARG 2` etc.)
     /// Role to register name nap.
     reg_roles: BTreeMap<RzRegisterId, String>,
     /// Register sizes in bits, indexed by name
     reg_sizes: BTreeMap<String, usize>,
     /// Meta information collected about each instruction word executed.
     iword_info: BTreeMap<Address, IWordInfo>,
-    /// Const value call targets
+    /// Constant value call targets
     calls_xref: BTreeSet<ConcreteCodeXref>,
-    /// Const value jump targets
+    /// Constant value jump targets
     jumps_xref: BTreeSet<ConcreteCodeXref>,
-    /// Const value memory values loaded or stored.
+    /// Constant value memory values loaded or stored.
     mem_xrefs: BTreeSet<MemXref>,
     /// Stack references
     stack_xrefs: BTreeSet<StackXref>,
@@ -781,11 +781,11 @@ pub struct AbstrVM {
     rz_core: GRzCore,
     /// Normal distribution
     dist: Normal<f64>,
-    /// Maximum number of REPEAT iteraitions, if they are not static
+    /// Maximum number of REPEAT iterations, if they are not static
     limit_repeat: usize,
-    /// Buffer for iwords. Indexed by address.
+    /// Buffer for instruction words. Indexed by address.
     iword_buffer: BTreeMap<Address, *mut RzAnalysisInsnWord>,
-    /// Buffer for iwords. Indexed by address.
+    /// Buffer for instruction words. Indexed by address.
     aop_buffer: BTreeMap<Address, *mut RzAnalysisOp>,
 }
 
@@ -797,7 +797,7 @@ macro_rules! unlocked_core {
 
 impl AbstrVM {
     /// Creates a new abstract interpreter VM.
-    /// It takes the initial programm counter [pc], the [path] to walk
+    /// It takes the initial program counter [pc], the [path] to walk
     /// and the sampling function for generating random values for input values.
     pub fn new(rz_core: GRzCore, entry: PC, path: IntrpPath) -> AbstrVM {
         let limit_repeat = rz_core.lock().unwrap().get_bda_max_iterations() as usize;
@@ -1051,7 +1051,7 @@ impl AbstrVM {
         let mut bp_name_tmp = bp_name.clone();
         bp_name_tmp.push_str("_tmp");
 
-        // Init complete register file
+        // Initialize complete register file
         let reg_bindings = core.get_reg_bindings().expect("Could not get reg_bindings");
         let reg_count = pderef!(reg_bindings).regs_count;
         let regs = pderef!(reg_bindings).regs;
@@ -1155,9 +1155,9 @@ impl AbstrVM {
         (v3, tainted)
     }
 
-    /// Normilzes the given value. If the value is not a stack memory value,
+    /// Normalizes the given value. If the value is not a stack memory value,
     /// it returns a clone.
-    /// Otherwise, it returns an abtract value with the memory region set to
+    /// Otherwise, it returns an abstract value with the memory region set to
     /// the enclosing stack frame. [^1]
     ///
     /// If [norm_zero] is true, it will also normalize values with an offset
@@ -1216,7 +1216,7 @@ impl AbstrVM {
 
     /// Reads a memory value. It first attempts to read an abstract value from the
     /// MS map. If this fails it panics for Heap and Stack values. But attempts to read [n_bytes]
-    /// from the memory mapped in Rizins IO.
+    /// from the memory mapped in Rizin's IO.
     /// If [n_bytes] == 0, it panics as well.
     /// Returns the new Abstract value and if it was sampled.
     pub(crate) fn get_mem_val(&mut self, key: &AbstrVal, n_bytes: usize) -> (AbstrVal, TaintFlag) {
@@ -1263,8 +1263,8 @@ impl AbstrVM {
         //
         // The last value pushed to the stack on a call (usually the return address),
         // has two abstract addresses assigned.
-        // One is the abstract address by the caller: 〈₁𝑺 ⌊caller_base⌋, -offset〉
-        // and one of the rebased stack pointer for the new callee stack frame: 〈₁𝑺 ⌊callee_base⌋, 0〉
+        // One is the abstract address by the caller: 〈₁𝑺 ⌊caller_base⌋, -offset〉.
+        // And one of the rebased stack pointer for the new callee stack frame: 〈₁𝑺 ⌊callee_base⌋, 0〉
         // But memory ops must be unique, so we normalize the 0 offsets to the last element
         // of the caller stack.
         let normed_v = self.normalize_val(v.clone(), true);
@@ -1540,11 +1540,8 @@ impl AbstrVM {
             self.is.insert(self.pc, pderef!(ana_op).size as u64);
             effect = pderef!(ana_op).il_op;
         }
-        if self.pc == 0x0800005e {
-            println!("");
-        }
         let (skip_reason, execute_insn) = if self.insn_info.calls_malloc() {
-            // Not yet done for iwords. iwords must only skip the call part.
+            // Not yet done for instruction words. Instruction words must only skip the call part.
             ("calls malloc", false)
         } else if self.insn_info.calls_input() {
             ("calls input", false)
@@ -1554,7 +1551,7 @@ impl AbstrVM {
             ("none", true)
         };
 
-        // Calls which are not followed, but should be interpreted anyays (to find new call edges) set this flag.
+        // Calls which are not followed, but should be interpreted anyways (to find new call edges) set this flag.
         let dont_commit_to_state = execute_insn && self.pc_is_call() && !self.call_is_taken();
         if dont_commit_to_state {
             self.backup_state();
@@ -1634,9 +1631,9 @@ impl AbstrVM {
         false
     }
 
-    /// Backup the state of the VM for later restoral.
-    /// Used before executing instructions which should be only analysed,
-    /// but not commited.
+    /// Backup the state of the VM for later restoration.
+    /// Used before executing instructions which should be only analyzed,
+    /// but not committed.
     /// E.g. call instructions to unmapped addresses. They are executed, but should not manipulate
     /// the stack, because they are never followed.
     fn backup_state(&mut self) {
@@ -1658,9 +1655,9 @@ impl AbstrVM {
 
 #[derive(PartialEq, Eq)]
 enum StepResult {
-    // Step was executed succesfully.
+    // Step was executed successfully.
     Ok,
-    // An error occured during effect evaluation.
+    // An error occurred during effect evaluation.
     Fail,
     // VM walked the whole path
     Done,
@@ -1670,8 +1667,7 @@ enum StepResult {
 
 /// Interprets the given path with the given interpreter VM.
 pub fn interpret(thread_id: usize, rz_core: GRzCore, path: IntrpPath, tx: Sender<IntrpProducts>) {
-    debug!(target: "AbstrInterpreter", "TID: {thread_id}: {}", path);
-    println!("\nPath: {path}");
+    trace!(target: "AbstrInterpreter", "TID: {thread_id}: {}", path);
     let mut vm = AbstrVM::new(rz_core, path.get(0).0, path);
     vm.thread_id = thread_id;
 
@@ -1694,7 +1690,7 @@ pub fn interpret(thread_id: usize, rz_core: GRzCore, path: IntrpPath, tx: Sender
     vm.free_buffers();
 
     debug!(target: "AbstrInterpreter", "TID: {} - EXIT\n", vm.thread_id);
-    // Replace with Channel and send/rcv
+    // Replace with Channel and send/receive
     let products = IntrpProducts {
         iword_info: vm.iword_info.into(),
         concrete_calls: vm.calls_xref.into(),

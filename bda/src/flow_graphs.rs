@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use log::trace;
 use petgraph::algo::{is_cyclic_directed, kosaraju_scc, toposort};
 use petgraph::dot::{Config, Dot};
 use petgraph::prelude::DiGraphMap;
@@ -100,18 +101,18 @@ pub const MAX_ADDRESS: Address = u64::MAX;
 
 /// Each node in an iCFG or CFG gets assigned an ID.
 /// This id, which is part of a loop, gets duplicated
-/// up to i times to resolve cycles. [^2.4.3]
+/// up to `i` times to resolve cycles. [^2.4.3]
 ///
 ///
 /// [^2.4.3] https://doi.org/10.25394/PGS.23542014.v1
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
-/// A node identifier in a iCFG and CFG
+/// A node identifier in an iCFG and CFG
 pub struct NodeId {
     /// The i'th iCFG clone this node belongs to.
-    /// If 0 it is the original node, i means it is part of the i'th clone.
+    /// If 0 it is the original node, `i` means it is part of the i'th clone.
     pub icfg_clone_id: i32,
     /// The i'th CFG clone this node belongs to.
-    /// If 0 it is the original node, i means it is part of the i'th clone.
+    /// If 0 it is the original node, `i` means it is part of the i'th clone.
     pub cfg_clone_id: i32,
     /// The memory address of the procedure or instruction word this node represents.
     pub address: Address,
@@ -237,7 +238,7 @@ impl NodeId {
         self.icfg_clone_id == 0
     }
 
-    /// Returns true if either clone id is greate than [limit].
+    /// Returns true if either clone id is greater than [limit].
     pub fn is_clone_over_limit(&self, limit: i32) -> bool {
         self.icfg_clone_id > limit || self.cfg_clone_id > limit
     }
@@ -297,12 +298,9 @@ impl NodeIdSet {
     }
 
     /// Adds a node to the set.
-    /// But only nodes with a valid id, address and if the node is not already added.
+    /// But only nodes with a valid id, address and only if the node is not already added.
     pub fn insert(&mut self, nid: NodeId) {
         if nid != INVALID_NODE_ID && nid.address != MAX_ADDRESS && !self.vec.contains(&nid) {
-            if nid.cfg_clone_id > 0 {
-                print!("ASD");
-            }
             self.vec.push(nid);
         }
     }
@@ -329,7 +327,7 @@ impl NodeIdSet {
         }
     }
 
-    /// Returns true if any call target has a icfg or cfg clone id > 0.
+    /// Returns true if any call target has an iCFG or CFG clone id > 0.
     /// This indicates that the node was cloned before.
     pub fn contains_any_clone(&self) -> bool {
         self.vec
@@ -343,7 +341,7 @@ impl NodeIdSet {
         self.vec.iter().any(|ct| ct.address == nid.address)
     }
 
-    /// Samples a NodeId uniformily at random from the vector
+    /// Samples a NodeId uniformly at random from the vector
     /// If the list is empty, it returns an INVALID_NODE_ID
     pub fn sample(&self) -> NodeId {
         if self.vec.is_empty() {
@@ -384,17 +382,17 @@ impl NodeIdSet {
     }
 }
 
-/// Categories of edges for cycle removement by cloning
+/// Categories of edges for cycle removing by cloning
 /// strongly connected components.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum EdgeFlow {
     /// Edge into a strongly connected component.
     /// The From node is outside of the SCC and should not be cloned.
-    /// The outsider node is also a SCC of size one.
+    /// The outsider node is also an SCC of size one.
     OutsiderFixedFrom,
     /// Edge out of a strongly connected component.
     /// The To node is outside of the SCC and should not be cloned.
-    /// The outsider node is also a SCC of size one.
+    /// The outsider node is also an SCC of size one.
     OutsiderFixedTo,
     /// Edge into a strongly connected component.
     /// The From node is outside of the SCC.
@@ -427,10 +425,10 @@ impl std::fmt::Display for EdgeFlow {
 
 /// Traits of the CFG and iCFG.
 pub trait FlowGraphOperations {
-    /// Set the number of duplications for none static loops.
+    /// Set the number of duplicates for none static loops.
     fn set_node_dup_count(&mut self, dup_cnt: usize);
 
-    /// Get the number of duplications for none static loops.
+    /// Get the number of duplicates for none static loops.
     fn get_node_dup_count(&self) -> usize;
 
     /// Checks if the flow graph is acyclic.
@@ -471,7 +469,7 @@ pub trait FlowGraphOperations {
     /// - Edges within the SCC: are cloned [dup_bound] times.
     /// - Edges reaching outside to/from a fixed node: are cloned [dup_bound] times.
     /// - Edges reaching outside to/from a loose node: are cloned [dup_bound] x [dup_bound] times.
-    ///   Each of clone (0..=dup_bound) to the targeted (0..=dup_bound) clones.
+    ///   Each of clone (`0..=dup_bound`) to the targeted (`0..=dup_bound`) clones.
     fn add_clones_to_graph(&mut self, from: &NodeId, to: &NodeId, flow: &EdgeFlow, dup_bound: i32) {
         let mut new_edge: (NodeId, NodeId);
         for (i, j) in Self::product_dup_bound(dup_bound) {
@@ -503,11 +501,11 @@ pub trait FlowGraphOperations {
             if new_edge.0.is_clone_over_limit(dup_bound)
                 || new_edge.1.is_clone_over_limit(dup_bound)
             {
-                // We don't handle any edge pointint outside of the limit. Can happen if
+                // We don't handle any edge pointing outside of the limit. Can happen if
                 // resolve loop is called multiple times.
                 break;
             }
-            println!("Add: {} -> {} - {}", from, to, flow);
+            trace!(target: "FlowGraph", "Add: {} -> {} - {}", from, to, flow);
             self.add_cloned_edge(new_edge.0, new_edge.1, flow);
         }
     }
@@ -524,7 +522,7 @@ pub trait FlowGraphOperations {
     /// Remove an edge from the graph.
     fn remove_edge(&mut self, from: &NodeId, to: &NodeId);
 
-    /// Checks if the edge [from] -> [to] is a self-referenceing edge where [from] == [to]
+    /// Checks if the edge [from] -> [to] is a self-referencing edge where [from] == [to]
     /// and no outgoing edge from [to] exists.
     /// This indicates that the instruction is a hold/self-referencing jump instruction.
     /// The last clone of this node should be marked as Exit, because the program
@@ -561,7 +559,7 @@ pub trait FlowGraphOperations {
                 if flow != EdgeFlow::BackEdge {
                     continue;
                 }
-                println!("Remove: {} -> {} - {}", from, to, flow);
+                trace!(target: "FlowGraph", "Remove: {} -> {} - {}", from, to, flow);
                 // Back edge: remove the original. Check if last node
                 self.remove_edge(&from, &to);
             }
@@ -609,7 +607,7 @@ pub trait FlowGraphOperations {
         };
     }
 
-    /// Moves the SCCs into a hashmap which maps NodeId -> SCC index.
+    /// Moves the SCCs into a hash map which maps NodeId -> SCC index.
     /// The SCC member map is cleaned before.
     fn fill_scc_map(&mut self, sccs: Vec<Vec<NodeId>>) {
         self.clear_scc_member_map();
@@ -633,12 +631,14 @@ pub trait FlowGraphOperations {
 
     /// Removes cycles in the graph.
     ///
-    /// The cycle removement does the following:
+    /// The cycle removal does the following:
+    /// ```
     /// 1. Find strongly connected components (SCCs)
     /// 2. foreach scc:
     /// 3.    Get edges within, from, to SCC
     /// 4. foreach (scc, scc_edges):
     /// 5.    Clone SCC and its edges
+    /// ```
     fn make_acyclic(&mut self, _spinner_text: Option<String>) {
         // Strongly connected components
         let sccs = kosaraju_scc(self.get_graph());
@@ -684,16 +684,18 @@ pub trait FlowGraphOperations {
             }
             sccs_edge_flows.push(edge_flows);
         }
-        // WITHIN a SCC:
+        // WITHIN an SCC:
         // Remove any edge which points to the previous clone (smaller clone id).
         // These are back-edges, which have been already resolved, and should not be added again.
         // They are not detected as back-edges in `clone_nodes`, but as Outsider edges
         // (due to the different clone id). Due to this, they remain in the graph
         // and produce a loop.
+        // ```
         // for edge_flows in sccs_edge_flows.iter_mut() {
         //     edge_flows.retain(|((f, t), _)| !self.is_removed_backedge(f, t))
         // }
         // Resolve loops for each SCC
+        // ```
         self.clone_nodes(sccs_edge_flows);
         self.clean_up_acyclic();
         self.sort();
@@ -732,11 +734,11 @@ pub trait FlowGraphOperations {
     fn get_name(&self) -> String;
 
     /// Compares two flow graphs and checks if they match.
-    /// Graph A is the one this method is called opon.
+    /// Graph A is the one this method is called upon.
     /// Graph B is the other.
     ///
     /// Returns None if they match.
-    /// Returns a string descrbing the differences between them otherwise.
+    /// Returns a string describing the differences between them otherwise.
     fn diff(&self, other: &Self) -> Option<String> {
         let mut diff = String::new();
         let graph = self.get_graph();

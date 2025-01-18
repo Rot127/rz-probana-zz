@@ -12,6 +12,7 @@ use binding::{
     log_rizin, log_rz, rz_notify_begin, rz_notify_done, rz_notify_error, GRzCore, LOG_WARN,
 };
 use helper::{spinner::Spinner, user::ask_yes_no};
+use log::{debug, trace, warn};
 use rand::{thread_rng, Rng};
 use rzil_abstr::interpreter::{interpret, CodeXrefType, ConcreteCodeXref, IntrpProducts};
 
@@ -154,7 +155,7 @@ fn update_icfg(core: GRzCore, state: &mut BDAState, icfg: &mut ICFG) {
                     if !icfg.cfg_contains_node(&from_proc_addr, &xref_to_addr) {
                         // A tail call.
                         if !icfg.has_edge(from_proc_addr, xref_to_addr) {
-                            println!("\n[Unimplemented] Skip adding tail call: {}", code_xref);
+                            warn!("\n[Unimplemented] Skip adding tail call: {}", code_xref);
                         }
                     } else {
                         from_edited = !icfg.cfg_contains_edge(
@@ -328,30 +329,15 @@ pub fn run_bda(
             break;
         }
     }
-    // Report mem values to Rizin
     spinner.done(get_bda_status(state, paths_walked));
-    println!(
+    debug!(target: "BDA",
         "Lazy factor (nothing/thread_handled): {}/{} = {}",
         nothing_happened,
         handled_thread,
         nothing_happened as f64 / handled_thread as f64
     );
-    // println!("Calls");
-    // for ic in state.calls.iter() {
-    //     println!("{}", ic);
-    // }
-    // println!("Mem xrefs");
-    // for ic in state.mem_xrefs.iter() {
-    //     println!("{}", ic);
-    // }
-    // println!("Stack xrefs");
-    // for ic in state.stack_xrefs.iter() {
-    //     println!("{}", ic);
-    // }
-    // println!("MOS");
-    // for ic in state.mos.iter() {
-    //     println!("{}", ic);
-    // }
+    log_state_products(state);
+
     let mut term_reason = "not reason specified";
     if state.bda_timed_out() {
         term_reason = "timeout";
@@ -367,6 +353,25 @@ pub fn run_bda(
     let dip = posterior_dependency_analysis(state, icfg);
     rz_notify_done(core.clone(), format!("Finished BDA post-analysis"));
     Some(dip)
+}
+
+fn log_state_products(state: &BDAState) {
+    trace!(target: "BDA", "Calls");
+    for ic in state.calls.iter() {
+        trace!(target: "BDA", "{}", ic);
+    }
+    trace!(target: "BDA", "Mem xrefs");
+    for ic in state.mem_xrefs.iter() {
+        trace!(target: "BDA", "{}", ic);
+    }
+    trace!(target: "BDA", "Stack xrefs");
+    for ic in state.stack_xrefs.iter() {
+        trace!(target: "BDA", "{}", ic);
+    }
+    trace!(target: "BDA", "MOS");
+    for ic in state.mos.iter() {
+        trace!(target: "BDA", "{:?}", ic);
+    }
 }
 
 fn sample_path_into_buffer(
@@ -430,7 +435,6 @@ pub fn testing_bda_on_paths(
         testing_addresses_to_path(icfg, &mut path_addresses, &mut path);
         debug_assert!(path.validate_for_interpretation());
         let addr_path = path.to_addr_path();
-        // println!("InterPath: {addr_path}");
         interpret(0, core.clone(), addr_path, tx.clone());
 
         if let Ok(prods) = rx.try_recv() {
