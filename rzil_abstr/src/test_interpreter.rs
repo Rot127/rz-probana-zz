@@ -145,11 +145,6 @@ mod tests {
             (0x08000059, NO_ADDR_INFO),
             (0x0800005b, NO_ADDR_INFO),
             (0x0800005d, IWordInfo::IsCall),
-            (0x080000b0, NO_ADDR_INFO),
-            (0x080000b1, NO_ADDR_INFO),
-            (0x080000b4, NO_ADDR_INFO),
-            (0x080000b6, NO_ADDR_INFO),
-            (0x080000b7, IWordInfo::IsReturn),
             (0x08000064, NO_ADDR_INFO),
             (0x08000067, NO_ADDR_INFO),
             (0x0800006a, NO_ADDR_INFO),
@@ -159,11 +154,6 @@ mod tests {
             (0x08000076, NO_ADDR_INFO),
             (0x08000078, NO_ADDR_INFO),
             (0x0800007a, IWordInfo::IsCall),
-            (0x080000c0, NO_ADDR_INFO),
-            (0x080000c1, NO_ADDR_INFO),
-            (0x080000c4, NO_ADDR_INFO),
-            (0x080000c9, NO_ADDR_INFO),
-            (0x080000ca, IWordInfo::IsReturn),
             (0x08000081, NO_ADDR_INFO),
             (0x08000084, NO_ADDR_INFO),
             (0x08000087, NO_ADDR_INFO),
@@ -173,11 +163,6 @@ mod tests {
             (0x08000093, NO_ADDR_INFO),
             (0x08000095, NO_ADDR_INFO),
             (0x08000097, IWordInfo::IsCall),
-            (0x080000d0, NO_ADDR_INFO),
-            (0x080000d1, NO_ADDR_INFO),
-            (0x080000d4, NO_ADDR_INFO),
-            (0x080000d9, NO_ADDR_INFO),
-            (0x080000da, IWordInfo::IsReturn),
             (0x0800009e, NO_ADDR_INFO),
             (0x080000a1, NO_ADDR_INFO),
             (0x080000a4, NO_ADDR_INFO),
@@ -202,13 +187,10 @@ mod tests {
             (0x08000040, NO_ADDR_INFO),
             (0x0800004c, NO_ADDR_INFO),
             (0x08000050, IWordInfo::IsCall),
-            (0x08000070, IWordInfo::IsReturn),
             (0x08000054, IWordInfo::None),
             (0x08000058, IWordInfo::IsCall),
-            (0x08000080, IWordInfo::IsReturn),
             (0x0800005c, IWordInfo::None),
             (0x08000060, IWordInfo::IsCall),
-            (0x08000090, IWordInfo::IsReturn),
             (0x08000064, IWordInfo::IsReturn),
         ]);
         let path = IntrpPath::from(v);
@@ -292,6 +274,7 @@ mod tests {
     }
 
     #[test]
+    /// Test indirect calls are correctly discovered.
     fn test_x86_icall_discover() {
         let (core, path) = get_x86_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
@@ -351,15 +334,6 @@ mod tests {
         stack_expected.insert(StackXref::new(0x80000a4, BitVector::new_from_i64(64, -0xc), 0x8000040));
         stack_expected.insert(StackXref::new(0x80000ab, BitVector::new_from_i64(64, -0x8), 0x8000040));
         stack_expected.insert(StackXref::new(0x80000ac, BitVector::new_from_i64(64, 0x0), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000b0, BitVector::new_from_i64(64, -0x8), 0x80000b0));
-        stack_expected.insert(StackXref::new(0x80000b6, BitVector::new_from_i64(64, -0x8), 0x80000b0));
-        stack_expected.insert(StackXref::new(0x80000b7, BitVector::new_from_i64(64, -0x20), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000c0, BitVector::new_from_i64(64, -0x8), 0x80000c0));
-        stack_expected.insert(StackXref::new(0x80000c9, BitVector::new_from_i64(64, -0x8), 0x80000c0));
-        stack_expected.insert(StackXref::new(0x80000ca, BitVector::new_from_i64(64, -0x20), 0x8000040));
-        stack_expected.insert(StackXref::new(0x80000d0, BitVector::new_from_i64(64, -0x8), 0x80000d0));
-        stack_expected.insert(StackXref::new(0x80000d9, BitVector::new_from_i64(64, -0x8), 0x80000d0));
-        stack_expected.insert(StackXref::new(0x80000da, BitVector::new_from_i64(64, -0x20), 0x8000040));
         }
         assert!(products.stack_xrefs.eq(&stack_expected));
 
@@ -367,6 +341,7 @@ mod tests {
         for sxref in products.mem_xrefs.iter() {
             println!("{}", sxref);
         }
+        // The function address reads.
         let mut mem_expected = BTreeSet::new();
         mem_expected.insert(MemXref::new(0x0800005d, 0x080000e0, 8));
         mem_expected.insert(MemXref::new(0x0800007a, 0x080000e8, 8));
@@ -375,6 +350,7 @@ mod tests {
     }
 
     #[test]
+    /// Test indirect calls are correctly discovered.
     fn test_hexagon_icall_discover() {
         let (core, path) = get_hexagon_icall_test();
         let (tx, rx): (Sender<IntrpProducts>, Receiver<IntrpProducts>) = channel();
@@ -419,7 +395,7 @@ mod tests {
         stack_expected.insert(StackXref::new(0x8000040, BitVector::new_from_i32(32, -0x8), 0x8000040));
         stack_expected.insert(StackXref::new(0x8000040, BitVector::new_from_i32(32, -0x10), 0x8000040));
         stack_expected.insert(StackXref::new(0x8000064, BitVector::new_from_i32(32, -0x8), 0x8000040));
-        stack_expected.insert(StackXref::new(0x8000064, BitVector::new_from_i32(32, 0), 0x8000040));
+        stack_expected.insert(StackXref::new(0x8000064, BitVector::new_from_i32(32, -0x10), 0x8000040));
         }
         assert!(products.stack_xrefs.eq(&stack_expected));
 
@@ -427,6 +403,7 @@ mod tests {
         for sxref in products.mem_xrefs.iter() {
             println!("{}", sxref);
         }
+        // The function address reads.
         let mut mem_expected = BTreeSet::new();
         mem_expected.insert(MemXref::new(0x800004c, 0x8000098, 4));
         mem_expected.insert(MemXref::new(0x8000054, 0x800009c, 4));

@@ -39,6 +39,7 @@ use binding::{
     RzILVarKind_RZ_IL_VAR_KIND_GLOBAL, RzILVarKind_RZ_IL_VAR_KIND_LOCAL,
     RzILVarKind_RZ_IL_VAR_KIND_LOCAL_PURE, LOG_ERROR, LOG_WARN,
 };
+use log::trace;
 use rand::Rng;
 
 use crate::{
@@ -992,6 +993,10 @@ fn rz_il_handler_load(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal>
     }
     let norm_t = key_t | vm.get_taint_flag(&norm_k);
     vm.set_taint_flag(&norm_k, norm_t);
+    trace!(
+        target: "AbstrInterpreter",
+        "TID: {} - LOADW: {} bits @ {}", vm.thread_id, size * 8, norm_k
+    );
     if norm_k.is_global() && vm.get_taint_flag(&norm_k).is_unset() {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, size as u64);
     }
@@ -1017,6 +1022,10 @@ fn rz_il_handler_loadw(vm: &mut AbstrVM, op: *mut RzILOpPure) -> Option<AbstrVal
     }
     let norm_t = key_t | vm.get_taint_flag(&norm_k);
     vm.set_taint_flag(&norm_k, norm_t);
+    trace!(
+        target: "AbstrInterpreter",
+        "TID: {} - LOADW: {} bits @ {}", vm.thread_id, n_bytes * 8, norm_k
+    );
     if norm_k.is_global() && vm.get_taint_flag(&norm_k).is_unset() {
         vm.add_mem_xref(norm_k.get_as_addr() as Address, n_bytes as u64);
     }
