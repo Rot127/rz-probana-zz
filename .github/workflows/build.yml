@@ -21,6 +21,7 @@ jobs:
       run: |
         echo "RZ_INSTALL_ROOT_PATH=$HOME/root/" >> $GITHUB_ENV
         echo "RZ_REPO_PATH=$HOME" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH='$LD_LIBRARY_PATH:$HOME/root/usr/local/lib'" >> $GITHUB_ENV
     - name: Install deps
       run: |
           pip3 install meson ninja
@@ -39,6 +40,7 @@ jobs:
         meson setup build
         meson compile -C build
         meson install -C build --destdir "$RZ_INSTALL_ROOT_PATH"
+        sudo ldconfig
         cd ..
     - name: Build rz-probana-zz
       run:
