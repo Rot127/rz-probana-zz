@@ -3,6 +3,14 @@ SPDX-FileCopyrightText: 2023 Rot127 <unisono@quyllur.org>
 SPDX-License-Identifier: LGPL-3.0-only
 -->
 
+This is a prototype implementation of BDA.
+OSPREY and StochFuzz might follow at some later point.
+BDA should be usable (some bugs are still there), but misses the step to report its findings back to Rizin.
+
+Lessons learned are in https://github.com/Rot127/rz-probana-zz/issues/37
+
+Changes required in Rizin are here: https://github.com/rizinorg/rizin/pull/4212
+
 # rz-probana-zz
 
 Implementations of probabilistic binary analysis algorithms by [Zhuo Zhang (张倬)](https://www.cs.purdue.edu/homes/zhan3299/) 
